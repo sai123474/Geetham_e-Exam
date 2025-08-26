@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>Geetham e-Exam</title>
     <link rel="icon" type="image/jpeg" href="/geetham.jpg">
     <link rel="manifest" href="/manifest.json">
@@ -15,9 +15,56 @@
         h1, h2 { color: #0056b3; text-align: center; }
         input, select { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
         #timer { font-size: 20px; font-weight: bold; color: #d9534f; text-align: center; margin-bottom: 15px; }
-        .subject-tabs { display: flex; border-bottom: 2px solid #ddd; margin-bottom: 20px; }
-        .subject-tab { padding: 10px 20px; cursor: pointer; font-weight: 600; border: none; background: blue;text:white; font-size: 16px; }
-        .subject-tab.active { color: #007bff; border-bottom: 3px solid #007bff; }
+
+        /* SUBJECT TABS - upgraded hover + active visuals */
+        .subject-tabs { display: flex; border-bottom: 0; margin-bottom: 20px; flex-wrap: wrap; gap: 8px; align-items: center; }
+        .subject-tab {
+            position: relative;
+            overflow: hidden;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 15px;
+            border-radius: 14px;
+            border: none;
+            background: #ffffff;
+            color: #1f2937; /* dark text */
+            box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+            transition: transform 220ms ease, box-shadow 220ms ease, color 220ms ease;
+            outline: none;
+            user-select: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        /* decorative gradient layer */
+        .subject-tab::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            background: linear-gradient(135deg, #6a11cb 0%, #2575fc 50%, #06b6d4 100%);
+            opacity: 0;
+            transform: scale(1.02);
+            transition: opacity 260ms ease, transform 260ms ease;
+            z-index: 0;
+            pointer-events: none;
+        }
+        .subject-tab > span { position: relative; z-index: 1; }
+
+        /* Hover: apply gradient + lift (but don't lift active) */
+        .subject-tab:hover::before { opacity: 1; transform: scale(1.00); }
+        .subject-tab:hover { transform: translateY(-4px); box-shadow: 0 8px 22px rgba(37,99,235,0.12); color: #fff; }
+
+        /* Active state */
+        .subject-tab.active::before { opacity: 1; transform: scale(1.00); }
+        .subject-tab.active { color: #fff; transform: none; box-shadow: 0 6px 18px rgba(37,99,235,0.14); }
+
+        /* subtle focus ring for keyboard users */
+        .subject-tab:focus-visible {
+            box-shadow: 0 0 0 4px rgba(37,99,235,0.12);
+        }
+
         .question-area { min-height: 300px; }
         .option { display: block; margin: 10px 0; padding: 12px; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; }
         .option.selected { background-color: #007bff; color: white; border-color: #007bff; }
@@ -32,38 +79,65 @@
         .status-answered { background-color: #28a745; color: white; }
         .status-review { background-color: #ffc107; }
         #camera-view { position: fixed; bottom: 10px; left: 10px; width: 120px; height: 90px; border: 2px solid #0056b3; border-radius: 4px; object-fit: cover; display: none; }
-        
-        /* Corrected Toast Styles */
-        .toast {
+
+        /* Bottom toast container */
+        #toast-container {
             position: fixed;
-            top: -100px;
+            bottom: 20px;
             left: 50%;
             transform: translateX(-50%);
-            padding: 15px 25px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            align-items: center;
+            z-index: 99999;
+            pointer-events: none;
+            width: auto;
+            max-width: calc(100% - 40px);
+        }
+        .toast {
+            pointer-events: auto;
+            min-width: 220px;
+            max-width: 540px;
+            padding: 12px 18px;
             border-radius: 8px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-            font-size: 16px;
-            font-weight: bold;
-            z-index: 9999;
+            font-size: 15px;
+            font-weight: 600;
             opacity: 0;
-            transition: opacity 0.5s, top 0.5s;
-        }
-        .toast.show {
-            top: 40px;
-            opacity: 1;
-        }
-        .toast.warning {
-            background-color: #dc3545;
+            transform: translateY(10px);
+            transition: opacity 0.25s ease, transform 0.25s ease;
             color: white;
         }
-        .toast.success {
-            background-color: #28a745;
-            color: white;
+        .toast.show { opacity: 1; transform: translateY(0); }
+        .toast.warning { background: linear-gradient(90deg,#c82333,#dc3545); }
+        .toast.success { background: linear-gradient(90deg,#218838,#28a745); }
+        .toast.info { background: linear-gradient(90deg,#007bff,#339af0); }
+
+        /* Warnings counter badge */
+        #warning-badge {
+            position: fixed;
+            top: 12px;
+            right: 12px;
+            background: #ffc107;
+            color: #333;
+            padding: 8px 10px;
+            border-radius: 20px;
+            font-weight: 700;
+            z-index: 99999;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+
+        /* small responsiveness */
+        @media (max-width: 900px) {
+            .sidebar { display: none; }
+            .subject-tabs { overflow-x: auto; gap: 6px; padding-bottom: 8px; }
         }
     </style>
 </head>
 <body>
     <video id="camera-view" autoplay playsinline></video>
+
     <div id="student-details-screen" style="display: block;">
         <div style="max-width: 500px; margin: 50px auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
             <div style="text-align: center; margin-bottom: 15px;">
@@ -80,15 +154,16 @@
             </div>
         </div>
     </div>
-    <div class="main-container" id="quiz-screen">
+
+    <div class="main-container" id="quiz-screen" style="display:none; flex-direction: row;">
         <div class="quiz-panel">
             <h1 style="margin-top: 0;" id="quiz-title-main"></h1>
             <div id="timer">00:00:00</div>
-            <div class="subject-tabs"></div>
+            <div class="subject-tabs" role="tablist" aria-label="Subjects"></div>
             <div id="question-area" class="question-area">
                  <h3 id="question-number"></h3>
                  <p id="question-text"></p>
-                 <img id="question-image" class="question-image" style="display:none;">
+                 <img id="question-image" class="question-image" style="display:none; max-width: 100%; margin-top: 10px;">
                  <div id="options-container"></div>
             </div>
             <div class="nav-buttons">
@@ -102,6 +177,7 @@
                 <button class="submit" onclick="confirmSubmit()">Submit Test</button>
             </div>
         </div>
+
         <div class="sidebar">
             <h4>Question Palette</h4>
             <div id="question-palette" class="palette-grid"></div>
@@ -112,6 +188,10 @@
             <div style="display:flex; align-items: center; margin-top: 10px;"><div class="palette-item status-not-answered"></div><span style="margin-left: 10px;">Not Answered</span></div>
         </div>
     </div>
+
+    <!-- Toast container and warning badge -->
+    <div id="toast-container" aria-live="polite" aria-atomic="true"></div>
+    <div id="warning-badge" style="display:none;">Warnings: <span id="warning-count">0</span></div>
 
 <script>
     document.addEventListener('contextmenu', event => event.preventDefault());
@@ -126,22 +206,22 @@
     let warningCount = 0;
     const maxWarnings = 3;
 
-    function showToast(message, type = 'warning') {
+    // Improved toast - bottom stacking
+    function showToast(message, type = 'warning', ttl = 4000) {
+        const container = document.getElementById('toast-container');
         const toast = document.createElement('div');
         toast.className = `toast ${type}`;
         toast.textContent = message;
-        document.body.appendChild(toast);
-        
-        setTimeout(() => {
-            toast.classList.add('show');
-        }, 100);
+        container.appendChild(toast);
+        void toast.offsetWidth;
+        toast.classList.add('show');
 
         setTimeout(() => {
             toast.classList.remove('show');
             setTimeout(() => {
-                document.body.removeChild(toast);
-            }, 500);
-        }, 4000);
+                if (toast.parentNode) toast.parentNode.removeChild(toast);
+            }, 250);
+        }, ttl);
     }
 
     function shuffleArray(array) {
@@ -186,14 +266,18 @@
         }
         studentDetails = { name, mobile };
 
-        const response = await fetch('/check-attempt', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ mobile: studentDetails.mobile, quizId: currentQuiz.id })
-        });
-        const data = await response.json();
-        if (data.canAttempt) showPasswordScreen();
-        else alert(data.message);
+        try {
+            const response = await fetch('/check-attempt', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ mobile: studentDetails.mobile, quizId: currentQuiz.id })
+            });
+            const data = await response.json();
+            if (data.canAttempt) showPasswordScreen();
+            else alert(data.message);
+        } catch (err) {
+            alert("Could not verify attempt status. Try again.");
+        }
     }
 
     function showPasswordScreen() {
@@ -230,7 +314,7 @@
                     document.getElementById('student-details-screen').style.display = 'none';
                     document.getElementById('quiz-screen').style.display = 'flex';
                     initializeQuiz();
-                }, 1500);
+                }, 900);
             } catch (err) {
                 showToast("Could not start. Please allow permissions.", "warning");
             }
@@ -247,7 +331,10 @@
     }
 
     async function startFullScreen() {
-        if (document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen();
+        const el = document.documentElement;
+        if (el.requestFullscreen) await el.requestFullscreen();
+        else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
+        else if (el.msRequestFullscreen) await el.msRequestFullscreen();
     }
 
     function initializeQuiz() {
@@ -255,40 +342,78 @@
         document.getElementById('quiz-title-main').textContent = currentQuiz.title;
         const subjectTabsContainer = document.querySelector('.subject-tabs');
         subjectTabsContainer.innerHTML = '';
-        Object.keys(currentQuiz.subjects).forEach(subject => {
+        Object.keys(currentQuiz.subjects).forEach((subject, idx) => {
             shuffleArray(currentQuiz.subjects[subject]);
             userResponses[subject] = {};
             const tab = document.createElement('button');
             tab.className = 'subject-tab';
-            tab.textContent = subject;
-            tab.onclick = (e) => switchSubject(subject, e.target);
+            tab.setAttribute('role', 'tab');
+            tab.setAttribute('tabindex', '0');
+            tab.innerHTML = `<span>${subject}</span>`;
+            tab.onclick = (e) => switchSubject(subject, e.currentTarget);
+            // keyboard activation (Enter/Space)
+            tab.addEventListener('keydown', (ev) => {
+                if (ev.key === 'Enter' || ev.key === ' ') {
+                    ev.preventDefault();
+                    switchSubject(subject, tab);
+                }
+            });
             subjectTabsContainer.appendChild(tab);
+            // mark first as active after append
+            if (idx === 0) tab.classList.add('active');
         });
         currentSubject = Object.keys(currentQuiz.subjects)[0];
         setupProctoringListeners();
-        switchSubject(currentSubject, subjectTabsContainer.firstChild);
+        switchSubject(currentSubject, document.querySelector('.subject-tabs .subject-tab.active'));
         startTimer(currentQuiz.timeLimit * 60);
+        updateWarningBadge();
     }
-    
+
     function setupProctoringListeners() {
+        // visibilitychange
         document.addEventListener('visibilitychange', () => {
-            if (document.hidden && quizInProgress) handleWarning("You have switched tabs.");
+            if (document.visibilityState === 'hidden' && quizInProgress) handleWarning("You have switched tabs or minimized the window.");
         });
+
+        // fullscreen exit
         document.addEventListener('fullscreenchange', () => {
             if (!document.fullscreenElement && quizInProgress) handleWarning("You have exited full-screen.");
         });
+
+        // blur (user switched window in some browsers)
+        window.addEventListener('blur', () => {
+            if (quizInProgress) handleWarning("Window lost focus.");
+        });
+
+        // beforeunload to warn leaving (non-blocking)
+        window.addEventListener('beforeunload', (e) => {
+            if (quizInProgress) {
+                handleWarning("Attempted to navigate away.");
+            }
+        });
     }
-    
+
     function handleWarning(message) {
+        if (!quizInProgress) return;
+
         warningCount++;
+        updateWarningBadge();
         const warningMessage = `Warning ${warningCount}/${maxWarnings}: ${message}`;
         showToast(warningMessage, 'warning');
+
         if (warningCount >= maxWarnings) {
+            showToast(`Maximum warnings exceeded. Submitting test automatically.`, 'warning', 6000);
             setTimeout(() => {
-                showToast(`Maximum warnings exceeded. Submitting test automatically.`, 'warning');
                 submitTest();
-            }, 1000);
+            }, 1200);
         }
+    }
+
+    function updateWarningBadge() {
+        const badge = document.getElementById('warning-badge');
+        const count = document.getElementById('warning-count');
+        count.textContent = warningCount;
+        badge.style.display = warningCount > 0 ? 'block' : 'none';
     }
 
     function switchSubject(subject, clickedTab) {
@@ -298,6 +423,8 @@
         if (clickedTab) clickedTab.classList.add('active');
         loadQuestion();
         updatePalette();
+        // ensure clicked tab is keyboard-focusable after click
+        if (clickedTab) clickedTab.focus({ preventScroll: true });
     }
 
     function loadQuestion() {
@@ -330,14 +457,16 @@
         });
         updatePalette();
     }
-    
+
     function selectOption(index) {
         const response = userResponses[currentSubject][currentQuestionIndex] || {};
         response.answer = index;
+        response.status = 'answered';
         userResponses[currentSubject][currentQuestionIndex] = response;
         document.querySelectorAll('.option').forEach((opt, optIndex) => {
             opt.classList.toggle('selected', optIndex === index);
         });
+        updatePalette();
     }
 
     function saveAndNext() {
@@ -384,7 +513,7 @@
             palette.appendChild(item);
         });
     }
-    
+
     function startTimer(duration) {
         let timeLeft = duration;
         timerInterval = setInterval(() => {
@@ -402,7 +531,7 @@
                 `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
         }, 1000);
     }
-    
+
     function confirmSubmit() {
         if (confirm("Are you sure you want to submit the test?")) submitTest();
     }
@@ -414,7 +543,7 @@
         if (!quizInProgress) return;
         quizInProgress = false;
         clearInterval(timerInterval);
-        
+
         let totalScore = 0;
         let subjectScores = {};
 
