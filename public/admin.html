@@ -24,6 +24,7 @@
         .btn-delete-quiz { background-color: #dc3545; }
         .question-container { border: 1px solid #e9ecef; padding: 15px; margin-top: 15px; border-radius: 5px; background-color: #fdfdff; }
         #autosave-status { text-align: right; color: #6c757d; font-style: italic; height: 20px; }
+        .btn-pdf { background-color: #ffc107; color: #333; }
     </style>
 </head>
 <body>
@@ -41,7 +42,7 @@
             <div class="quiz-editor" id="quiz-editor-panel"></div>
         </div>
     </div>
-
+ <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
     const ADMIN_PASSWORD = "geetham";
     let quizzesData = [];
@@ -92,12 +93,12 @@
     }
 
     function renderQuizEditor() {
-        const editorPanel = document.getElementById('quiz-editor-panel');
-        const quiz = quizzesData[selectedQuizIndex];
-        if (!quiz) {
-            editorPanel.innerHTML = '<h3>Select a quiz to edit or add a new one.</h3>';
-            return;
-        }
+            const editorPanel = document.getElementById('quiz-editor-panel');
+            const quiz = quizzesData[selectedQuizIndex];
+            if (!quiz) {
+                editorPanel.innerHTML = '<h3>Select a quiz to edit or add a new one.</h3>';
+                return;
+            }
         editorPanel.innerHTML = `
             <h3>Editing: ${quiz.title}</h3>
             <div id="autosave-status"></div>
@@ -118,6 +119,53 @@
         renderSubjects(quiz.subjects);
         attachAutosaveListeners();
     }
+    // 3. Add the new generatePDF function
+        function generatePDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const quiz = quizzesData[selectedQuizIndex];
+            let y = 20; // Y-position on the page
+
+            // --- Header ---
+            doc.setFontSize(22);
+            doc.setFont("helvetica", "bold");
+            doc.text("Geetham e-Exam", 105, y, { align: 'center' });
+            y += 10;
+            doc.setFontSize(16);
+            doc.setFont("helvetica", "normal");
+            doc.text(quiz.title, 105, y, { align: 'center' });
+            y += 10;
+            doc.text(`Time: ${quiz.timeLimit} minutes`, 105, y, { align: 'center' });
+            y += 15;
+                  // --- Questions ---
+            let questionCounter = 1;
+            Object.keys(quiz.subjects).forEach(subjectName => {
+                if (y > 260) { doc.addPage(); y = 20; } // Add new page if content overflows
+                doc.setFontSize(14);
+                doc.setFont("helvetica", "bold");
+                doc.text(`Section: ${subjectName}`, 14, y);
+                y += 10;
+
+                quiz.subjects[subjectName].forEach(question => {
+                    if (y > 260) { doc.addPage(); y = 20; }
+                    doc.setFontSize(12);
+                    doc.setFont("helvetica", "bold");
+                    doc.text(`${questionCounter}. ${question.text}`, 14, y, { maxWidth: 180 });
+                    y += 10;
+                    
+                    doc.setFont("helvetica", "normal");
+                    question.options.forEach((option, index) => {
+                        doc.text(`   (${String.fromCharCode(97 + index)}) ${option}`, 20, y);
+                        y += 7;
+                    });
+                    y += 5; // Extra space after each question
+                    questionCounter++;
+                });
+            });
+
+            // --- Save the PDF ---
+            doc.save(`${quiz.title.replace(/\s+/g, '_')}.pdf`);
+        }
 
     function renderQuizDetails(quiz) {
         document.getElementById('quiz-details').innerHTML = `
