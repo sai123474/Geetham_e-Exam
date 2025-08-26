@@ -219,25 +219,29 @@
         if (document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen();
     }
 
-    function initializeQuiz() {
-        quizInProgress = true;
-        document.getElementById('quiz-title-main').textContent = currentQuiz.title;
-        const subjectTabsContainer = document.querySelector('.subject-tabs');
-        subjectTabsContainer.innerHTML = '';
-        Object.keys(currentQuiz.subjects).forEach(subject => {
-            shuffleArray(currentQuiz.subjects[subject]);
-            userResponses[subject] = {};
-            const tab = document.createElement('button');
-            tab.className = 'subject-tab';
-            tab.textContent = subject;
-            tab.onclick = (e) => switchSubject(subject, e.currentTarget);
-            subjectTabsContainer.appendChild(tab);
-        });
-        currentSubject = Object.keys(currentQuiz.subjects)[0];
-        setupProctoringListeners();
-        switchSubject(currentSubject, subjectTabsContainer.firstChild);
-        startTimer(currentQuiz.timeLimit * 60);
-    }
+  function initializeQuiz() {
+    quizInProgress = true;
+    document.getElementById('quiz-title-main').textContent = currentQuiz.title;
+    const subjectTabsContainer = document.querySelector('.subject-tabs');
+    subjectTabsContainer.innerHTML = '';
+    
+    Object.keys(currentQuiz.subjects).forEach(subject => {
+        shuffleArray(currentQuiz.subjects[subject]);
+        userResponses[subject] = {};
+        const tab = document.createElement('button');
+        tab.className = 'subject-tab';
+        tab.textContent = subject;
+        tab.onclick = () => switchSubject(subject);
+        subjectTabsContainer.appendChild(tab);
+    });
+    
+    currentSubject = Object.keys(currentQuiz.subjects)[0];
+    setupProctoringListeners();
+    switchSubject(currentSubject); // This loads the first question
+    
+    // Start the timer last, after everything is initialized
+    startTimer(currentQuiz.timeLimit * 60);
+}
     
     function setupProctoringListeners() {
         document.addEventListener('visibilitychange', () => {
