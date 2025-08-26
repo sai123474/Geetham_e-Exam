@@ -8,7 +8,7 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 // --- CONFIGURATION ---
 const app = express();
 const PORT = 3000;
-const API_KEY = "YOUR_GOOGLE_AI_API_KEY";
+const API_KEY = "AIzaSyA3WIHFw2_5E8hYUSlG2rrLdq7J7KKwbe0";
 const genAI = new GoogleGenerativeAI(API_KEY);
 
 // ** IMPORTANT: Replace with your MongoDB Atlas Connection String **
