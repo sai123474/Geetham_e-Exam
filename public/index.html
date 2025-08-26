@@ -16,54 +16,73 @@
         input, select { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
         #timer { font-size: 20px; font-weight: bold; color: #d9534f; text-align: center; margin-bottom: 15px; }
 
-        /* SUBJECT TABS - upgraded hover + active visuals */
-        .subject-tabs { display: flex; border-bottom: 0; margin-bottom: 20px; flex-wrap: wrap; gap: 8px; align-items: center; }
-        .subject-tab {
-            position: relative;
-            overflow: hidden;
-            padding: 8px 16px;
-            cursor: pointer;
-            font-weight: 700;
-            font-size: 15px;
-            border-radius: 14px;
-            border: none;
-            background: #ffffff;
-            color: #1f2937; /* dark text */
-            box-shadow: 0 2px 6px rgba(0,0,0,0.06);
-            transition: transform 220ms ease, box-shadow 220ms ease, color 220ms ease;
-            outline: none;
-            user-select: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-        }
-        /* decorative gradient layer */
-        .subject-tab::before {
-            content: "";
-            position: absolute;
-            inset: 0;
-            border-radius: inherit;
-            background: linear-gradient(135deg, #6a11cb 0%, #2575fc 50%, #06b6d4 100%);
-            opacity: 0;
-            transform: scale(1.02);
-            transition: opacity 260ms ease, transform 260ms ease;
-            z-index: 0;
-            pointer-events: none;
-        }
-        .subject-tab > span { position: relative; z-index: 1; }
+        //* SUBJECT TAB — Chrome-friendly */
+.subject-tab {
+  -webkit-appearance: none;  /* remove platform button chrome */
+  appearance: none;
+  background: transparent;   /* ensure pseudo-element is visible */
+  border: none;
+  position: relative;
+  overflow: hidden;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 15px;
+  border-radius: 14px;
+  color: #1f2937;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+  transition: transform 220ms ease, box-shadow 220ms ease, color 220ms ease;
+  outline: none;
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  -webkit-tap-highlight-color: transparent;
+}
 
-        /* Hover: apply gradient + lift (but don't lift active) */
-        .subject-tab:hover::before { opacity: 1; transform: scale(1.00); }
-        .subject-tab:hover { transform: translateY(-4px); box-shadow: 0 8px 22px rgba(37,99,235,0.12); color: #fff; }
+/* gradient layer (pseudo-element) */
+.subject-tab::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(135deg, #6a11cb 0%, #2575fc 50%, #06b6d4 100%);
+  opacity: 0;
+  transform: scale(0.98);
+  transition: opacity 240ms ease, transform 240ms ease;
+  z-index: 0;
+  pointer-events: none;
+  will-change: opacity, transform;
+}
 
-        /* Active state */
-        .subject-tab.active::before { opacity: 1; transform: scale(1.00); }
-        .subject-tab.active { color: #fff; transform: none; box-shadow: 0 6px 18px rgba(37,99,235,0.14); }
+/* keep label above gradient */
+.subject-tab > span { position: relative; z-index: 1; }
 
-        /* subtle focus ring for keyboard users */
-        .subject-tab:focus-visible {
-            box-shadow: 0 0 0 4px rgba(37,99,235,0.12);
-        }
+/* hover & fallback 'hover' class & active state */
+.subject-tab:hover::before,
+.subject-tab.hover::before,
+.subject-tab.active::before {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.subject-tab:hover,
+.subject-tab.hover {
+  color: #fff;
+  transform: translateY(-4px);
+  box-shadow: 0 8px 22px rgba(37,99,235,0.12);
+}
+
+.subject-tab.active {
+  color: #fff;
+  transform: none;
+  box-shadow: 0 6px 18px rgba(37,99,235,0.14);
+}
+
+/* keyboard focus */
+.subject-tab:focus-visible {
+  box-shadow: 0 0 0 4px rgba(37,99,235,0.12);
+}
 
         .question-area { min-height: 300px; }
         .option { display: block; margin: 10px 0; padding: 12px; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; }
@@ -367,7 +386,16 @@
         switchSubject(currentSubject, document.querySelector('.subject-tabs .subject-tab.active'));
         startTimer(currentQuiz.timeLimit * 60);
         updateWarningBadge();
+        enableTabHoverFallback();
     }
+function enableTabHoverFallback() {
+  // Adds .hover on mouseenter for browsers that don't render pseudo hover reliably
+  const tabs = document.querySelectorAll('.subject-tab');
+  tabs.forEach(tab => {
+    tab.addEventListener('mouseenter', () => tab.classList.add('hover'));
+    tab.addEventListener('mouseleave', () => tab.classList.remove('hover'));
+  });
+}
 
     function setupProctoringListeners() {
         // visibilitychange
