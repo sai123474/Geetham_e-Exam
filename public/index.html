@@ -219,7 +219,7 @@
         if (document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen();
     }
 
-  function initializeQuiz() {
+ function initializeQuiz() {
     quizInProgress = true;
     document.getElementById('quiz-title-main').textContent = currentQuiz.title;
     const subjectTabsContainer = document.querySelector('.subject-tabs');
@@ -231,9 +231,19 @@
         const tab = document.createElement('button');
         tab.className = 'subject-tab';
         tab.textContent = subject;
-        tab.onclick = () => switchSubject(subject);
+        // Pass the event target to the function
+        tab.onclick = (e) => switchSubject(subject, e.currentTarget);
         subjectTabsContainer.appendChild(tab);
     });
+    
+    currentSubject = Object.keys(currentQuiz.subjects)[0];
+    setupProctoringListeners();
+    
+    // Correctly call switchSubject for the first tab
+    switchSubject(currentSubject, subjectTabsContainer.firstChild);
+    
+    startTimer(currentQuiz.timeLimit * 60);
+}
     
     currentSubject = Object.keys(currentQuiz.subjects)[0];
     setupProctoringListeners();
