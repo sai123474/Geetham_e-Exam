@@ -32,13 +32,11 @@
         .status-answered { background-color: #28a745; color: white; }
         .status-review { background-color: #ffc107; }
         #camera-view { position: fixed; bottom: 10px; left: 10px; width: 120px; height: 90px; border: 2px solid #0056b3; border-radius: 4px; object-fit: cover; display: none; }
-       .warning-toast {
+       .toast {
     position: fixed;
-    top: 20px;
+    top: -100px; /* Start off-screen */
     left: 50%;
     transform: translateX(-50%);
-    background-color: #dc3545; /* Red for warnings */
-    color: white;
     padding: 15px 25px;
     border-radius: 8px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.2);
@@ -49,11 +47,17 @@
     transition: opacity 0.5s, top 0.5s;
 }
 
-.warning-toast.show {
+.toast.show {
     top: 40px;
     opacity: 1;
 }
-        .toast.success {
+
+.toast.warning {
+    background-color: #dc3545; /* Red for warnings */
+    color: white;
+}
+
+.toast.success {
     background-color: #28a745; /* Green for success */
     color: white;
 }
@@ -111,9 +115,10 @@
     </div>
 
 <script>
-function showToast(message, type = 'warning') {
+function showToast(message, type = 'warning') { // type can be 'warning' or 'success'
     const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
+    // This now correctly uses the .toast class and adds .warning or .success
+    toast.className = `toast ${type}`; 
     toast.textContent = message;
     document.body.appendChild(toast);
     
@@ -127,6 +132,7 @@ function showToast(message, type = 'warning') {
             document.body.removeChild(toast);
         }, 500);
     }, 4000);
+}
 }
     document.addEventListener('contextmenu', event => event.preventDefault());
     let allQuizzes = [];
@@ -492,15 +498,11 @@ function showToast(message, type = 'warning') {
             if (submitBtn) submitBtn.disabled = false;
         });
     }
-  if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/service-worker.js').then(registration => {
-                    console.log('ServiceWorker registration successful');
-                }, err => {
-                    console.log('ServiceWorker registration failed: ', err);
-                });
-            });
-        }
+ if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/service-worker.js');
+    });
+}
     document.addEventListener('DOMContentLoaded', loadInitialData);
 </script>
 </body>
