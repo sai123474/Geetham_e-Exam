@@ -101,7 +101,7 @@
     let timerInterval;
     let quizInProgress = false;
     let warningCount = 0;
-    const maxWarnings = 3;
+    const maxWarnings = 2;
 
     function showToast(message, type = 'warning') {
         const toast = document.createElement('div');
@@ -415,7 +415,7 @@
         .then(response => {
             if (!response.ok) throw new Error('Submission failed');
             alert(`Test Submitted Successfully!`);
-            document.getElementById('quiz-screen').innerHTML = `<div style="max-width: 600px; margin: 50px auto; text-align:center;"><h1>Test Submitted Successfully</h1><h2>Your Final Score: ${totalScore}</h2></div>`;
+            document.getElementById('quiz-screen').innerHTML = `<div style="max-width: 600px; margin: 50px auto; text-align:center;"><h1>Test Submitted Successfully</h1></div>`;
         })
         .catch(error => {
             alert('There was an error submitting your test.');
