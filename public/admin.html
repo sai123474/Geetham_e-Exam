@@ -22,16 +22,16 @@
         .btn-add { background-color: #17a2b8; }
         .btn-remove { background-color: #dc3545; padding: 5px 10px; font-size: 12px; }
         .btn-delete-quiz { background-color: #dc3545; }
+        .btn-pdf { background-color: #ffc107; color: #212529; }
         .question-container { border: 1px solid #e9ecef; padding: 15px; margin-top: 15px; border-radius: 5px; background-color: #fdfdff; }
         #autosave-status { text-align: right; color: #6c757d; font-style: italic; height: 20px; }
-        .btn-pdf { background-color: #ffc107; color: #333; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
             <img src="/geetham.jpg" alt="Geetham Institute Logo" class="logo">
-            <h1>Exam Admin Panel</h1>
+            <h1>Quiz Admin Panel</h1>
         </div>
         <div id="password-prompt">
             <input type="password" id="admin-password" placeholder="Enter Admin Password">
@@ -42,9 +42,11 @@
             <div class="quiz-editor" id="quiz-editor-panel"></div>
         </div>
     </div>
- <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
 <script>
-    const ADMIN_PASSWORD = "geetham";
+    const ADMIN_PASSWORD = "admin123";
     let quizzesData = [];
     let selectedQuizIndex = 0;
     let autosaveTimeout;
@@ -93,12 +95,13 @@
     }
 
     function renderQuizEditor() {
-            const editorPanel = document.getElementById('quiz-editor-panel');
-            const quiz = quizzesData[selectedQuizIndex];
-            if (!quiz) {
-                editorPanel.innerHTML = '<h3>Select a quiz to edit or add a new one.</h3>';
-                return;
-            }
+        const editorPanel = document.getElementById('quiz-editor-panel');
+        const quiz = quizzesData[selectedQuizIndex];
+        if (!quiz) {
+            editorPanel.innerHTML = '<h3>Select a quiz to edit or add a new one.</h3>';
+            return;
+        }
+        // 2. Add the "Download as PDF" button to the layout
         editorPanel.innerHTML = `
             <h3>Editing: ${quiz.title}</h3>
             <div id="autosave-status"></div>
@@ -110,62 +113,18 @@
                 <textarea id="ai-text-input" rows="10" placeholder="Paste question paper text here..."></textarea>
                 <button class="btn-add" onclick="generateFromText()">Generate from Text</button>
             </div>
-            <div style="margin-top: 20px; display:flex; justify-content:space-between;">
-                <button class="btn-save" onclick="saveQuiz(true)">Save Manually</button>
-                <button class="btn-delete-quiz" onclick="deleteQuiz()">Delete This Quiz</button>
+            <div style="margin-top: 20px; display:flex; justify-content:space-between; flex-wrap: wrap;">
+                <div>
+                    <button class="btn-save" onclick="saveQuiz(true)">Save Manually</button>
+                    <button class="btn-delete-quiz" onclick="deleteQuiz()">Delete This Quiz</button>
+                </div>
+                <button class="btn-pdf" onclick="generatePDF()">Download as PDF</button>
             </div>
         `;
         renderQuizDetails(quiz);
         renderSubjects(quiz.subjects);
         attachAutosaveListeners();
     }
-    // 3. Add the new generatePDF function
-        function generatePDF() {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
-            const quiz = quizzesData[selectedQuizIndex];
-            let y = 20; // Y-position on the page
-
-            // --- Header ---
-            doc.setFontSize(22);
-            doc.setFont("helvetica", "bold");
-            doc.text("Geetham e-Exam", 105, y, { align: 'center' });
-            y += 10;
-            doc.setFontSize(16);
-            doc.setFont("helvetica", "normal");
-            doc.text(quiz.title, 105, y, { align: 'center' });
-            y += 10;
-            doc.text(`Time: ${quiz.timeLimit} minutes`, 105, y, { align: 'center' });
-            y += 15;
-                  // --- Questions ---
-            let questionCounter = 1;
-            Object.keys(quiz.subjects).forEach(subjectName => {
-                if (y > 260) { doc.addPage(); y = 20; } // Add new page if content overflows
-                doc.setFontSize(14);
-                doc.setFont("helvetica", "bold");
-                doc.text(`Section: ${subjectName}`, 14, y);
-                y += 10;
-
-                quiz.subjects[subjectName].forEach(question => {
-                    if (y > 260) { doc.addPage(); y = 20; }
-                    doc.setFontSize(12);
-                    doc.setFont("helvetica", "bold");
-                    doc.text(`${questionCounter}. ${question.text}`, 14, y, { maxWidth: 180 });
-                    y += 10;
-                    
-                    doc.setFont("helvetica", "normal");
-                    question.options.forEach((option, index) => {
-                        doc.text(`   (${String.fromCharCode(97 + index)}) ${option}`, 20, y);
-                        y += 7;
-                    });
-                    y += 5; // Extra space after each question
-                    questionCounter++;
-                });
-            });
-
-            // --- Save the PDF ---
-            doc.save(`${quiz.title.replace(/\s+/g, '_')}.pdf`);
-        }
 
     function renderQuizDetails(quiz) {
         document.getElementById('quiz-details').innerHTML = `
@@ -230,8 +189,8 @@
                 status.textContent = 'Saving...';
                 clearTimeout(autosaveTimeout);
                 autosaveTimeout = setTimeout(() => {
-                    saveQuiz(false); // Pass false to indicate it's an autosave
-                }, 2000); // Autosave after 2 seconds of inactivity
+                    saveQuiz(false);
+                }, 2000);
             });
         });
     }
@@ -258,52 +217,35 @@
     }
 
     function removeQuestion(subjectName, qIndex) {
-        if (confirm('Are you sure you want to remove this question?')) {
+        if (confirm('Are you sure?')) {
             quizzesData[selectedQuizIndex].subjects[subjectName].splice(qIndex, 1);
             renderQuizEditor();
         }
     }
 
-// In public/admin.html
-
-async function generateFromText() {
-    const textInput = document.getElementById('ai-text-input').value;
-    const currentQuiz = quizzesData[selectedQuizIndex];
-
-    if (!textInput.trim()) {
-        alert("Please paste some text to generate questions.");
-        return;
+    async function generateFromText() {
+        const textInput = document.getElementById('ai-text-input').value;
+        if (!textInput.trim()) return alert("Please paste text to generate questions.");
+        try {
+            const response = await fetch('/generate-from-text', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: textInput })
+            });
+            if (!response.ok) throw new Error('AI generation failed.');
+            const newQuestions = await response.json();
+            newQuestions.forEach(q => {
+                if (quizzesData[selectedQuizIndex].subjects[q.subject]) {
+                    quizzesData[selectedQuizIndex].subjects[q.subject].push(q);
+                }
+            });
+            renderQuizEditor();
+            alert(`${newQuestions.length} questions generated and added!`);
+        } catch (error) {
+            alert("Could not generate questions from text.");
+        }
     }
 
-    try {
-        const response = await fetch('/generate-from-text', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: textInput })
-        });
-
-        if (!response.ok) throw new Error('Failed to get response from AI.');
-
-        const generatedQuestions = await response.json();
-        
-        // MODIFIED LOGIC: Sort questions into the correct subjects
-        generatedQuestions.forEach(question => {
-            const subject = question.subject;
-            if (currentQuiz.subjects[subject]) {
-                currentQuiz.subjects[subject].push(question);
-            } else {
-                console.warn(`Subject "${subject}" not found in the current quiz. Question skipped.`);
-            }
-        });
-
-        renderQuizEditor(); // Refresh the editor to show the new questions
-        alert(`${generatedQuestions.length} questions were generated and added to their respective subjects!`);
-
-    } catch (error) {
-        console.error("Error generating from text:", error);
-        alert("Could not generate questions from the provided text.");
-    }
-}
     async function deleteQuiz() {
         if (confirm(`Are you sure you want to delete "${quizzesData[selectedQuizIndex].title}"?`)) {
             quizzesData.splice(selectedQuizIndex, 1);
@@ -327,15 +269,11 @@ async function generateFromText() {
     async function saveQuiz(isManualSave = false) {
         const status = document.getElementById('autosave-status');
         const quizToSave = quizzesData[selectedQuizIndex];
-        if (!quizToSave) return; // Do nothing if no quiz is selected
-
-        // Update main quiz details from the form
+        if (!quizToSave) return;
         quizToSave.title = document.getElementById('quiz-title').value;
         quizToSave.timeLimit = parseInt(document.getElementById('quiz-time').value);
         quizToSave.password = document.getElementById('quiz-password').value;
         quizToSave.class = document.getElementById('quiz-class').value;
-        
-        // Rebuild the subjects object from the form elements
         const newSubjects = {};
         document.querySelectorAll('#subjects-details > div').forEach(subjectDiv => {
             const subjectName = subjectDiv.querySelector('h4').textContent;
@@ -351,7 +289,6 @@ async function generateFromText() {
             });
         });
         quizToSave.subjects = newSubjects;
-
         try {
             const response = await fetch('/update-quizzes', {
                 method: 'POST',
@@ -361,16 +298,61 @@ async function generateFromText() {
             if (!response.ok) throw new Error('Server error');
             if (status) status.textContent = `Saved at ${new Date().toLocaleTimeString()}`;
             if (isManualSave) alert('Quiz saved successfully!');
-            renderQuizList(); // Refresh list in case title was changed
+            renderQuizList();
         } catch (error) {
             if (status) status.textContent = 'Save failed.';
             if (isManualSave) alert('Failed to save quiz.');
         }
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
-        // Initial load logic if needed
-    });
+    // 3. Add the new generatePDF function
+    function generatePDF() {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        const quiz = quizzesData[selectedQuizIndex];
+        let y = 20;
+
+        doc.setFontSize(22);
+        doc.setFont("helvetica", "bold");
+        doc.text("Geetham e-Exam", 105, y, { align: 'center' });
+        y += 10;
+        doc.setFontSize(16);
+        doc.setFont("helvetica", "normal");
+        doc.text(quiz.title, 105, y, { align: 'center' });
+        y += 10;
+        doc.text(`Time: ${quiz.timeLimit} minutes`, 105, y, { align: 'center' });
+        y += 15;
+
+        let questionCounter = 1;
+        Object.keys(quiz.subjects).forEach(subjectName => {
+            if (y > 260) { doc.addPage(); y = 20; }
+            doc.setFontSize(14);
+            doc.setFont("helvetica", "bold");
+            doc.text(`Section: ${subjectName}`, 14, y);
+            y += 10;
+
+            quiz.subjects[subjectName].forEach(question => {
+                if (y > 260) { doc.addPage(); y = 20; }
+                doc.setFontSize(12);
+                doc.setFont("helvetica", "bold");
+                const splitText = doc.splitTextToSize(`${questionCounter}. ${question.text}`, 180);
+                doc.text(splitText, 14, y);
+                y += (splitText.length * 5); // Adjust space based on text lines
+                
+                doc.setFont("helvetica", "normal");
+                question.options.forEach((option, index) => {
+                    if (y > 270) { doc.addPage(); y = 20; }
+                    doc.text(`   (${String.fromCharCode(97 + index)}) ${option}`, 20, y);
+                    y += 7;
+                });
+                y += 5;
+                questionCounter++;
+            });
+        });
+
+        doc.save(`${quiz.title.replace(/\s+/g, '_')}.pdf`);
+    }
+
 </script>
 </body>
 </html>
