@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Geetham e-Exam</title>
     <link rel="icon" type="image/jpeg" href="/geetham.jpg">
- <link rel="manifest" href="/manifest.json">
+    <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#0056b3"/>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f0f2f5; color: #333; margin: 0; padding: 10px; }
@@ -16,7 +16,7 @@
         input, select { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
         #timer { font-size: 20px; font-weight: bold; color: #d9534f; text-align: center; margin-bottom: 15px; }
         .subject-tabs { display: flex; border-bottom: 2px solid #ddd; margin-bottom: 20px; }
-        .subject-tab { padding: 10px 20px; cursor: pointer; font-weight: 600; border: none; background: blue; font-size: 16px;  }
+        .subject-tab { padding: 10px 20px; cursor: pointer; font-weight: 600; border: none; background: none; font-size: 16px; }
         .subject-tab.active { color: #007bff; border-bottom: 3px solid #007bff; }
         .question-area { min-height: 300px; }
         .option { display: block; margin: 10px 0; padding: 12px; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; }
@@ -32,35 +32,34 @@
         .status-answered { background-color: #28a745; color: white; }
         .status-review { background-color: #ffc107; }
         #camera-view { position: fixed; bottom: 10px; left: 10px; width: 120px; height: 90px; border: 2px solid #0056b3; border-radius: 4px; object-fit: cover; display: none; }
-       .toast {
-    position: fixed;
-    top: -100px; /* Start off-screen */
-    left: 50%;
-    transform: translateX(-50%);
-    padding: 15px 25px;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-    font-size: 16px;
-    font-weight: bold;
-    z-index: 9999;
-    opacity: 0;
-    transition: opacity 0.5s, top 0.5s;
-}
-
-.toast.show {
-    top: 40px;
-    opacity: 1;
-}
-
-.toast.warning {
-    background-color: #dc3545; /* Red for warnings */
-    color: white;
-}
-
-.toast.success {
-    background-color: #28a745; /* Green for success */
-    color: white;
-}
+        
+        /* Corrected Toast Styles */
+        .toast {
+            position: fixed;
+            top: -100px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 15px 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            font-size: 16px;
+            font-weight: bold;
+            z-index: 9999;
+            opacity: 0;
+            transition: opacity 0.5s, top 0.5s;
+        }
+        .toast.show {
+            top: 40px;
+            opacity: 1;
+        }
+        .toast.warning {
+            background-color: #dc3545;
+            color: white;
+        }
+        .toast.success {
+            background-color: #28a745;
+            color: white;
+        }
     </style>
 </head>
 <body>
@@ -115,25 +114,6 @@
     </div>
 
 <script>
-function showToast(message, type = 'warning') { // type can be 'warning' or 'success'
-    const toast = document.createElement('div');
-    // This now correctly uses the .toast class and adds .warning or .success
-    toast.className = `toast ${type}`; 
-    toast.textContent = message;
-    document.body.appendChild(toast);
-    
-    setTimeout(() => {
-        toast.classList.add('show');
-    }, 100);
-
-    setTimeout(() => {
-        toast.classList.remove('show');
-        setTimeout(() => {
-            document.body.removeChild(toast);
-        }, 500);
-    }, 4000);
-}
-}
     document.addEventListener('contextmenu', event => event.preventDefault());
     let allQuizzes = [];
     let currentQuiz = {};
@@ -144,7 +124,25 @@ function showToast(message, type = 'warning') { // type can be 'warning' or 'suc
     let timerInterval;
     let quizInProgress = false;
     let warningCount = 0;
-    const maxWarnings = 2;
+    const maxWarnings = 3;
+
+    function showToast(message, type = 'warning') {
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        
+        setTimeout(() => {
+            toast.classList.add('show');
+        }, 100);
+
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => {
+                document.body.removeChild(toast);
+            }, 500);
+        }, 4000);
+    }
 
     function shuffleArray(array) {
         for (let i = array.length - 1; i > 0; i--) {
@@ -214,36 +212,30 @@ function showToast(message, type = 'warning') { // type can be 'warning' or 'suc
     }
 
     function prepareQuiz() {
-    const detailsScreen = document.getElementById('student-details-screen');
-    detailsScreen.innerHTML = `
-        <div style="max-width: 500px; margin: 50px auto; background: #fff; padding: 30px; border-radius: 8px;">
-            <h2>Exam Instructions</h2>
-            <p>This test is proctored. You must remain in full-screen mode and not switch tabs.</p>
-            <p>After ${maxWarnings} warnings, your test will be submitted automatically.</p>
-            <button id="start-test-btn" style="width: 100%;">Start Camera & Full Screen</button>
-        </div>
-    `;
-    document.getElementById('start-test-btn').onclick = async () => {
-        try {
-            await startCamera();
-            await startFullScreen();
-            
-            // Show green success message
-            showToast("Permissions Granted!", "success");
-
-            // Wait a moment before starting the quiz
-            setTimeout(() => {
-                document.getElementById('student-details-screen').style.display = 'none';
-                document.getElementById('quiz-screen').style.display = 'flex';
-                initializeQuiz();
-            }, 1500);
-
-        } catch (err) {
-            console.error("Error:", err);
-            showToast("Could not start. Please allow permissions.", "warning");
-        }
-    };
-}
+        const detailsScreen = document.getElementById('student-details-screen');
+        detailsScreen.innerHTML = `
+            <div style="max-width: 500px; margin: 50px auto; background: #fff; padding: 30px; border-radius: 8px;">
+                <h2>Exam Instructions</h2>
+                <p>This test is proctored. You must remain in full-screen mode and not switch tabs.</p>
+                <p>After ${maxWarnings} warnings, your test will be submitted automatically.</p>
+                <button id="start-test-btn" style="width: 100%;">Start Camera & Full Screen</button>
+            </div>
+        `;
+        document.getElementById('start-test-btn').onclick = async () => {
+            try {
+                await startCamera();
+                await startFullScreen();
+                showToast("Permissions Granted!", "success");
+                setTimeout(() => {
+                    document.getElementById('student-details-screen').style.display = 'none';
+                    document.getElementById('quiz-screen').style.display = 'flex';
+                    initializeQuiz();
+                }, 1500);
+            } catch (err) {
+                showToast("Could not start. Please allow permissions.", "warning");
+            }
+        };
+    }
 
     async function startCamera() {
         const videoElement = document.getElementById('camera-view');
@@ -259,28 +251,24 @@ function showToast(message, type = 'warning') { // type can be 'warning' or 'suc
     }
 
     function initializeQuiz() {
-    quizInProgress = true;
-    document.getElementById('quiz-title-main').textContent = currentQuiz.title;
-    const subjectTabsContainer = document.querySelector('.subject-tabs');
-    subjectTabsContainer.innerHTML = '';
-    
-    Object.keys(currentQuiz.subjects).forEach(subject => {
-        shuffleArray(currentQuiz.subjects[subject]);
-        userResponses[subject] = {};
-        const tab = document.createElement('button');
-        tab.className = 'subject-tab';
-        tab.textContent = subject;
-        tab.onclick = () => switchSubject(subject);
-        subjectTabsContainer.appendChild(tab);
-    });
-    
-    currentSubject = Object.keys(currentQuiz.subjects)[0];
-    setupProctoringListeners();
-    switchSubject(currentSubject); // This loads the first question
-    
-    // Start the timer last, after everything is initialized
-    startTimer(currentQuiz.timeLimit * 60);
-}
+        quizInProgress = true;
+        document.getElementById('quiz-title-main').textContent = currentQuiz.title;
+        const subjectTabsContainer = document.querySelector('.subject-tabs');
+        subjectTabsContainer.innerHTML = '';
+        Object.keys(currentQuiz.subjects).forEach(subject => {
+            shuffleArray(currentQuiz.subjects[subject]);
+            userResponses[subject] = {};
+            const tab = document.createElement('button');
+            tab.className = 'subject-tab';
+            tab.textContent = subject;
+            tab.onclick = (e) => switchSubject(subject, e.target);
+            subjectTabsContainer.appendChild(tab);
+        });
+        currentSubject = Object.keys(currentQuiz.subjects)[0];
+        setupProctoringListeners();
+        switchSubject(currentSubject, subjectTabsContainer.firstChild);
+        startTimer(currentQuiz.timeLimit * 60);
+    }
     
     function setupProctoringListeners() {
         document.addEventListener('visibilitychange', () => {
@@ -290,56 +278,27 @@ function showToast(message, type = 'warning') { // type can be 'warning' or 'suc
             if (!document.fullscreenElement && quizInProgress) handleWarning("You have exited full-screen.");
         });
     }
-
-    function showWarningToast(message) {
-        const toast = document.createElement('div');
-        toast.className = 'warning-toast';
-        toast.textContent = message;
-        document.body.appendChild(toast);
-        
-        // Trigger the animation
-        setTimeout(() => {
-            toast.classList.add('show');
-        }, 100);
-
-        // Remove the toast after a few seconds
-        setTimeout(() => {
-            toast.classList.remove('show');
-            setTimeout(() => {
-                document.body.removeChild(toast);
-            }, 500);
-        }, 4000);
-    }
-
+    
     function handleWarning(message) {
-    warningCount++;
-    const warningMessage = `Warning ${warningCount}/${maxWarnings}: ${message}`;
-    showToast(warningMessage, 'warning'); // Shows a red toast
-    
-    if (warningCount >= maxWarnings) {
-        setTimeout(() => {
-            showToast(`Maximum warnings exceeded. Submitting test automatically.`, 'warning');
-            submitTest();
-        }, 1000);
-    }
-}
-
- function switchSubject(subject) {
-    currentSubject = subject;
-    currentQuestionIndex = 0; // Reset to the first question
-    
-    // Update the active tab's visual style
-    document.querySelectorAll('.subject-tab').forEach(tab => {
-        if (tab.textContent === subject) {
-            tab.classList.add('active');
-        } else {
-            tab.classList.remove('active');
+        warningCount++;
+        const warningMessage = `Warning ${warningCount}/${maxWarnings}: ${message}`;
+        showToast(warningMessage, 'warning');
+        if (warningCount >= maxWarnings) {
+            setTimeout(() => {
+                showToast(`Maximum warnings exceeded. Submitting test automatically.`, 'warning');
+                submitTest();
+            }, 1000);
         }
-    });
+    }
 
-    loadQuestion(); // Load the first question of the new subject
-    updatePalette(); // Update the sidebar for the new subject
-}
+    function switchSubject(subject, clickedTab) {
+        currentSubject = subject;
+        currentQuestionIndex = 0;
+        document.querySelectorAll('.subject-tab').forEach(tab => tab.classList.remove('active'));
+        if (clickedTab) clickedTab.classList.add('active');
+        loadQuestion();
+        updatePalette();
+    }
 
     function loadQuestion() {
         const question = currentQuiz.subjects[currentSubject][currentQuestionIndex];
@@ -399,6 +358,7 @@ function showToast(message, type = 'warning') { // type can be 'warning' or 'suc
             currentQuestionIndex++;
             loadQuestion();
         }
+        updatePalette();
     }
 
     function clearResponse() {
@@ -430,7 +390,7 @@ function showToast(message, type = 'warning') { // type can be 'warning' or 'suc
         timerInterval = setInterval(() => {
             if (timeLeft <= 0) {
                 clearInterval(timerInterval);
-                showWarningToast("Time's up! Submitting your test.");
+                showToast("Time's up! Submitting your test.", 'warning');
                 submitTest();
                 return;
             }
@@ -491,18 +451,19 @@ function showToast(message, type = 'warning') { // type can be 'warning' or 'suc
         .then(response => {
             if (!response.ok) throw new Error('Submission failed');
             alert(`Test Submitted Successfully!`);
-            document.getElementById('quiz-screen').innerHTML = `<div style="max-width: 600px; margin: 50px auto; text-align:center;"><h1>Test Submitted Successfully</h1></div>`;
+            document.getElementById('quiz-screen').innerHTML = `<div style="max-width: 600px; margin: 50px auto; text-align:center;"><h1>Test Submitted Successfully</h1><h2>Your Final Score: ${totalScore}</h2></div>`;
         })
         .catch(error => {
             alert('There was an error submitting your test.');
             if (submitBtn) submitBtn.disabled = false;
         });
     }
- if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/service-worker.js');
-    });
-}
+
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/service-worker.js');
+        });
+    }
     document.addEventListener('DOMContentLoaded', loadInitialData);
 </script>
 </body>
