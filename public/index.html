@@ -1,585 +1,736 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>Geetham e-Exam</title>
-    <link rel="icon" type="image/jpeg" href="/geetham.jpg">
-    <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#0056b3"/>
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f0f2f5; color: #333; margin: 0; padding: 10px; }
-        .main-container, #student-details-screen { display: none; }
-        .quiz-panel { flex-grow: 1; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-        .sidebar { width: 300px; margin-left: 20px; background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-        h1, h2 { color: #0056b3; text-align: center; }
-        input, select { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
-        #timer { font-size: 20px; font-weight: bold; color: #d9534f; text-align: center; margin-bottom: 15px; }
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover" />
+  <title>Geetham e-Exam</title>
+  <link rel="icon" type="image/jpeg" href="/geetham.jpg">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#0056b3"/>
+  <style>
+    :root{
+      --primary: #007bff;
+      --primary-dark: #0056b3;
+      --success: #28a745;
+      --warning: #ffc107;
+      --danger: #dc3545;
+      --bg: #f0f2f5;
+      --card: #fff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --radius: 10px;
+      --tab-height: 44px; /* touch-friendly */
+    }
 
-        .subject-tabs {
-    display: flex;
-    border-bottom: 2px solid #ddd;
-    margin-bottom: 20px;
-    gap: 10px; /* Adds space between tabs */
-}
-.subject-tab {
-    padding: 10px 20px;
-    cursor: pointer;
-    font-weight: 600;
-    border: none;
-    background-color: #f0f2f5; /* A light, neutral background */
-    color: #333; /* Dark text for readability */
-    font-size: 16px;
-    border-radius: 8px 8px 0 0; /* Rounded top corners */
-    transition: background-color 0.2s, color 0.2s;
-}
-.subject-tab:hover {
-    background-color: #e2e8f0;
-}
-.subject-tab.active {
-    background-color: #007bff; /* Blue background for active tab */
-    color: white; /* White text for active tab */
-    border-bottom: 3px solid #0056b3;
-}
+    /* Reset-ish for buttons/inputs across browsers */
+    button { -webkit-appearance: none; appearance: none; }
+    button:focus { outline: none; }
 
-        .question-area { min-height: 300px; }
-        .option { display: block; margin: 10px 0; padding: 12px; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; }
-        .option.selected { background-color: #007bff; color: white; border-color: #007bff; }
-        .nav-buttons { margin-top: 20px; display: flex; justify-content: space-between; }
-        button { background-color: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 14px; }
-        button:disabled { background-color: #a0a0a0; }
-        button.secondary { background-color: #6c757d; }
-        button.submit { background-color: #28a745; }
-        .palette-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
-        .palette-item { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 50%; cursor: pointer; font-weight: bold; }
-        .status-not-answered { background-color: #f0f0f0; }
-        .status-answered { background-color: #28a745; color: white; }
-        .status-review { background-color: #ffc107; }
-        #camera-view { position: fixed; bottom: 10px; left: 10px; width: 120px; height: 90px; border: 2px solid #0056b3; border-radius: 4px; object-fit: cover; display: none; }
+    html,body { height: 100%; margin: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 12px;
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+    }
 
-        /* Bottom toast container */
-        #toast-container {
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            align-items: center;
-            z-index: 99999;
-            pointer-events: none;
-            width: auto;
-            max-width: calc(100% - 40px);
-        }
-        .toast {
-            pointer-events: auto;
-            min-width: 220px;
-            max-width: 540px;
-            padding: 12px 18px;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-            font-size: 15px;
-            font-weight: 600;
-            opacity: 0;
-            transform: translateY(10px);
-            transition: opacity 0.25s ease, transform 0.25s ease;
-            color: white;
-        }
-        .toast.show { opacity: 1; transform: translateY(0); }
-        .toast.warning { background: linear-gradient(90deg,#c82333,#dc3545); }
-        .toast.success { background: linear-gradient(90deg,#218838,#28a745); }
-        .toast.info { background: linear-gradient(90deg,#007bff,#339af0); }
+    /* Container */
+    .app {
+      max-width: 1200px;
+      margin: 8px auto;
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+      padding-bottom: 20px;
+    }
 
-        /* Warnings counter badge */
-        #warning-badge {
-            position: fixed;
-            top: 12px;
-            right: 12px;
-            background: #ffc107;
-            color: #333;
-            padding: 8px 10px;
-            border-radius: 20px;
-            font-weight: 700;
-            z-index: 99999;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-        }
+    /* Quiz panel and responsive */
+    .quiz-panel {
+      flex: 1 1 680px;
+      background: var(--card);
+      padding: 18px;
+      border-radius: 12px;
+      box-shadow: 0 6px 18px rgba(10,20,40,0.06);
+      min-width: 300px;
+      box-sizing: border-box;
+    }
 
-        /* small responsiveness */
-        @media (max-width: 900px) {
-            .sidebar { display: none; }
-            .subject-tabs { overflow-x: auto; gap: 6px; padding-bottom: 8px; }
-        }
-    </style>
+    .sidebar {
+      width: 300px;
+      background: var(--card);
+      padding: 14px;
+      border-radius: 12px;
+      box-shadow: 0 6px 18px rgba(10,20,40,0.04);
+      box-sizing: border-box;
+    }
+
+    /* Responsive stacking on small screens */
+    @media (max-width: 920px) {
+      .app { flex-direction: column; padding: 10px; }
+      .sidebar { width: 100%; order: 2; }
+      .quiz-panel { order: 1; }
+    }
+
+    h1, h2 { color: var(--primary); text-align: center; margin: 8px 0; }
+    input, select {
+      width: 100%;
+      padding: 10px 12px;
+      margin: 10px 0;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      box-sizing: border-box;
+      font-size: 15px;
+    }
+
+    #timer { font-size: 18px; font-weight: 700; color: var(--danger); text-align: center; margin-bottom: 12px; }
+
+    /* Subject tabs - cross-browser, touch-friendly */
+    .subject-tabs {
+      display: flex;
+      gap: 8px;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      padding: 6px 2px;
+      margin-bottom: 14px;
+      -webkit-overflow-scrolling: touch;
+    }
+    .subject-tabs::-webkit-scrollbar { height: 8px; }
+    .subject-tabs::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.08); border-radius: 6px; }
+
+    .subject-tab {
+      -webkit-appearance: none;
+      appearance: none;
+      background: transparent;
+      border: none;
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 8px 14px;
+      min-height: var(--tab-height);
+      min-width: 88px;
+      border-radius: 999px;
+      font-weight: 700;
+      font-size: 15px;
+      color: var(--text);
+      cursor: pointer;
+      user-select: none;
+      transition: transform 220ms ease, box-shadow 220ms ease, color 220ms ease;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+      margin: 0 2px;
+      outline: none;
+    }
+
+    /* Gradient pseudo layer */
+    .subject-tab::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background: linear-gradient(135deg, #6a11cb 0%, #2575fc 50%, #06b6d4 100%);
+      opacity: 0;
+      transform: scale(0.98);
+      transition: opacity 220ms ease, transform 220ms ease;
+      z-index: 0;
+      pointer-events: none;
+      will-change: opacity, transform;
+    }
+    .subject-tab > span { position: relative; z-index: 1; }
+
+    /* Hover / touch / active */
+    .subject-tab:hover::before,
+    .subject-tab.hover::before,
+    .subject-tab.active::before { opacity: 1; transform: scale(1); }
+    .subject-tab:hover,
+    .subject-tab.hover { color: #fff; transform: translateY(-4px); box-shadow: 0 8px 22px rgba(37,99,235,0.12); }
+    .subject-tab.active { color: #fff; transform: none; box-shadow: 0 6px 18px rgba(37,99,235,0.14); }
+
+    /* Keyboard focus */
+    .subject-tab:focus-visible { box-shadow: 0 0 0 6px rgba(37,99,235,0.08); border-radius: inherit; }
+
+    .question-area { min-height: 260px; margin-top: 8px; }
+    .option { display: block; margin: 10px 0; padding: 12px; border: 1px solid #e5e7eb; border-radius: 8px; cursor: pointer; background: #fff; transition: background 160ms; }
+    .option:hover { background: #f8fafc; }
+    .option.selected { background-color: var(--primary); color: white; border-color: var(--primary); }
+
+    .nav-buttons { margin-top: 18px; display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+    .nav-buttons button { flex: 1; min-width: 120px; }
+
+    button { background-color: var(--primary); color: white; padding: 10px 16px; border-radius: 8px; border: none; }
+    button.secondary { background: #6c757d; }
+    button.submit { background: var(--success); }
+
+    .palette-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 10px; }
+    .palette-item { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 50%; cursor: pointer; font-weight: 700; background: #f3f4f6; color: var(--text); }
+    .status-not-answered { background-color: #f0f0f0; }
+    .status-answered { background-color: var(--success); color: white; }
+    .status-review { background-color: var(--warning); color: #333; }
+
+    #camera-view {
+      position: fixed;
+      bottom: 12px;
+      left: 12px;
+      width: 120px;
+      height: 90px;
+      border: 2px solid var(--primary-dark);
+      border-radius: 8px;
+      object-fit: cover;
+      display: none;
+      z-index: 9999;
+      background: #000;
+    }
+
+    /* Toast + warnings */
+    #toast-container {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      align-items: center;
+      z-index: 99999;
+      pointer-events: none;
+      max-width: calc(100% - 40px);
+    }
+    .toast {
+      pointer-events: auto;
+      min-width: 220px;
+      max-width: 540px;
+      padding: 12px 18px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.14);
+      font-size: 15px;
+      font-weight: 700;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 0.25s ease, transform 0.25s ease;
+      color: white;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast.warning { background: linear-gradient(90deg,#c82333,#dc3545); }
+    .toast.success { background: linear-gradient(90deg,#218838,#28a745); }
+    .toast.info { background: linear-gradient(90deg,#007bff,#339af0); }
+
+    #warning-badge {
+      position: fixed;
+      top: 12px;
+      right: 12px;
+      background: var(--warning);
+      color: #222;
+      padding: 8px 12px;
+      border-radius: 20px;
+      font-weight: 800;
+      z-index: 99999;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+      display: none;
+    }
+
+    /* Small screens tweaks */
+    @media (max-width: 480px) {
+      .subject-tab { padding: 10px 12px; min-width: 96px; font-size: 14px; }
+      .palette-grid { grid-template-columns: repeat(4, 1fr); }
+      #camera-view { width: 100px; height: 75px; left: 8px; bottom: 8px; }
+    }
+  </style>
 </head>
 <body>
-    <video id="camera-view" autoplay playsinline></video>
+  <video id="camera-view" autoplay playsinline muted></video>
 
-    <div id="student-details-screen" style="display: block;">
-        <div style="max-width: 500px; margin: 50px auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-            <div style="text-align: center; margin-bottom: 15px;">
-                <img src="/geetham.jpg" alt="Geetham Institute Logo" style="max-height: 80px;">
-            </div>
-            <h1>Geetham e-Exam</h1>
-            <div id="login-form">
-                <h2>Enter Your Details</h2>
-                <p>You can only attempt each test once.</p>
-                <div id="quiz-selection-container"></div>
-                <input type="text" id="student-name" placeholder="Enter your full name" required>
-                <input type="tel" id="student-mobile" placeholder="Enter your mobile number" required>
-                <button id="proceed-btn" style="width: 100%;">Proceed</button>
-            </div>
+  <!-- student details (initial) -->
+  <div id="student-details-screen" style="display:block; max-width:700px; margin: 18px auto;">
+    <div style="background:var(--card); padding:18px; border-radius:12px; box-shadow:0 6px 18px rgba(10,20,40,0.06);">
+      <div style="text-align:center; margin-bottom:10px;"><img src="/geetham.jpg" alt="Geetham Logo" style="max-height:72px"></div>
+      <h1>Geetham e-Exam</h1>
+      <div id="login-form">
+        <h2 style="margin-top:6px">Enter Your Details</h2>
+        <p style="color:var(--muted)">You can only attempt each test once.</p>
+        <div id="quiz-selection-container"></div>
+        <input id="student-name" type="text" placeholder="Enter your full name" required />
+        <input id="student-mobile" type="tel" placeholder="Enter your mobile number" required />
+        <button id="proceed-btn" style="width:100%; margin-top:6px;">Proceed</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- main app container -->
+  <div class="app" style="display:none;" id="app-root">
+    <div class="quiz-panel" id="quiz-screen" aria-live="polite">
+      <h1 id="quiz-title-main" style="margin-top:0"></h1>
+      <div id="timer">00:00:00</div>
+
+      <div class="subject-tabs" role="tablist" aria-label="Subjects"></div>
+
+      <div id="question-area" class="question-area" aria-live="polite">
+        <h3 id="question-number"></h3>
+        <p id="question-text"></p>
+        <img id="question-image" class="question-image" style="display:none; max-width:100%; margin-top:10px; border-radius:8px;">
+        <div id="options-container" style="margin-top:10px;"></div>
+      </div>
+
+      <div class="nav-buttons">
+        <button class="secondary" onclick="markForReview()">Mark for Review & Next</button>
+        <div style="display:flex; gap:8px; width:60%; justify-content:flex-end;">
+          <button class="secondary" onclick="clearResponse()">Clear Response</button>
+          <button onclick="saveAndNext()">Save & Next</button>
         </div>
+      </div>
+
+      <div style="text-align:center; margin-top:18px;">
+        <button class="submit" onclick="confirmSubmit()">Submit Test</button>
+      </div>
     </div>
 
-    <div class="main-container" id="quiz-screen" style="display:none; flex-direction: row;">
-        <div class="quiz-panel">
-            <h1 style="margin-top: 0;" id="quiz-title-main"></h1>
-            <div id="timer">00:00:00</div>
-            <div class="subject-tabs" role="tablist" aria-label="Subjects"></div>
-            <div id="question-area" class="question-area">
-                 <h3 id="question-number"></h3>
-                 <p id="question-text"></p>
-                 <img id="question-image" class="question-image" style="display:none; max-width: 100%; margin-top: 10px;">
-                 <div id="options-container"></div>
-            </div>
-            <div class="nav-buttons">
-                <button class="secondary" onclick="markForReview()">Mark for Review & Next</button>
-                <div>
-                    <button class="secondary" onclick="clearResponse()">Clear Response</button>
-                    <button onclick="saveAndNext()">Save & Next</button>
-                </div>
-            </div>
-            <div style="text-align: center; margin-top: 20px;">
-                <button class="submit" onclick="confirmSubmit()">Submit Test</button>
-            </div>
-        </div>
+    <aside class="sidebar" id="side" aria-label="Sidebar">
+      <h4>Question Palette</h4>
+      <div id="question-palette" class="palette-grid"></div>
+      <hr />
+      <h4>Legend</h4>
+      <div style="display:flex; align-items:center; gap:8px; margin-top:10px;">
+        <div class="palette-item status-answered"></div><div>Answered</div>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px; margin-top:10px;">
+        <div class="palette-item status-review"></div><div>Marked for Review</div>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px; margin-top:10px;">
+        <div class="palette-item status-not-answered"></div><div>Not Answered</div>
+      </div>
+    </aside>
+  </div>
 
-        <div class="sidebar">
-            <h4>Question Palette</h4>
-            <div id="question-palette" class="palette-grid"></div>
-            <hr>
-            <h4>Legend</h4>
-            <div style="display:flex; align-items: center; margin-top: 10px;"><div class="palette-item status-answered"></div><span style="margin-left: 10px;">Answered</span></div>
-            <div style="display:flex; align-items: center; margin-top: 10px;"><div class="palette-item status-review"></div><span style="margin-left: 10px;">Marked for Review</span></div>
-            <div style="display:flex; align-items: center; margin-top: 10px;"><div class="palette-item status-not-answered"></div><span style="margin-left: 10px;">Not Answered</span></div>
-        </div>
-    </div>
-
-    <!-- Toast container and warning badge -->
-    <div id="toast-container" aria-live="polite" aria-atomic="true"></div>
-    <div id="warning-badge" style="display:none;">Warnings: <span id="warning-count">0</span></div>
+  <!-- toast + warnings -->
+  <div id="toast-container" aria-live="assertive" aria-atomic="true"></div>
+  <div id="warning-badge">Warnings: <span id="warning-count">0</span></div>
 
 <script>
-    document.addEventListener('contextmenu', event => event.preventDefault());
-    let allQuizzes = [];
-    let currentQuiz = {};
-    let currentSubject = "";
-    let currentQuestionIndex = 0;
-    let userResponses = {}; 
-    let studentDetails = {};
-    let timerInterval;
-    let quizInProgress = false;
-    let warningCount = 0;
-    const maxWarnings = 2;
+  // Prevent context menu (as before)
+  document.addEventListener('contextmenu', e => e.preventDefault(), { passive: true });
 
-    // Improved toast - bottom stacking
-    function showToast(message, type = 'warning', ttl = 4000) {
-        const container = document.getElementById('toast-container');
-        const toast = document.createElement('div');
-        toast.className = `toast ${type}`;
-        toast.textContent = message;
-        container.appendChild(toast);
-        void toast.offsetWidth;
-        toast.classList.add('show');
+  let allQuizzes = [];
+  let currentQuiz = {};
+  let currentSubject = "";
+  let currentQuestionIndex = 0;
+  let userResponses = {};
+  let studentDetails = {};
+  let timerInterval;
+  let quizInProgress = false;
+  let warningCount = 0;
+  const maxWarnings = 2; // as in your code
 
-        setTimeout(() => {
-            toast.classList.remove('show');
-            setTimeout(() => {
-                if (toast.parentNode) toast.parentNode.removeChild(toast);
-            }, 250);
-        }, ttl);
+  // Toast helper
+  function showToast(message, type = 'warning', ttl = 4000) {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.textContent = message;
+    container.appendChild(toast);
+    void toast.offsetWidth;
+    toast.classList.add('show');
+
+    setTimeout(() => {
+      toast.classList.remove('show');
+      setTimeout(()=> { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 260);
+    }, ttl);
+  }
+
+  function shuffleArray(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [array[i], array[j]] = [array[j], array[i]];
+    }
+  }
+
+  // load quizzes (same endpoint)
+  async function loadInitialData() {
+    try {
+      const resp = await fetch('/get-quizzes');
+      allQuizzes = await resp.json();
+      displayInitialScreen();
+    } catch (err) {
+      document.body.innerHTML = "<h1>Error: Could not load quiz data.</h1>";
+      console.error(err);
+    }
+  }
+
+  function displayInitialScreen() {
+    document.getElementById('student-details-screen').style.display = 'block';
+    const quizSelectionContainer = document.getElementById('quiz-selection-container');
+    let selectHTML = '<label for="quiz-select">Select a Test:</label><select id="quiz-select">';
+    (allQuizzes || []).forEach((q,i) => {
+      selectHTML += `<option value="${i}">${q.title}</option>`;
+    });
+    selectHTML += '</select>';
+    quizSelectionContainer.innerHTML = selectHTML;
+    document.getElementById('proceed-btn').onclick = handleProceed;
+  }
+
+  async function handleProceed() {
+    const name = document.getElementById('student-name').value.trim();
+    const mobile = document.getElementById('student-mobile').value.trim();
+    const quizSelect = document.getElementById('quiz-select');
+    const selectedQuizIndex = quizSelect ? quizSelect.value : 0;
+    currentQuiz = allQuizzes[selectedQuizIndex] || {};
+
+    if (!name || !mobile) {
+      alert("Please fill in all details.");
+      return;
+    }
+    studentDetails = { name, mobile };
+
+    try {
+      const response = await fetch('/check-attempt', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ mobile: studentDetails.mobile, quizId: currentQuiz.id })
+      });
+      const data = await response.json();
+      if (data.canAttempt) showPasswordScreen();
+      else alert(data.message || 'You cannot attempt this test.');
+    } catch (err) {
+      alert("Could not verify attempt status. Try again.");
+      console.error(err);
+    }
+  }
+
+  function showPasswordScreen() {
+    const detailsScreen = document.getElementById('student-details-screen');
+    detailsScreen.innerHTML = `
+      <div style="max-width:600px;margin:10px auto;background:var(--card);padding:18px;border-radius:12px;">
+        <h2>Enter Exam Password</h2>
+        <input id="exam-password" type="password" placeholder="Enter the password" />
+        <button id="password-submit-btn" style="width:100%;margin-top:8px">Continue</button>
+      </div>`;
+    document.getElementById('password-submit-btn').onclick = () => {
+      if (document.getElementById('exam-password').value === currentQuiz.password) prepareQuiz();
+      else alert("Incorrect password.");
+    };
+  }
+
+  function prepareQuiz() {
+    const detailsScreen = document.getElementById('student-details-screen');
+    detailsScreen.innerHTML = `
+      <div style="max-width:700px;margin:16px auto;background:var(--card);padding:18px;border-radius:12px;">
+        <h2>Exam Instructions</h2>
+        <p style="color:var(--muted)">This test is proctored. You must remain in full-screen mode and not switch tabs.</p>
+        <p style="color:var(--muted)">After ${maxWarnings} warnings, your test will be submitted automatically.</p>
+        <button id="start-test-btn" style="width:100%;margin-top:8px">Start Camera & Full Screen</button>
+      </div>`;
+    document.getElementById('start-test-btn').onclick = async () => {
+      try {
+        await startCamera();
+        await startFullScreen();
+        showToast("Permissions Granted!", "success");
+        setTimeout(()=> {
+          document.getElementById('student-details-screen').style.display = 'none';
+          document.getElementById('app-root').style.display = 'flex';
+          initializeQuiz();
+        }, 700);
+      } catch (err) {
+        showToast("Could not start. Please allow permissions.", "warning");
+        console.error(err);
+      }
+    };
+  }
+
+  async function startCamera() {
+    const videoElement = document.getElementById('camera-view');
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640 }, audio: false });
+      videoElement.srcObject = stream;
+      videoElement.style.display = 'block';
+    } else {
+      throw new Error('Camera not supported');
+    }
+  }
+
+  async function startFullScreen() {
+    const el = document.documentElement;
+    if (el.requestFullscreen) await el.requestFullscreen();
+    else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
+    else if (el.msRequestFullscreen) await el.msRequestFullscreen();
+    // note: some browsers require user gesture; we call from click
+  }
+
+  function initializeQuiz() {
+    quizInProgress = true;
+    document.getElementById('quiz-title-main').textContent = currentQuiz.title || 'Quiz';
+    const subjectTabsContainer = document.querySelector('.subject-tabs');
+    subjectTabsContainer.innerHTML = '';
+
+    const subjects = Object.keys(currentQuiz.subjects || {});
+    subjects.forEach((subject, idx) => {
+      shuffleArray(currentQuiz.subjects[subject]);
+      userResponses[subject] = {};
+      const tab = document.createElement('button');
+      tab.className = 'subject-tab';
+      tab.setAttribute('role','tab');
+      tab.setAttribute('tabindex','0');
+      tab.innerHTML = `<span>${subject}</span>`;
+      tab.onclick = (e) => switchSubject(subject, e.currentTarget);
+      tab.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); switchSubject(subject, tab); }
+      });
+      subjectTabsContainer.appendChild(tab);
+      if (idx === 0) tab.classList.add('active');
+    });
+
+    currentSubject = subjects[0] || '';
+    setupProctoringListeners();
+    // enable hover fallback & touch handlers
+    enableTabHoverFallback();
+    // if there is at least one subject, load
+    if (currentSubject) switchSubject(currentSubject, document.querySelector('.subject-tabs .subject-tab.active'));
+    // start timer
+    startTimer((currentQuiz.timeLimit || 10) * 60);
+    updateWarningBadge();
+  }
+
+  // Hover fallback + touch support
+  function enableTabHoverFallback() {
+    const tabs = document.querySelectorAll('.subject-tab');
+    tabs.forEach(tab => {
+      // mouse fallback
+      tab.addEventListener('mouseenter', () => tab.classList.add('hover'), { passive: true });
+      tab.addEventListener('mouseleave', () => tab.classList.remove('hover'), { passive: true });
+      // touchstart to show effect briefly
+      tab.addEventListener('touchstart', (ev) => {
+        tab.classList.add('hover');
+        // remove hover after brief delay so it doesn't stay
+        setTimeout(()=> tab.classList.remove('hover'), 900);
+      }, { passive: true });
+    });
+  }
+
+  function setupProctoringListeners() {
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden' && quizInProgress) handleWarning("You have switched tabs or minimized the window.");
+    }, { passive: true });
+
+    document.addEventListener('fullscreenchange', () => {
+      if (!document.fullscreenElement && quizInProgress) handleWarning("You have exited full-screen.");
+    }, { passive: true });
+
+    window.addEventListener('blur', () => {
+      if (quizInProgress) handleWarning("Window lost focus.");
+    }, { passive: true });
+
+    window.addEventListener('beforeunload', (e) => {
+      if (quizInProgress) handleWarning("Attempted to navigate away.");
+    }, { passive: true });
+  }
+
+  function handleWarning(message) {
+    if (!quizInProgress) return;
+    warningCount++;
+    updateWarningBadge();
+    const warningMessage = `Warning ${warningCount}/${maxWarnings}: ${message}`;
+    showToast(warningMessage, 'warning');
+    if (warningCount >= maxWarnings) {
+      showToast('Maximum warnings exceeded. Submitting test automatically.', 'warning', 6000);
+      setTimeout(()=> submitTest(), 1200);
+    }
+  }
+
+  function updateWarningBadge() {
+    const badge = document.getElementById('warning-badge');
+    const count = document.getElementById('warning-count');
+    count.textContent = warningCount;
+    badge.style.display = warningCount > 0 ? 'block' : 'none';
+  }
+
+  function switchSubject(subject, clickedTab) {
+    currentSubject = subject;
+    currentQuestionIndex = 0;
+    document.querySelectorAll('.subject-tab').forEach(tab => tab.classList.remove('active'));
+    if (clickedTab) clickedTab.classList.add('active');
+    loadQuestion();
+    updatePalette();
+    if (clickedTab) clickedTab.focus({ preventScroll: true });
+  }
+
+  function loadQuestion() {
+    const questions = currentQuiz.subjects && currentQuiz.subjects[currentSubject];
+    if (!questions || questions.length === 0) {
+      document.getElementById('question-number').textContent = '';
+      document.getElementById('question-text').textContent = 'No questions available.';
+      document.getElementById('options-container').innerHTML = '';
+      document.getElementById('question-image').style.display = 'none';
+      return;
+    }
+    const question = questions[currentQuestionIndex];
+    const response = userResponses[currentSubject][currentQuestionIndex] || {};
+    let shuffledOptions;
+    if (question.shuffledOptions) shuffledOptions = question.shuffledOptions;
+    else {
+      const originalCorrect = question.options[question.correctAnswer];
+      shuffledOptions = [...question.options];
+      shuffleArray(shuffledOptions);
+      question.shuffledOptions = shuffledOptions;
+      question.shuffledCorrectAnswerIndex = shuffledOptions.indexOf(originalCorrect);
     }
 
-    function shuffleArray(array) {
-        for (let i = array.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [array[i], array[j]] = [array[j], array[i]];
-        }
+    document.getElementById('question-number').textContent = `Question ${currentQuestionIndex + 1}`;
+    document.getElementById('question-text').textContent = question.text || '';
+    const img = document.getElementById('question-image');
+    if (question.imageUrl) { img.style.display = 'block'; img.src = question.imageUrl; }
+    else img.style.display = 'none';
+
+    const optionsContainer = document.getElementById('options-container');
+    optionsContainer.innerHTML = '';
+    shuffledOptions.forEach((opt, idx) => {
+      const div = document.createElement('div');
+      div.className = 'option';
+      div.setAttribute('role','button');
+      div.setAttribute('tabindex','0');
+      div.textContent = opt;
+      if (response.answer === idx) div.classList.add('selected');
+      div.onclick = () => selectOption(idx);
+      div.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); selectOption(idx); }});
+      optionsContainer.appendChild(div);
+    });
+
+    updatePalette();
+  }
+
+  function selectOption(index) {
+    const response = userResponses[currentSubject][currentQuestionIndex] || {};
+    response.answer = index;
+    response.status = 'answered';
+    userResponses[currentSubject][currentQuestionIndex] = response;
+    document.querySelectorAll('.option').forEach((opt, idx) => opt.classList.toggle('selected', idx === index));
+    updatePalette();
+  }
+
+  function saveAndNext() {
+    const response = userResponses[currentSubject][currentQuestionIndex];
+    if (response && response.answer !== undefined) response.status = 'answered';
+    const questions = (currentQuiz.subjects && currentQuiz.subjects[currentSubject]) || [];
+    if (currentQuestionIndex < questions.length - 1) { currentQuestionIndex++; loadQuestion(); }
+    updatePalette();
+  }
+
+  function markForReview() {
+    const response = userResponses[currentSubject][currentQuestionIndex] || {};
+    response.status = 'review';
+    userResponses[currentSubject][currentQuestionIndex] = response;
+    const questions = (currentQuiz.subjects && currentQuiz.subjects[currentSubject]) || [];
+    if (currentQuestionIndex < questions.length - 1) { currentQuestionIndex++; loadQuestion(); }
+    updatePalette();
+  }
+
+  function clearResponse() {
+    if (userResponses[currentSubject] && userResponses[currentSubject][currentQuestionIndex]) {
+      delete userResponses[currentSubject][currentQuestionIndex].answer;
+      delete userResponses[currentSubject][currentQuestionIndex].status;
     }
+    loadQuestion();
+  }
 
-    async function loadInitialData() {
-        try {
-            const response = await fetch('/get-quizzes');
-            allQuizzes = await response.json();
-            displayInitialScreen();
-        } catch (error) {
-            document.body.innerHTML = "<h1>Error: Could not load quiz data.</h1>";
-        }
-    }
+  function updatePalette() {
+    const palette = document.getElementById('question-palette');
+    palette.innerHTML = '';
+    const questions = (currentQuiz.subjects && currentQuiz.subjects[currentSubject]) || [];
+    questions.forEach((_, index) => {
+      const response = (userResponses[currentSubject] && userResponses[currentSubject][index]) || {};
+      const item = document.createElement('div');
+      item.className = 'palette-item';
+      if (response.status === 'answered') item.classList.add('status-answered');
+      else if (response.status === 'review') item.classList.add('status-review');
+      else item.classList.add('status-not-answered');
+      item.textContent = index + 1;
+      item.onclick = () => { currentQuestionIndex = index; loadQuestion(); };
+      palette.appendChild(item);
+    });
+  }
 
-    function displayInitialScreen() {
-        document.getElementById('student-details-screen').style.display = 'block';
-        const quizSelectionContainer = document.getElementById('quiz-selection-container');
-        let selectHTML = '<label for="quiz-select">Select a Test:</label><select id="quiz-select">';
-        allQuizzes.forEach((quiz, index) => {
-            selectHTML += `<option value="${index}">${quiz.title}</option>`;
-        });
-        selectHTML += '</select>';
-        quizSelectionContainer.innerHTML = selectHTML;
-        document.getElementById('proceed-btn').onclick = handleProceed;
-    }
-
-    async function handleProceed() {
-        const name = document.getElementById('student-name').value;
-        const mobile = document.getElementById('student-mobile').value;
-        const quizSelect = document.getElementById('quiz-select');
-        const selectedQuizIndex = quizSelect ? quizSelect.value : 0;
-        currentQuiz = allQuizzes[selectedQuizIndex];
-
-        if (!name || !mobile) {
-            alert("Please fill in all details.");
-            return;
-        }
-        studentDetails = { name, mobile };
-
-        try {
-            const response = await fetch('/check-attempt', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ mobile: studentDetails.mobile, quizId: currentQuiz.id })
-            });
-            const data = await response.json();
-            if (data.canAttempt) showPasswordScreen();
-            else alert(data.message);
-        } catch (err) {
-            alert("Could not verify attempt status. Try again.");
-        }
-    }
-
-    function showPasswordScreen() {
-        const detailsScreen = document.getElementById('student-details-screen');
-        detailsScreen.innerHTML = `
-            <div style="max-width: 500px; margin: 50px auto; background: #fff; padding: 30px; border-radius: 8px;">
-                <h2>Enter Exam Password</h2>
-                <input type="password" id="exam-password" placeholder="Enter the password" required>
-                <button id="password-submit-btn" style="width: 100%;">Continue</button>
-            </div>
-        `;
-        document.getElementById('password-submit-btn').onclick = () => {
-            if (document.getElementById('exam-password').value === currentQuiz.password) prepareQuiz();
-            else alert("Incorrect password.");
-        };
-    }
-
-    function prepareQuiz() {
-        const detailsScreen = document.getElementById('student-details-screen');
-        detailsScreen.innerHTML = `
-            <div style="max-width: 500px; margin: 50px auto; background: #fff; padding: 30px; border-radius: 8px;">
-                <h2>Exam Instructions</h2>
-                <p>This test is proctored. You must remain in full-screen mode and not switch tabs.</p>
-                <p>After ${maxWarnings} warnings, your test will be submitted automatically.</p>
-                <button id="start-test-btn" style="width: 100%;">Start Camera & Full Screen</button>
-            </div>
-        `;
-        document.getElementById('start-test-btn').onclick = async () => {
-            try {
-                await startCamera();
-                await startFullScreen();
-                showToast("Permissions Granted!", "success");
-                setTimeout(() => {
-                    document.getElementById('student-details-screen').style.display = 'none';
-                    document.getElementById('quiz-screen').style.display = 'flex';
-                    initializeQuiz();
-                }, 900);
-            } catch (err) {
-                showToast("Could not start. Please allow permissions.", "warning");
-            }
-        };
-    }
-
-    async function startCamera() {
-        const videoElement = document.getElementById('camera-view');
-        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-            videoElement.srcObject = stream;
-            videoElement.style.display = 'block';
-        } else { throw new Error("Camera not supported."); }
-    }
-
-    async function startFullScreen() {
-        const el = document.documentElement;
-        if (el.requestFullscreen) await el.requestFullscreen();
-        else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
-        else if (el.msRequestFullscreen) await el.msRequestFullscreen();
-    }
-
-    function initializeQuiz() {
-        quizInProgress = true;
-        document.getElementById('quiz-title-main').textContent = currentQuiz.title;
-        const subjectTabsContainer = document.querySelector('.subject-tabs');
-        subjectTabsContainer.innerHTML = '';
-        Object.keys(currentQuiz.subjects).forEach((subject, idx) => {
-            shuffleArray(currentQuiz.subjects[subject]);
-            userResponses[subject] = {};
-            const tab = document.createElement('button');
-            tab.className = 'subject-tab';
-            tab.setAttribute('role', 'tab');
-            tab.setAttribute('tabindex', '0');
-            tab.innerHTML = `<span>${subject}</span>`;
-            tab.onclick = (e) => switchSubject(subject, e.currentTarget);
-            // keyboard activation (Enter/Space)
-            tab.addEventListener('keydown', (ev) => {
-                if (ev.key === 'Enter' || ev.key === ' ') {
-                    ev.preventDefault();
-                    switchSubject(subject, tab);
-                }
-            });
-            subjectTabsContainer.appendChild(tab);
-            // mark first as active after append
-            if (idx === 0) tab.classList.add('active');
-        });
-        currentSubject = Object.keys(currentQuiz.subjects)[0];
-        setupProctoringListeners();
-        switchSubject(currentSubject, document.querySelector('.subject-tabs .subject-tab.active'));
-        startTimer(currentQuiz.timeLimit * 60);
-        updateWarningBadge();
-        enableTabHoverFallback();
-    }
-function enableTabHoverFallback() {
-  // Adds .hover on mouseenter for browsers that don't render pseudo hover reliably
-  const tabs = document.querySelectorAll('.subject-tab');
-  tabs.forEach(tab => {
-    tab.addEventListener('mouseenter', () => tab.classList.add('hover'));
-    tab.addEventListener('mouseleave', () => tab.classList.remove('hover'));
-  });
-}
-
-    function setupProctoringListeners() {
-        // visibilitychange
-        document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'hidden' && quizInProgress) handleWarning("You have switched tabs or minimized the window.");
-        });
-
-        // fullscreen exit
-        document.addEventListener('fullscreenchange', () => {
-            if (!document.fullscreenElement && quizInProgress) handleWarning("You have exited full-screen.");
-        });
-
-        // blur (user switched window in some browsers)
-        window.addEventListener('blur', () => {
-            if (quizInProgress) handleWarning("Window lost focus.");
-        });
-
-        // beforeunload to warn leaving (non-blocking)
-        window.addEventListener('beforeunload', (e) => {
-            if (quizInProgress) {
-                handleWarning("Attempted to navigate away.");
-            }
-        });
-    }
-
-    function handleWarning(message) {
-        if (!quizInProgress) return;
-
-        warningCount++;
-        updateWarningBadge();
-        const warningMessage = `Warning ${warningCount}/${maxWarnings}: ${message}`;
-        showToast(warningMessage, 'warning');
-
-        if (warningCount >= maxWarnings) {
-            showToast(`Maximum warnings exceeded. Submitting test automatically.`, 'warning', 6000);
-            setTimeout(() => {
-                submitTest();
-            }, 1200);
-        }
-    }
-
-    function updateWarningBadge() {
-        const badge = document.getElementById('warning-badge');
-        const count = document.getElementById('warning-count');
-        count.textContent = warningCount;
-        badge.style.display = warningCount > 0 ? 'block' : 'none';
-    }
-
-    function switchSubject(subject, clickedTab) {
-        currentSubject = subject;
-        currentQuestionIndex = 0;
-        document.querySelectorAll('.subject-tab').forEach(tab => tab.classList.remove('active'));
-        if (clickedTab) clickedTab.classList.add('active');
-        loadQuestion();
-        updatePalette();
-        // ensure clicked tab is keyboard-focusable after click
-        if (clickedTab) clickedTab.focus({ preventScroll: true });
-    }
-
-    function loadQuestion() {
-        const question = currentQuiz.subjects[currentSubject][currentQuestionIndex];
-        const response = userResponses[currentSubject][currentQuestionIndex] || {};
-        let shuffledOptions;
-        if (question.shuffledOptions) {
-            shuffledOptions = question.shuffledOptions;
-        } else {
-            const originalCorrectAnswerText = question.options[question.correctAnswer];
-            shuffledOptions = [...question.options];
-            shuffleArray(shuffledOptions);
-            question.shuffledOptions = shuffledOptions;
-            question.shuffledCorrectAnswerIndex = shuffledOptions.indexOf(originalCorrectAnswerText);
-        }
-        document.getElementById('question-number').textContent = `Question ${currentQuestionIndex + 1}`;
-        document.getElementById('question-text').textContent = question.text;
-        const img = document.getElementById('question-image');
-        img.style.display = question.imageUrl ? 'block' : 'none';
-        if (question.imageUrl) img.src = question.imageUrl;
-        const optionsContainer = document.getElementById('options-container');
-        optionsContainer.innerHTML = '';
-        shuffledOptions.forEach((option, index) => {
-            const div = document.createElement('div');
-            div.className = 'option';
-            div.textContent = option;
-            if (response.answer === index) div.classList.add('selected');
-            div.onclick = () => selectOption(index);
-            optionsContainer.appendChild(div);
-        });
-        updatePalette();
-    }
-
-    function selectOption(index) {
-        const response = userResponses[currentSubject][currentQuestionIndex] || {};
-        response.answer = index;
-        response.status = 'answered';
-        userResponses[currentSubject][currentQuestionIndex] = response;
-        document.querySelectorAll('.option').forEach((opt, optIndex) => {
-            opt.classList.toggle('selected', optIndex === index);
-        });
-        updatePalette();
-    }
-
-    function saveAndNext() {
-        const response = userResponses[currentSubject][currentQuestionIndex];
-        if (response && response.answer !== undefined) response.status = 'answered';
-        if (currentQuestionIndex < currentQuiz.subjects[currentSubject].length - 1) {
-            currentQuestionIndex++;
-            loadQuestion();
-        }
-        updatePalette();
-    }
-
-    function markForReview() {
-        const response = userResponses[currentSubject][currentQuestionIndex] || {};
-        response.status = 'review';
-        userResponses[currentSubject][currentQuestionIndex] = response;
-        if (currentQuestionIndex < currentQuiz.subjects[currentSubject].length - 1) {
-            currentQuestionIndex++;
-            loadQuestion();
-        }
-        updatePalette();
-    }
-
-    function clearResponse() {
-        if (userResponses[currentSubject][currentQuestionIndex]) {
-            delete userResponses[currentSubject][currentQuestionIndex].answer;
-            delete userResponses[currentSubject][currentQuestionIndex].status;
-        }
-        loadQuestion();
-    }
-
-    function updatePalette() {
-        const palette = document.getElementById('question-palette');
-        palette.innerHTML = '';
-        currentQuiz.subjects[currentSubject].forEach((_, index) => {
-            const response = userResponses[currentSubject][index] || {};
-            const item = document.createElement('div');
-            item.className = 'palette-item';
-            if (response.status === 'answered') item.classList.add('status-answered');
-            else if (response.status === 'review') item.classList.add('status-review');
-            else item.classList.add('status-not-answered');
-            item.textContent = index + 1;
-            item.onclick = () => { currentQuestionIndex = index; loadQuestion(); };
-            palette.appendChild(item);
-        });
-    }
-
-    function startTimer(duration) {
-        let timeLeft = duration;
-        timerInterval = setInterval(() => {
-            if (timeLeft <= 0) {
-                clearInterval(timerInterval);
-                showToast("Time's up! Submitting your test.", 'warning');
-                submitTest();
-                return;
-            }
-            timeLeft--;
-            const hours = Math.floor(timeLeft / 3600);
-            const minutes = Math.floor((timeLeft % 3600) / 60);
-            const seconds = timeLeft % 60;
-            document.getElementById('timer').textContent = 
-                `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-        }, 1000);
-    }
-
-    function confirmSubmit() {
-        if (confirm("Are you sure you want to submit the test?")) submitTest();
-    }
-
-    function submitTest() {
-        const submitBtn = document.querySelector('.submit');
-        if (submitBtn) submitBtn.disabled = true;
-
-        if (!quizInProgress) return;
-        quizInProgress = false;
+  function startTimer(duration) {
+    let timeLeft = duration;
+    clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+      if (timeLeft <= 0) {
         clearInterval(timerInterval);
+        showToast("Time's up! Submitting your test.", 'warning');
+        submitTest();
+        return;
+      }
+      timeLeft--;
+      const hours = Math.floor(timeLeft / 3600);
+      const minutes = Math.floor((timeLeft % 3600) / 60);
+      const seconds = timeLeft % 60;
+      document.getElementById('timer').textContent =
+        `${String(hours).padStart(2,'0')}:${String(minutes).padStart(2,'0')}:${String(seconds).padStart(2,'0')}`;
+    }, 1000);
+  }
 
-        let totalScore = 0;
-        let subjectScores = {};
+  function confirmSubmit() {
+    if (confirm("Are you sure you want to submit the test?")) submitTest();
+  }
 
-        Object.keys(currentQuiz.subjects).forEach(subject => {
-            let subjectScore = 0;
-            currentQuiz.subjects[subject].forEach((question, index) => {
-                const response = userResponses[subject][index];
-                if (response && response.answer !== undefined) {
-                    if (response.answer === question.shuffledCorrectAnswerIndex) subjectScore += 4;
-                    else subjectScore -= 1;
-                }
-            });
-            subjectScores[subject] = subjectScore;
-            totalScore += subjectScore;
-        });
+  function submitTest() {
+    const submitBtn = document.querySelector('.submit');
+    if (submitBtn) submitBtn.disabled = true;
+    if (!quizInProgress) return;
+    quizInProgress = false;
+    clearInterval(timerInterval);
 
-        const resultData = {
-            date: new Date().toISOString(),
-            studentName: studentDetails.name,
-            mobile: studentDetails.mobile,
-            class: currentQuiz.class,
-            quizId: currentQuiz.id,
-            quizTitle: currentQuiz.title,
-            totalScore: totalScore,
-            subjectScores: subjectScores,
-            warnings: warningCount
-        };
+    let totalScore = 0;
+    let subjectScores = {};
 
-        fetch('/submit-result', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(resultData),
-        })
-        .then(response => {
-            if (!response.ok) throw new Error('Submission failed');
-            alert(`Test Submitted Successfully!`);
-            document.getElementById('quiz-screen').innerHTML = `<div style="max-width: 600px; margin: 50px auto; text-align:center;"><h1>Test Submitted Successfully</h1><h2>Your Final Score: ${totalScore}</h2></div>`;
-        })
-        .catch(error => {
-            alert('There was an error submitting your test.');
-            if (submitBtn) submitBtn.disabled = false;
-        });
-    }
+    Object.keys(currentQuiz.subjects || {}).forEach(subject => {
+      let subjectScore = 0;
+      (currentQuiz.subjects[subject] || []).forEach((question, index) => {
+        const response = (userResponses[subject] || [])[index];
+        if (response && response.answer !== undefined) {
+          if (response.answer === question.shuffledCorrectAnswerIndex) subjectScore += 4;
+          else subjectScore -= 1;
+        }
+      });
+      subjectScores[subject] = subjectScore;
+      totalScore += subjectScore;
+    });
 
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('/service-worker.js');
-        });
-    }
-    document.addEventListener('DOMContentLoaded', loadInitialData);
+    const resultData = {
+      date: new Date().toISOString(),
+      studentName: studentDetails.name,
+      mobile: studentDetails.mobile,
+      class: currentQuiz.class,
+      quizId: currentQuiz.id,
+      quizTitle: currentQuiz.title,
+      totalScore,
+      subjectScores,
+      warnings: warningCount
+    };
+
+    fetch('/submit-result', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(resultData)
+    })
+    .then(resp => {
+      if (!resp.ok) throw new Error('Submission failed');
+      alert(`Test Submitted Successfully!`);
+      document.getElementById('app-root').innerHTML =
+        `<div style="max-width:680px;margin:40px auto;text-align:center;"><h1>Test Submitted Successfully</h1><h2>Your Final Score: ${totalScore}</h2></div>`;
+    })
+    .catch(err => {
+      alert('There was an error submitting your test.');
+      if (submitBtn) submitBtn.disabled = false;
+      console.error(err);
+    });
+  }
+
+  // register service worker (safe check)
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/service-worker.js').catch(()=>{/* ignore */});
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', loadInitialData);
 </script>
 </body>
 </html>
