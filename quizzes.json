@@ -1,0 +1,162 @@
+[
+  {
+    "id": 101,
+    "title": "JEE Mains Full Mock Test 1",
+    "timeLimit": 120,
+    "password": "geetham",
+    "class": "11",
+    "subjects": {
+      "Physics": [
+        {
+          "text": "What is the unit of electric charge?",
+          "options": [
+            "Ampere",
+            "Volt",
+            "Coulomb",
+            "Ohm"
+          ],
+          "correctAnswer": 2
+        },
+        {
+          "text": "The work done by a force is defined as the dot product of the force and the displacement. If a force of F = (2i + 3j) N moves an object by a displacement of d = (4i - 5j) m, what is the work done?",
+          "options": [
+            "-7 J",
+            "8 J",
+            "-15 J",
+            "23 J"
+          ],
+          "correctAnswer": 0
+        },
+        {
+          "text": "Which of the following is a scalar quantity?",
+          "options": [
+            "Velocity",
+            "Acceleration",
+            "Force",
+            "Speed"
+          ],
+          "correctAnswer": 3
+        }
+      ],
+      "Chemistry": [
+        {
+          "text": "What is the pH of a neutral solution at 25°C?",
+          "options": [
+            "0",
+            "7",
+            "14",
+            "1"
+          ],
+          "correctAnswer": 1
+        },
+        {
+          "text": "The chemical formula for sulfuric acid is:",
+          "options": [
+            "H2SO3",
+            "HCl",
+            "H2SO4",
+            "HNO3"
+          ],
+          "correctAnswer": 2
+        }
+      ],
+      "Mathematics": [
+        {
+          "text": "What is the derivative of x^3 with respect to x?",
+          "options": [
+            "3x^2",
+            "x^2",
+            "3x",
+            "2x^3"
+          ],
+          "correctAnswer": 0
+        },
+        {
+          "text": "The integral of cos(x) dx is:",
+          "options": [
+            "-sin(x) + C",
+            "cos(x) + C",
+            "tan(x) + C",
+            "sin(x) + C"
+          ],
+          "correctAnswer": 3
+        }
+      ]
+    }
+  },
+  {
+    "id": 1756209301461,
+    "title": "jee",
+    "timeLimit": 180,
+    "password": "geetham",
+    "class": "12",
+    "subjects": {
+      "Physics": [
+        {
+          "text": "The work done by a force is defined as the dot product of the force and the displacement. If a force of F = (2i + 3j) N moves an object by a displacement of d = (4i - 5j) m, what is the work done?",
+          "options": [
+            "-7 J",
+            "8 J",
+            "-15 J",
+            "23 J"
+          ],
+          "correctAnswer": 0
+        },
+        {
+          "text": "Which of the following is a scalar quantity?",
+          "options": [
+            "Velocity",
+            "Acceleration",
+            "Force",
+            "Speed"
+          ],
+          "correctAnswer": 3
+        }
+      ],
+      "Chemistry": [
+        {
+          "text": "What is the pH of a neutral solution at 25°C?",
+          "options": [
+            "0",
+            "7",
+            "14",
+            "1"
+          ],
+          "correctAnswer": 1
+        },
+        {
+          "text": "The chemical formula for sulfuric acid is:",
+          "options": [
+            "H2SO3",
+            "HCl",
+            "H2SO4",
+            "HNO3"
+          ],
+          "correctAnswer": 2
+        }
+      ],
+      "Mathematics": [
+        {
+          "text": "What is the derivative of x^3 with respect to x?",
+          "options": [
+            "3x^2",
+            "x^2",
+            "3x",
+            "2x^3"
+          ],
+          "correctAnswer": 0
+        },
+        {
+          "text": "The integral of cos(x) dx is:",
+          "options": [
+            "-sin(x) + C",
+            "cos(x) + C",
+            "tan(x) + C",
+            "sin(x) + C"
+          ],
+          "correctAnswer": 3
+        }
+      ]
+    }
+  }
+]

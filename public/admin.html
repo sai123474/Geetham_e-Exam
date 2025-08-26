@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Panel - Geetham e-Exam</title>
+    <link rel="icon" type="image/jpeg" href="/geetham.jpg">
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8f9fa; margin: 0; padding: 30px; }
+        .container { max-width: 1200px; margin: auto; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .logo { max-height: 80px; }
+        h1 { color: #0056b3; }
+        .admin-panel { display: flex; gap: 30px; }
+        .quiz-list { width: 300px; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); align-self: flex-start; }
+        .quiz-editor { flex-grow: 1; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .quiz-list-item { padding: 15px; margin-bottom: 10px; border-radius: 6px; cursor: pointer; border: 1px solid #ddd; }
+        .quiz-list-item.active { background-color: #e7f3ff; border-left: 4px solid #007bff; font-weight: bold; }
+        label { font-weight: 600; color: #333; margin-top: 15px; display: block; }
+        input, select, textarea { width: 100%; padding: 10px; margin-top: 5px; box-sizing: border-box; font-size: 15px; border-radius: 5px; border: 1px solid #ccc; }
+        button { padding: 12px 20px; cursor: pointer; background-color: #007bff; color: white; border: none; border-radius: 5px; font-size: 16px; margin-top: 10px; }
+        .btn-save { background-color: #28a745; }
+        .btn-add { background-color: #17a2b8; }
+        .btn-remove { background-color: #dc3545; padding: 5px 10px; font-size: 12px; }
+        .btn-delete-quiz { background-color: #dc3545; }
+        .question-container { border: 1px solid #e9ecef; padding: 15px; margin-top: 15px; border-radius: 5px; background-color: #fdfdff; }
+        #autosave-status { text-align: right; color: #6c757d; font-style: italic; height: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <img src="/geetham.jpg" alt="Geetham Institute Logo" class="logo">
+            <h1>Exam Admin Panel</h1>
+        </div>
+        <div id="password-prompt">
+            <input type="password" id="admin-password" placeholder="Enter Admin Password">
+            <button onclick="login()">Login</button>
+        </div>
+        <div id="admin-panel" class="admin-panel" style="display:none;">
+            <div class="quiz-list" id="quiz-list-panel"></div>
+            <div class="quiz-editor" id="quiz-editor-panel"></div>
+        </div>
+    </div>
+
+<script>
+    const ADMIN_PASSWORD = "geetham";
+    let quizzesData = [];
+    let selectedQuizIndex = 0;
+    let autosaveTimeout;
+
+    function login() {
+        if (document.getElementById('admin-password').value === ADMIN_PASSWORD) {
+            document.getElementById('password-prompt').style.display = 'none';
+            document.getElementById('admin-panel').style.display = 'flex';
+            loadQuizzes();
+        } else {
+            alert('Incorrect password!');
+        }
+    }
+
+    async function loadQuizzes() {
+        try {
+            const response = await fetch('/get-quizzes');
+            quizzesData = await response.json();
+            renderQuizList();
+            renderQuizEditor();
+        } catch (error) {
+            alert("Could not load quiz data from the server.");
+        }
+    }
+
+    function renderQuizList() {
+        const listPanel = document.getElementById('quiz-list-panel');
+        listPanel.innerHTML = '<h3>All Quizzes</h3>';
+        quizzesData.forEach((quiz, index) => {
+            const item = document.createElement('div');
+            item.className = 'quiz-list-item';
+            if (index === selectedQuizIndex) item.classList.add('active');
+            item.textContent = quiz.title;
+            item.onclick = () => {
+                selectedQuizIndex = index;
+                renderQuizList();
+                renderQuizEditor();
+            };
+            listPanel.appendChild(item);
+        });
+        const addBtn = document.createElement('button');
+        addBtn.className = 'btn-add';
+        addBtn.textContent = 'Add New Quiz';
+        addBtn.onclick = addQuiz;
+        listPanel.appendChild(addBtn);
+    }
+
+    function renderQuizEditor() {
+        const editorPanel = document.getElementById('quiz-editor-panel');
+        const quiz = quizzesData[selectedQuizIndex];
+        if (!quiz) {
+            editorPanel.innerHTML = '<h3>Select a quiz to edit or add a new one.</h3>';
+            return;
+        }
+        editorPanel.innerHTML = `
+            <h3>Editing: ${quiz.title}</h3>
+            <div id="autosave-status"></div>
+            <div id="quiz-details"></div>
+            <div id="subjects-details"></div>
+            <div class="question-container" style="margin-top: 30px;">
+                <h4>Generate Questions from Text using AI</h4>
+                <p>Paste your questions and options below, then click generate.</p>
+                <textarea id="ai-text-input" rows="10" placeholder="Paste question paper text here..."></textarea>
+                <button class="btn-add" onclick="generateFromText()">Generate from Text</button>
+            </div>
+            <div style="margin-top: 20px; display:flex; justify-content:space-between;">
+                <button class="btn-save" onclick="saveQuiz(true)">Save Manually</button>
+                <button class="btn-delete-quiz" onclick="deleteQuiz()">Delete This Quiz</button>
+            </div>
+        `;
+        renderQuizDetails(quiz);
+        renderSubjects(quiz.subjects);
+        attachAutosaveListeners();
+    }
+
+    function renderQuizDetails(quiz) {
+        document.getElementById('quiz-details').innerHTML = `
+            <label>Title:</label><input type="text" id="quiz-title" value="${quiz.title}">
+            <label>Time Limit (minutes):</label><input type="number" id="quiz-time" value="${quiz.timeLimit}">
+            <label>Password:</label><input type="text" id="quiz-password" value="${quiz.password}">
+            <label>Class:</label>
+            <select id="quiz-class">
+                <option value="11" ${quiz.class === "11" ? 'selected' : ''}>11th</option>
+                <option value="12" ${quiz.class === "12" ? 'selected' : ''}>12th</option>
+            </select>
+        `;
+    }
+
+    function renderSubjects(subjects) {
+        const container = document.getElementById('subjects-details');
+        container.innerHTML = '';
+        Object.keys(subjects).forEach(subjectName => {
+            const subjectDiv = document.createElement('div');
+            subjectDiv.innerHTML = `<h4>${subjectName}</h4>`;
+            subjects[subjectName].forEach((q, qIndex) => {
+                subjectDiv.appendChild(createQuestionElement(subjectName, qIndex, q));
+            });
+            const addQBtn = document.createElement('button');
+            addQBtn.className = 'btn-add';
+            addQBtn.textContent = `Add Question to ${subjectName}`;
+            addQBtn.onclick = () => addQuestion(subjectName);
+            subjectDiv.appendChild(addQBtn);
+            container.appendChild(subjectDiv);
+        });
+    }
+
+    function createQuestionElement(subjectName, qIndex, question) {
+        const qDiv = document.createElement('div');
+        qDiv.className = 'question-container';
+        qDiv.dataset.subject = subjectName;
+        let optionsHTML = '';
+        question.options.forEach((opt, optIndex) => {
+            optionsHTML += `<label>Option ${optIndex + 1}:</label><input type="text" value="${opt}">`;
+        });
+        qDiv.innerHTML = `
+            <h5>Question ${qIndex + 1} <button class="btn-remove" onclick="removeQuestion('${subjectName}', ${qIndex})">Remove</button></h5>
+            <label>Question Text:</label><textarea rows="2">${question.text}</textarea>
+            <label>Image URL (Optional):</label><input type="text" value="${question.imageUrl || ''}">
+            ${optionsHTML}
+            <label>Correct Answer:</label>
+            <select>
+                <option value="0" ${question.correctAnswer === 0 ? 'selected' : ''}>Option 1</option>
+                <option value="1" ${question.correctAnswer === 1 ? 'selected' : ''}>Option 2</option>
+                <option value="2" ${question.correctAnswer === 2 ? 'selected' : ''}>Option 3</option>
+                <option value="3" ${question.correctAnswer === 3 ? 'selected' : ''}>Option 4</option>
+            </select>
+        `;
+        return qDiv;
+    }
+
+    function attachAutosaveListeners() {
+        const inputs = document.querySelectorAll('#quiz-editor-panel input, #quiz-editor-panel select, #quiz-editor-panel textarea');
+        inputs.forEach(input => {
+            input.addEventListener('input', () => {
+                const status = document.getElementById('autosave-status');
+                status.textContent = 'Saving...';
+                clearTimeout(autosaveTimeout);
+                autosaveTimeout = setTimeout(() => {
+                    saveQuiz(false); // Pass false to indicate it's an autosave
+                }, 2000); // Autosave after 2 seconds of inactivity
+            });
+        });
+    }
+
+    function addQuiz() {
+        quizzesData.push({
+            id: Date.now(),
+            title: "New Mock Test",
+            timeLimit: 180,
+            password: "newpassword",
+            class: "12",
+            subjects: { "Physics": [], "Chemistry": [], "Mathematics": [] }
+        });
+        selectedQuizIndex = quizzesData.length - 1;
+        renderQuizList();
+        renderQuizEditor();
+    }
+
+    function addQuestion(subjectName) {
+        quizzesData[selectedQuizIndex].subjects[subjectName].push({
+            text: "New Question", options: ["", "", "", ""], correctAnswer: 0
+        });
+        renderQuizEditor();
+    }
+
+    function removeQuestion(subjectName, qIndex) {
+        if (confirm('Are you sure you want to remove this question?')) {
+            quizzesData[selectedQuizIndex].subjects[subjectName].splice(qIndex, 1);
+            renderQuizEditor();
+        }
+    }
+
+// In public/admin.html
+
+async function generateFromText() {
+    const textInput = document.getElementById('ai-text-input').value;
+    const currentQuiz = quizzesData[selectedQuizIndex];
+
+    if (!textInput.trim()) {
+        alert("Please paste some text to generate questions.");
+        return;
+    }
+
+    try {
+        const response = await fetch('/generate-from-text', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: textInput })
+        });
+
+        if (!response.ok) throw new Error('Failed to get response from AI.');
+
+        const generatedQuestions = await response.json();
+        
+        // MODIFIED LOGIC: Sort questions into the correct subjects
+        generatedQuestions.forEach(question => {
+            const subject = question.subject;
+            if (currentQuiz.subjects[subject]) {
+                currentQuiz.subjects[subject].push(question);
+            } else {
+                console.warn(`Subject "${subject}" not found in the current quiz. Question skipped.`);
+            }
+        });
+
+        renderQuizEditor(); // Refresh the editor to show the new questions
+        alert(`${generatedQuestions.length} questions were generated and added to their respective subjects!`);
+
+    } catch (error) {
+        console.error("Error generating from text:", error);
+        alert("Could not generate questions from the provided text.");
+    }
+}
+    async function deleteQuiz() {
+        if (confirm(`Are you sure you want to delete "${quizzesData[selectedQuizIndex].title}"?`)) {
+            quizzesData.splice(selectedQuizIndex, 1);
+            try {
+                const response = await fetch('/update-quizzes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(quizzesData)
+                });
+                if (!response.ok) throw new Error('Server error');
+                alert('Quiz deleted successfully.');
+                selectedQuizIndex = 0;
+                loadQuizzes();
+            } catch (error) {
+                alert('Failed to delete quiz.');
+                loadQuizzes();
+            }
+        }
+    }
+
+    async function saveQuiz(isManualSave = false) {
+        const status = document.getElementById('autosave-status');
+        const quizToSave = quizzesData[selectedQuizIndex];
+        if (!quizToSave) return; // Do nothing if no quiz is selected
+
+        // Update main quiz details from the form
+        quizToSave.title = document.getElementById('quiz-title').value;
+        quizToSave.timeLimit = parseInt(document.getElementById('quiz-time').value);
+        quizToSave.password = document.getElementById('quiz-password').value;
+        quizToSave.class = document.getElementById('quiz-class').value;
+        
+        // Rebuild the subjects object from the form elements
+        const newSubjects = {};
+        document.querySelectorAll('#subjects-details > div').forEach(subjectDiv => {
+            const subjectName = subjectDiv.querySelector('h4').textContent;
+            newSubjects[subjectName] = [];
+            subjectDiv.querySelectorAll('.question-container').forEach(qDiv => {
+                const inputs = qDiv.querySelectorAll('input');
+                newSubjects[subjectName].push({
+                    text: qDiv.querySelector('textarea').value,
+                    imageUrl: inputs[0].value || undefined,
+                    options: [inputs[1].value, inputs[2].value, inputs[3].value, inputs[4].value],
+                    correctAnswer: parseInt(qDiv.querySelector('select').value)
+                });
+            });
+        });
+        quizToSave.subjects = newSubjects;
+
+        try {
+            const response = await fetch('/update-quizzes', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(quizzesData)
+            });
+            if (!response.ok) throw new Error('Server error');
+            if (status) status.textContent = `Saved at ${new Date().toLocaleTimeString()}`;
+            if (isManualSave) alert('Quiz saved successfully!');
+            renderQuizList(); // Refresh list in case title was changed
+        } catch (error) {
+            if (status) status.textContent = 'Save failed.';
+            if (isManualSave) alert('Failed to save quiz.');
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        // Initial load logic if needed
+    });
+</script>
+</body>
+</html>

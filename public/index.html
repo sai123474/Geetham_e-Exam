@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Geetham e-Exam</title>
+    <link rel="icon" type="image/jpeg" href="/geetham.jpg">
+ <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#0056b3"/>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f0f2f5; color: #333; margin: 0; padding: 10px; }
+        .main-container, #student-details-screen { display: none; }
+        .quiz-panel { flex-grow: 1; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .sidebar { width: 300px; margin-left: 20px; background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        h1, h2 { color: #0056b3; text-align: center; }
+        input, select { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
+        #timer { font-size: 20px; font-weight: bold; color: #d9534f; text-align: center; margin-bottom: 15px; }
+        .subject-tabs { display: flex; border-bottom: 2px solid #ddd; margin-bottom: 20px; }
+        .subject-tab { padding: 10px 20px; cursor: pointer; font-weight: 600; border: none; background: blue; font-size: 16px;  }
+        .subject-tab.active { color: #007bff; border-bottom: 3px solid #007bff; }
+        .question-area { min-height: 300px; }
+        .option { display: block; margin: 10px 0; padding: 12px; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; }
+        .option.selected { background-color: #007bff; color: white; border-color: #007bff; }
+        .nav-buttons { margin-top: 20px; display: flex; justify-content: space-between; }
+        button { background-color: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 14px; }
+        button:disabled { background-color: #a0a0a0; }
+        button.secondary { background-color: #6c757d; }
+        button.submit { background-color: #28a745; }
+        .palette-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+        .palette-item { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 50%; cursor: pointer; font-weight: bold; }
+        .status-not-answered { background-color: #f0f0f0; }
+        .status-answered { background-color: #28a745; color: white; }
+        .status-review { background-color: #ffc107; }
+        #camera-view { position: fixed; bottom: 10px; left: 10px; width: 120px; height: 90px; border: 2px solid #0056b3; border-radius: 4px; object-fit: cover; display: none; }
+        .warning-toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background-color: #dc3545; color: white; padding: 15px 25px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); font-size: 16px; font-weight: bold; z-index: 9999; opacity: 0; transition: opacity 0.5s, top 0.5s; }
+        .warning-toast.show { top: 40px; opacity: 1; }
+    </style>
+</head>
+<body>
+    <video id="camera-view" autoplay playsinline></video>
+    <div id="student-details-screen" style="display: block;">
+        <div style="max-width: 500px; margin: 50px auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+            <div style="text-align: center; margin-bottom: 15px;">
+                <img src="/geetham.jpg" alt="Geetham Institute Logo" style="max-height: 80px;">
+            </div>
+            <h1>Geetham e-Exam</h1>
+            <div id="login-form">
+                <h2>Enter Your Details</h2>
+                <p>You can only attempt each test once.</p>
+                <div id="quiz-selection-container"></div>
+                <input type="text" id="student-name" placeholder="Enter your full name" required>
+                <input type="tel" id="student-mobile" placeholder="Enter your mobile number" required>
+                <button id="proceed-btn" style="width: 100%;">Proceed</button>
+            </div>
+        </div>
+    </div>
+    <div class="main-container" id="quiz-screen">
+        <div class="quiz-panel">
+            <h1 style="margin-top: 0;" id="quiz-title-main"></h1>
+            <div id="timer">00:00:00</div>
+            <div class="subject-tabs"></div>
+            <div id="question-area" class="question-area">
+                 <h3 id="question-number"></h3>
+                 <p id="question-text"></p>
+                 <img id="question-image" class="question-image" style="display:none;">
+                 <div id="options-container"></div>
+            </div>
+            <div class="nav-buttons">
+                <button class="secondary" onclick="markForReview()">Mark for Review & Next</button>
+                <div>
+                    <button class="secondary" onclick="clearResponse()">Clear Response</button>
+                    <button onclick="saveAndNext()">Save & Next</button>
+                </div>
+            </div>
+            <div style="text-align: center; margin-top: 20px;">
+                <button class="submit" onclick="confirmSubmit()">Submit Test</button>
+            </div>
+        </div>
+        <div class="sidebar">
+            <h4>Question Palette</h4>
+            <div id="question-palette" class="palette-grid"></div>
+            <hr>
+            <h4>Legend</h4>
+            <div style="display:flex; align-items: center; margin-top: 10px;"><div class="palette-item status-answered"></div><span style="margin-left: 10px;">Answered</span></div>
+            <div style="display:flex; align-items: center; margin-top: 10px;"><div class="palette-item status-review"></div><span style="margin-left: 10px;">Marked for Review</span></div>
+            <div style="display:flex; align-items: center; margin-top: 10px;"><div class="palette-item status-not-answered"></div><span style="margin-left: 10px;">Not Answered</span></div>
+        </div>
+    </div>
+
+<script>
+function showToast(message, type = 'warning') {
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.classList.add('show');
+    }, 100);
+
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => {
+            document.body.removeChild(toast);
+        }, 500);
+    }, 4000);
+}
+    document.addEventListener('contextmenu', event => event.preventDefault());
+    let allQuizzes = [];
+    let currentQuiz = {};
+    let currentSubject = "";
+    let currentQuestionIndex = 0;
+    let userResponses = {}; 
+    let studentDetails = {};
+    let timerInterval;
+    let quizInProgress = false;
+    let warningCount = 0;
+    const maxWarnings = 2;
+
+    function shuffleArray(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+    }
+
+    async function loadInitialData() {
+        try {
+            const response = await fetch('/get-quizzes');
+            allQuizzes = await response.json();
+            displayInitialScreen();
+        } catch (error) {
+            document.body.innerHTML = "<h1>Error: Could not load quiz data.</h1>";
+        }
+    }
+
+    function displayInitialScreen() {
+        document.getElementById('student-details-screen').style.display = 'block';
+        const quizSelectionContainer = document.getElementById('quiz-selection-container');
+        let selectHTML = '<label for="quiz-select">Select a Test:</label><select id="quiz-select">';
+        allQuizzes.forEach((quiz, index) => {
+            selectHTML += `<option value="${index}">${quiz.title}</option>`;
+        });
+        selectHTML += '</select>';
+        quizSelectionContainer.innerHTML = selectHTML;
+        document.getElementById('proceed-btn').onclick = handleProceed;
+    }
+
+    async function handleProceed() {
+        const name = document.getElementById('student-name').value;
+        const mobile = document.getElementById('student-mobile').value;
+        const quizSelect = document.getElementById('quiz-select');
+        const selectedQuizIndex = quizSelect ? quizSelect.value : 0;
+        currentQuiz = allQuizzes[selectedQuizIndex];
+
+        if (!name || !mobile) {
+            alert("Please fill in all details.");
+            return;
+        }
+        studentDetails = { name, mobile };
+
+        const response = await fetch('/check-attempt', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mobile: studentDetails.mobile, quizId: currentQuiz.id })
+        });
+        const data = await response.json();
+        if (data.canAttempt) showPasswordScreen();
+        else alert(data.message);
+    }
+
+    function showPasswordScreen() {
+        const detailsScreen = document.getElementById('student-details-screen');
+        detailsScreen.innerHTML = `
+            <div style="max-width: 500px; margin: 50px auto; background: #fff; padding: 30px; border-radius: 8px;">
+                <h2>Enter Exam Password</h2>
+                <input type="password" id="exam-password" placeholder="Enter the password" required>
+                <button id="password-submit-btn" style="width: 100%;">Continue</button>
+            </div>
+        `;
+        document.getElementById('password-submit-btn').onclick = () => {
+            if (document.getElementById('exam-password').value === currentQuiz.password) prepareQuiz();
+            else alert("Incorrect password.");
+        };
+    }
+
+    function prepareQuiz() {
+    const detailsScreen = document.getElementById('student-details-screen');
+    detailsScreen.innerHTML = `
+        <div style="max-width: 500px; margin: 50px auto; background: #fff; padding: 30px; border-radius: 8px;">
+            <h2>Exam Instructions</h2>
+            <p>This test is proctored. You must remain in full-screen mode and not switch tabs.</p>
+            <p>After ${maxWarnings} warnings, your test will be submitted automatically.</p>
+            <button id="start-test-btn" style="width: 100%;">Start Camera & Full Screen</button>
+        </div>
+    `;
+    document.getElementById('start-test-btn').onclick = async () => {
+        try {
+            await startCamera();
+            await startFullScreen();
+            
+            // Show green success message
+            showToast("Permissions Granted!", "success");
+
+            // Wait a moment before starting the quiz
+            setTimeout(() => {
+                document.getElementById('student-details-screen').style.display = 'none';
+                document.getElementById('quiz-screen').style.display = 'flex';
+                initializeQuiz();
+            }, 1500);
+
+        } catch (err) {
+            console.error("Error:", err);
+            showToast("Could not start. Please allow permissions.", "warning");
+        }
+    };
+}
+
+    async function startCamera() {
+        const videoElement = document.getElementById('camera-view');
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            videoElement.srcObject = stream;
+            videoElement.style.display = 'block';
+        } else { throw new Error("Camera not supported."); }
+    }
+
+    async function startFullScreen() {
+        if (document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen();
+    }
+
+    function initializeQuiz() {
+    quizInProgress = true;
+    document.getElementById('quiz-title-main').textContent = currentQuiz.title;
+    const subjectTabsContainer = document.querySelector('.subject-tabs');
+    subjectTabsContainer.innerHTML = '';
+    
+    Object.keys(currentQuiz.subjects).forEach(subject => {
+        shuffleArray(currentQuiz.subjects[subject]);
+        userResponses[subject] = {};
+        const tab = document.createElement('button');
+        tab.className = 'subject-tab';
+        tab.textContent = subject;
+        tab.onclick = () => switchSubject(subject);
+        subjectTabsContainer.appendChild(tab);
+    });
+    
+    currentSubject = Object.keys(currentQuiz.subjects)[0];
+    setupProctoringListeners();
+    switchSubject(currentSubject); // This loads the first question
+    
+    // Start the timer last, after everything is initialized
+    startTimer(currentQuiz.timeLimit * 60);
+}
+    
+    function setupProctoringListeners() {
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden && quizInProgress) handleWarning("You have switched tabs.");
+        });
+        document.addEventListener('fullscreenchange', () => {
+            if (!document.fullscreenElement && quizInProgress) handleWarning("You have exited full-screen.");
+        });
+    }
+
+    function showWarningToast(message) {
+        const toast = document.createElement('div');
+        toast.className = 'warning-toast';
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        
+        // Trigger the animation
+        setTimeout(() => {
+            toast.classList.add('show');
+        }, 100);
+
+        // Remove the toast after a few seconds
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => {
+                document.body.removeChild(toast);
+            }, 500);
+        }, 4000);
+    }
+
+    function handleWarning(message) {
+    warningCount++;
+    const warningMessage = `Warning ${warningCount}/${maxWarnings}: ${message}`;
+    showToast(warningMessage, 'warning'); // Shows a red toast
+    
+    if (warningCount >= maxWarnings) {
+        setTimeout(() => {
+            showToast(`Maximum warnings exceeded. Submitting test automatically.`, 'warning');
+            submitTest();
+        }, 1000);
+    }
+}
+
+ function switchSubject(subject) {
+    currentSubject = subject;
+    currentQuestionIndex = 0; // Reset to the first question
+    
+    // Update the active tab's visual style
+    document.querySelectorAll('.subject-tab').forEach(tab => {
+        if (tab.textContent === subject) {
+            tab.classList.add('active');
+        } else {
+            tab.classList.remove('active');
+        }
+    });
+
+    loadQuestion(); // Load the first question of the new subject
+    updatePalette(); // Update the sidebar for the new subject
+}
+
+    function loadQuestion() {
+        const question = currentQuiz.subjects[currentSubject][currentQuestionIndex];
+        const response = userResponses[currentSubject][currentQuestionIndex] || {};
+        let shuffledOptions;
+        if (question.shuffledOptions) {
+            shuffledOptions = question.shuffledOptions;
+        } else {
+            const originalCorrectAnswerText = question.options[question.correctAnswer];
+            shuffledOptions = [...question.options];
+            shuffleArray(shuffledOptions);
+            question.shuffledOptions = shuffledOptions;
+            question.shuffledCorrectAnswerIndex = shuffledOptions.indexOf(originalCorrectAnswerText);
+        }
+        document.getElementById('question-number').textContent = `Question ${currentQuestionIndex + 1}`;
+        document.getElementById('question-text').textContent = question.text;
+        const img = document.getElementById('question-image');
+        img.style.display = question.imageUrl ? 'block' : 'none';
+        if (question.imageUrl) img.src = question.imageUrl;
+        const optionsContainer = document.getElementById('options-container');
+        optionsContainer.innerHTML = '';
+        shuffledOptions.forEach((option, index) => {
+            const div = document.createElement('div');
+            div.className = 'option';
+            div.textContent = option;
+            if (response.answer === index) div.classList.add('selected');
+            div.onclick = () => selectOption(index);
+            optionsContainer.appendChild(div);
+        });
+        updatePalette();
+    }
+    
+    function selectOption(index) {
+        const response = userResponses[currentSubject][currentQuestionIndex] || {};
+        response.answer = index;
+        userResponses[currentSubject][currentQuestionIndex] = response;
+        document.querySelectorAll('.option').forEach((opt, optIndex) => {
+            opt.classList.toggle('selected', optIndex === index);
+        });
+    }
+
+    function saveAndNext() {
+        const response = userResponses[currentSubject][currentQuestionIndex];
+        if (response && response.answer !== undefined) response.status = 'answered';
+        if (currentQuestionIndex < currentQuiz.subjects[currentSubject].length - 1) {
+            currentQuestionIndex++;
+            loadQuestion();
+        }
+        updatePalette();
+    }
+
+    function markForReview() {
+        const response = userResponses[currentSubject][currentQuestionIndex] || {};
+        response.status = 'review';
+        userResponses[currentSubject][currentQuestionIndex] = response;
+        if (currentQuestionIndex < currentQuiz.subjects[currentSubject].length - 1) {
+            currentQuestionIndex++;
+            loadQuestion();
+        }
+    }
+
+    function clearResponse() {
+        if (userResponses[currentSubject][currentQuestionIndex]) {
+            delete userResponses[currentSubject][currentQuestionIndex].answer;
+            delete userResponses[currentSubject][currentQuestionIndex].status;
+        }
+        loadQuestion();
+    }
+
+    function updatePalette() {
+        const palette = document.getElementById('question-palette');
+        palette.innerHTML = '';
+        currentQuiz.subjects[currentSubject].forEach((_, index) => {
+            const response = userResponses[currentSubject][index] || {};
+            const item = document.createElement('div');
+            item.className = 'palette-item';
+            if (response.status === 'answered') item.classList.add('status-answered');
+            else if (response.status === 'review') item.classList.add('status-review');
+            else item.classList.add('status-not-answered');
+            item.textContent = index + 1;
+            item.onclick = () => { currentQuestionIndex = index; loadQuestion(); };
+            palette.appendChild(item);
+        });
+    }
+    
+    function startTimer(duration) {
+        let timeLeft = duration;
+        timerInterval = setInterval(() => {
+            if (timeLeft <= 0) {
+                clearInterval(timerInterval);
+                showWarningToast("Time's up! Submitting your test.");
+                submitTest();
+                return;
+            }
+            timeLeft--;
+            const hours = Math.floor(timeLeft / 3600);
+            const minutes = Math.floor((timeLeft % 3600) / 60);
+            const seconds = timeLeft % 60;
+            document.getElementById('timer').textContent = 
+                `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }, 1000);
+    }
+    
+    function confirmSubmit() {
+        if (confirm("Are you sure you want to submit the test?")) submitTest();
+    }
+
+    function submitTest() {
+        const submitBtn = document.querySelector('.submit');
+        if (submitBtn) submitBtn.disabled = true;
+
+        if (!quizInProgress) return;
+        quizInProgress = false;
+        clearInterval(timerInterval);
+        
+        let totalScore = 0;
+        let subjectScores = {};
+
+        Object.keys(currentQuiz.subjects).forEach(subject => {
+            let subjectScore = 0;
+            currentQuiz.subjects[subject].forEach((question, index) => {
+                const response = userResponses[subject][index];
+                if (response && response.answer !== undefined) {
+                    if (response.answer === question.shuffledCorrectAnswerIndex) subjectScore += 4;
+                    else subjectScore -= 1;
+                }
+            });
+            subjectScores[subject] = subjectScore;
+            totalScore += subjectScore;
+        });
+
+        const resultData = {
+            date: new Date().toISOString(),
+            studentName: studentDetails.name,
+            mobile: studentDetails.mobile,
+            class: currentQuiz.class,
+            quizId: currentQuiz.id,
+            quizTitle: currentQuiz.title,
+            totalScore: totalScore,
+            subjectScores: subjectScores,
+            warnings: warningCount
+        };
+
+        fetch('/submit-result', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(resultData),
+        })
+        .then(response => {
+            if (!response.ok) throw new Error('Submission failed');
+            alert(`Test Submitted Successfully!`);
+            document.getElementById('quiz-screen').innerHTML = `<div style="max-width: 600px; margin: 50px auto; text-align:center;"><h1>Test Submitted Successfully</h1></div>`;
+        })
+        .catch(error => {
+            alert('There was an error submitting your test.');
+            if (submitBtn) submitBtn.disabled = false;
+        });
+    }
+  if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js').then(registration => {
+                    console.log('ServiceWorker registration successful');
+                }, err => {
+                    console.log('ServiceWorker registration failed: ', err);
+                });
+            });
+        }
+    document.addEventListener('DOMContentLoaded', loadInitialData);
+</script>
+</body>
+</html>

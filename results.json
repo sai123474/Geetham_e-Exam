@@ -1,0 +1,62 @@
+[
+  {
+    "date": "2025-08-26T11:54:27.728Z",
+    "studentName": "ramarao",
+    "mobile": "9653443321",
+    "class": "11",
+    "quizId": 101,
+    "quizTitle": "JEE Mains Full Mock Test 1",
+    "totalScore": 18,
+    "subjectScores": {
+      "Physics": 12,
+      "Chemistry": -2,
+      "Mathematics": 8
+    },
+    "warnings": 0
+  },
+  {
+    "date": "2025-08-26T11:57:34.762Z",
+    "studentName": "ramarao",
+    "mobile": "9653443321",
+    "class": "12",
+    "quizId": 1756209301461,
+    "quizTitle": "jee",
+    "totalScore": 14,
+    "subjectScores": {
+      "Physics": 3,
+      "Chemistry": 3,
+      "Mathematics": 8
+    },
+    "warnings": 0
+  },
+  {
+    "date": "2025-08-26T11:58:45.064Z",
+    "studentName": "deepak",
+    "mobile": "7013833119",
+    "class": "11",
+    "quizId": 101,
+    "quizTitle": "JEE Mains Full Mock Test 1",
+    "totalScore": 8,
+    "subjectScores": {
+      "Physics": 8,
+      "Chemistry": 0,
+      "Mathematics": 0
+    },
+    "warnings": 0
+  },
+  {
+    "date": "2025-08-26T11:59:49.096Z",
+    "studentName": "rambabu",
+    "mobile": "7013833113",
+    "class": "11",
+    "quizId": 101,
+    "quizTitle": "JEE Mains Full Mock Test 1",
+    "totalScore": 2,
+    "subjectScores": {
+      "Physics": 3,
+      "Chemistry": -1,
+      "Mathematics": 0
+    },
+    "warnings": 0
+  }
+]

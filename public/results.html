@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Results - Geetham e-Exam</title>
+    <link rel="icon" type="image/jpeg" href="/geetham.jpg">
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f8f9fa; padding: 20px; }
+        .container { max-width: 1200px; margin: auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .header { text-align: center; margin-bottom: 30px; }
+        .logo { max-height: 80px; }
+        h1 { color: #0056b3; }
+        .controls { margin-bottom: 20px; display: flex; align-items: center; flex-wrap: wrap; }
+        label { font-weight: bold; margin-right: 10px; }
+        select { padding: 8px; font-size: 16px; margin-right: 20px; border-radius: 5px; border: 1px solid #ccc; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 12px; border: 1px solid #ddd; text-align: left; }
+        th { background-color: #007bff; color: white; }
+        tr:nth-child(even) { background-color: #f2f2f2; }
+        button { padding: 10px 15px; font-size: 16px; cursor: pointer; border: none; border-radius: 5px; color: white; margin-right: 10px; transition: background-color 0.2s; }
+        .refresh-btn { background-color: #28a745; }
+        .clear-btn { background-color: #dc3545; }
+        .export-btn { background-color: #17a2b8; }
+        button:hover { opacity: 0.9; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <img src="/geetham.jpg" alt="Geetham Institute Logo" class="logo">
+            <h1>📊 Student Results Dashboard</h1>
+        </div>
+
+        <div class="controls">
+            <label for="class-filter">Filter by Class:</label>
+            <select id="class-filter" onchange="renderResults()">
+                <option value="all">All Classes</option>
+                <option value="11">11th</option>
+                <option value="12">12th</option>
+            </select>
+            <button class="refresh-btn" onclick="fetchResults()">Refresh Results</button>
+            <button class="export-btn" onclick="exportToCSV()">Export to Excel (CSV)</button>
+            <button class="clear-btn" onclick="clearResults()">Clear All Results</button>
+        </div>
+
+        <table id="results-table">
+            <thead>
+                <tr>
+                    <th>Rank</th>
+                    <th>Student Name</th>
+                    <th>Mobile</th>
+                    <th>Class</th>
+                    <th>Total Score</th>
+                    <th>Physics</th>
+                    <th>Chemistry</th>
+                    <th>Mathematics</th>
+                    <th>Warnings</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+<script>
+    let allResults = [];
+
+    async function fetchResults() {
+        try {
+            const response = await fetch('/results');
+            allResults = await response.json();
+            renderResults();
+        } catch (error) {
+            alert("Could not fetch results.");
+        }
+    }
+
+    function renderResults() {
+        const classFilter = document.getElementById('class-filter').value;
+        const tbody = document.getElementById('results-table').querySelector('tbody');
+        tbody.innerHTML = '';
+        const filteredResults = classFilter === 'all'
+            ? allResults
+            : allResults.filter(res => res.class === classFilter);
+        filteredResults.sort((a, b) => (b.totalScore || 0) - (a.totalScore || 0));
+        filteredResults.forEach((res, index) => {
+            const row = tbody.insertRow();
+            row.innerHTML = `
+                <td><b>${index + 1}</b></td>
+                <td>${res.studentName || 'N/A'}</td>
+                <td>${res.mobile || 'N/A'}</td>
+                <td>${res.class || 'N/A'}</td>
+                <td><b>${res.totalScore || 0}</b></td>
+                <td>${res.subjectScores?.Physics ?? 0}</td>
+                <td>${res.subjectScores?.Chemistry ?? 0}</td>
+                <td>${res.subjectScores?.Mathematics ?? 0}</td>
+                <td>${res.warnings || 0}</td>
+            `;
+        });
+    }
+
+    function exportToCSV() {
+        const classFilterSelect = document.getElementById('class-filter');
+        const classFilterValue = classFilterSelect.value;
+        const filterText = classFilterSelect.options[classFilterSelect.selectedIndex].text.replace(/\s+/g, '-');
+        const filteredResults = classFilterValue === 'all'
+            ? allResults
+            : allResults.filter(res => res.class === classFilterValue);
+        
+        if (filteredResults.length === 0) {
+            alert("No results to export.");
+            return;
+        }
+        const headers = ["Rank", "Student Name", "Mobile", "Class", "Total Score", "Physics", "Chemistry", "Mathematics", "Warnings"];
+        let csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n";
+        filteredResults.forEach((res, index) => {
+            const row = [
+                index + 1,
+                `"${res.studentName || 'N/A'}"`,
+                `"${res.mobile || 'N/A'}"`,
+                `"${res.class || 'N/A'}"`,
+                res.totalScore || 0,
+                res.subjectScores?.Physics ?? 0,
+                res.subjectScores?.Chemistry ?? 0,
+                res.subjectScores?.Mathematics ?? 0,
+                res.warnings || 0
+            ].join(",");
+            csvContent += row + "\n";
+        });
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `geetham_e-exam_results_${filterText}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    function clearResults() {
+        if (confirm("Are you sure you want to delete all results? This cannot be undone.")) {
+            fetch('/clear-results', { method: 'POST' })
+                .then(response => {
+                    if (response.ok) {
+                        alert('All results have been cleared successfully.');
+                        fetchResults();
+                    } else {
+                        alert('Failed to clear results.');
+                    }
+                });
+        }
+    }
+    window.onload = fetchResults;
+</script>
+</body>
+</html>
