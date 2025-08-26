@@ -40,8 +40,11 @@ async function connectDB() {
 
 // Get all quiz data (still from file for simplicity, but could be moved to DB)
 app.get('/get-quizzes', (req, res) => {
-    fs.readFile(path.join(__dirname, 'quizzes.json'), 'utf8', (err, data) => {
-        if (err) return res.status(500).send('Error reading quizzes file.');
+    fs.readFile(quizzesFilePath, 'utf8', (err, data) => {
+        if (err) {
+            console.error("Error reading quizzes file:", err);
+            return res.status(500).send('Error reading quizzes file.');
+        }
         res.json(JSON.parse(data));
     });
 });
