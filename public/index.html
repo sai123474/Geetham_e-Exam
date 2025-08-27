@@ -4,9 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Geetham e-Exam</title>
-    <link rel="icon" type="image/jpeg" href="/geetham.jpg">
-    <link rel="manifest" href="/manifest.json">
-
+    
     <!-- TensorFlow.js Core and Backend -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl"></script>
@@ -15,795 +13,408 @@
     <!-- Face Landmarker Model -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/face-landmarks-detection"></script>
 
-    <meta name="theme-color" content="#0056b3"/>
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <meta http-equiv="Pragma" content="no-cache">
-    <meta http-equiv="Expires" content="0">
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f0f2f5; color: #333; margin: 0; padding: 10px; }
-        .main-container, #student-details-screen { display: none; }
-        .quiz-panel { flex-grow: 1; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-        .sidebar { width: 300px; margin-left: 20px; background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-        h1, h2 { color: #0056b3; text-align: center; }
-        input, select { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
-        #timer { font-size: 20px; font-weight: bold; color: #d9534f; text-align: center; margin-bottom: 15px; }
-        .subject-tabs { display: flex; border-bottom: 2px solid #ddd; margin-bottom: 20px; gap: 10px; }
-        .subject-tab { padding: 10px 20px; cursor: pointer; font-weight: 600; border: none; background-color: #f0f2f5; color: #333; font-size: 16px; border-radius: 8px 8px 0 0; transition: background-color 0.2s, color 0.2s; }
-        .subject-tab:hover { background-color: #e2e8f0; }
-        .subject-tab.active { background-color: #007bff; color: white; border-bottom: 3px solid #0056b3; }
-        .question-area { min-height: 300px; }
-        .option { display: block; margin: 10px 0; padding: 12px; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; }
-        .option.selected { background-color: #007bff; color: white; border-color: #007bff; }
-        .nav-buttons { margin-top: 20px; display: flex; justify-content: space-between; }
-        button { background-color: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 14px; }
-        button:disabled { background-color: #a0a0a0; }
-        button.secondary { background-color: #6c757d; }
-        button.submit { background-color: #28a745; }
-        .palette-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
-        .palette-item { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 50%; cursor: pointer; font-weight: bold; }
-        .status-not-answered { background-color: #f0f0f0; }
-        .status-answered { background-color: #28a745; color: white; }
-        .status-review { background-color: #ffc107; }
-
-        /* Camera wrapper (draggable + resizable) */
-        #camera-wrapper { position: fixed; bottom: 10px; left: 10px; width: 160px; height: 120px; border: 2px solid #0056b3; border-radius: 6px; background: #000; overflow: hidden; display: none; resize: both; z-index: 9998; min-width: 140px; min-height: 110px; }
-        #camera-header { height: 22px; background: rgba(0,86,179,0.9); color: #fff; display:flex; align-items:center; justify-content:space-between; padding: 0 6px; cursor: move; font-size: 12px; }
-        #camera-view { width:100%; height: calc(100% - 22px); object-fit: cover; display:block; }
-        #camera-wrapper.minimized #camera-view { filter: blur(4px); }
-        #camera-wrapper.minimized #camera-header { background: rgba(220,53,69,0.9); }
-
-        .toast { position: fixed; top: -100px; left: 50%; transform: translateX(-50%); padding: 15px 25px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); font-size: 16px; font-weight: bold; z-index: 9999; opacity: 0; transition: opacity 0.5s, top 0.5s; }
-        .toast.show { top: 40px; opacity: 1; }
-        .toast.warning { background-color: #dc3545; color: white; }
-        .toast.success { background-color: #28a745; color: white; }
-        /* warnings indicator */
-        #warnings-indicator { position: fixed; top: 14px; right: 14px; background: #ffc107; color: #333; padding: 6px 10px; border-radius: 18px; font-weight: 700; z-index: 9999; box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
+        body { 
+            font-family: Arial, sans-serif; 
+            background-color: #f0f2f5; 
+            margin: 0; 
+            padding: 20px; 
+        }
+        .container { 
+            max-width: 800px; 
+            margin: 0 auto; 
+            background: white; 
+            padding: 30px; 
+            border-radius: 10px; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1); 
+        }
+        .camera-wrapper { 
+            position: fixed; 
+            bottom: 20px; 
+            right: 20px; 
+            width: 200px; 
+            height: 150px; 
+            border: 3px solid #007bff; 
+            border-radius: 8px; 
+            background: #000; 
+            overflow: hidden; 
+            z-index: 1000; 
+        }
+        .camera-header { 
+            height: 25px; 
+            background: #007bff; 
+            color: white; 
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between; 
+            padding: 0 10px; 
+            font-size: 12px; 
+        }
+        .camera-view { 
+            width: 100%; 
+            height: calc(100% - 25px); 
+            object-fit: cover; 
+        }
+        .warning { 
+            background: #dc3545; 
+            color: white; 
+            padding: 10px; 
+            border-radius: 5px; 
+            margin: 10px 0; 
+        }
+        .success { 
+            background: #28a745; 
+            color: white; 
+            padding: 10px; 
+            border-radius: 5px; 
+            margin: 10px 0; 
+        }
+        button { 
+            background: #007bff; 
+            color: white; 
+            border: none; 
+            padding: 10px 20px; 
+            border-radius: 5px; 
+            cursor: pointer; 
+            margin: 5px; 
+        }
+        button:hover { background: #0056b3; }
+        .status { 
+            padding: 10px; 
+            margin: 10px 0; 
+            border-radius: 5px; 
+            background: #f8f9fa; 
+        }
     </style>
 </head>
 <body>
-    <div id="warnings-indicator" title="Remaining warnings" style="display:none;">Warnings left: <span id="warnings-left">2</span></div>
-    <div id="camera-wrapper">
-        <div id="camera-header"><span id="camera-title">Camera</span><button id="camera-hide-btn" style="background:transparent;border:none;color:#fff;cursor:pointer;">✕</button></div>
-        <video id="camera-view" autoplay playsinline muted></video>
-    </div>
-
-    <div id="student-details-screen" style="display: block;">
-        <div style="max-width: 500px; margin: 50px auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-            <div style="text-align: center; margin-bottom: 15px;">
-                <img src="/geetham.jpg" alt="Geetham Institute Logo" style="max-height: 80px;">
-            </div>
-            <h1>Geetham e-Exam</h1>
-            <div id="login-form">
-                <h2>Enter Your Details</h2>
-                <p>You can only attempt each test once.</p>
-                <div id="quiz-selection-container"></div>
-                <!-- Turn off autocomplete and other helpers -->
-                <input type="text" id="student-name" placeholder="Enter your full name" required autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false">
-                <input type="tel" id="student-mobile" inputmode="tel" placeholder="Enter your mobile number" required autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false">
-                <button id="proceed-btn" style="width: 100%">Proceed</button>
-            </div>
-        </div>
-    </div>
-    <div class="main-container" id="quiz-screen">
-        <div class="quiz-panel">
-            <h1 style="margin-top: 0;" id="quiz-title-main"></h1>
-            <div id="timer">00:00:00</div>
-            <div class="subject-tabs"></div>
-            <div id="question-area" class="question-area">
-                 <h3 id="question-number"></h3>
-                 <p id="question-text"></p>
-                 <img id="question-image" class="question-image" style="display:none; max-width:100%;">
-                 <div id="options-container"></div>
-            </div>
-            <div class="nav-buttons">
-                <button class="secondary" onclick="markForReview()">Mark for Review & Next</button>
-                <div>
-                    <button class="secondary" onclick="clearResponse()">Clear Response</button>
-                    <button onclick="saveAndNext()">Save & Next</button>
-                </div>
-            </div>
-            <div style="text-align: center; margin-top: 20px;">
-                <button class="submit" onclick="confirmSubmit()">Submit Test</button>
-            </div>
-        </div>
-        <div class="sidebar">
-            <h4>Question Palette</h4>
-            <div id="question-palette" class="palette-grid"></div>
-            <hr>
-            <h4>Legend</h4>
-            <div style="display:flex; align-items: center; margin-top: 10px;"><div class="palette-item status-answered"></div><span style="margin-left: 10px;">Answered</span></div>
-            <div style="display:flex; align-items: center; margin-top: 10px;"><div class="palette-item status-review"></div><span style="margin-left: 10px;">Marked for Review</span></div>
-            <div style="display:flex; align-items: center; margin-top: 10px;"><div class="palette-item status-not-answered"></div><span style="margin-left: 10px;">Not Answered</span></div>
-        </div>
-    </div>
-
-<script>
-    document.addEventListener('contextmenu', event => event.preventDefault());
-    let allQuizzes = [];
-    let currentQuiz = {};
-    let currentSubject = "";
-    let currentQuestionIndex = 0;
-    let userResponses = {}; 
-    let studentDetails = {};
-    let timerInterval;
-    let quizInProgress = false;
-    let warningCount = 0;
-    const maxWarnings = 2;
-    const AUTOSAVE_KEY_PREFIX = 'geetham_autosave_v1_';
-    let autosaveTimeout;
-
-    // Remaining time warning
-    let fiveMinWarned = false;
-
-    // Per-question time tracking
-    let questionTimes = {}; // {subject: {qIndex: ms}}
-    let lastQuestionStart = null;
-
-    // --- GAZE DETECTION VARIABLES ---
-    let gazeModel;
-    let isGazeDetectionRunning = false;
-    let lookAwayStartTime = null;
-    const LOOK_AWAY_THRESHOLD = 3000; // 3 seconds
-
-    // Camera visibility detection
-    let camHiddenSince = null;
-    const CAM_HIDDEN_THRESHOLD = 2000; // 2s
-
-    function showToast(message, type = 'warning') {
-        const toast = document.createElement('div');
-        toast.className = `toast ${type}`;
-        toast.textContent = message;
-        document.body.appendChild(toast);
-
-        setTimeout(() => { toast.classList.add('show'); }, 100);
-        setTimeout(() => {
-            toast.classList.remove('show');
-            setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 500);
-        }, 4000);
-
-        updateWarningsIndicator();
-    }
-
-    function updateWarningsIndicator() {
-        const el = document.getElementById('warnings-indicator');
-        const left = Math.max(0, maxWarnings - warningCount);
-        const span = document.getElementById('warnings-left');
-        span.textContent = left;
-        el.style.display = (quizInProgress || warningCount>0) ? 'block' : 'none';
-        el.style.background = left === 0 ? '#dc3545' : '#ffc107';
-    }
-
-    function shuffleArray(array) {
-        for (let i = array.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [array[i], array[j]] = [array[j], array[i]];
-        }
-    }
-
-    async function loadInitialData() {
-        try {
-            const response = await fetch('/get-quizzes');
-            allQuizzes = await response.json();
-            displayInitialScreen();
-            restoreAutosaveIfAny();
-        } catch (error) {
-            document.body.innerHTML = "<h1>Error: Could not load quiz data.</h1>";
-        }
-    }
-
-    // --- NEW GAZE DETECTION FUNCTIONS ---
-    async function loadGazeModel() {
-        try {
-            const model = faceLandmarksDetection.SupportedModels.MediaPipeFaceMesh;
-            const detectorConfig = {
-                runtime: 'mediapipe',
-                solutionPath: 'https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh',
-                refineLandmarks: true
-            };
-            gazeModel = await faceLandmarksDetection.createDetector(model, detectorConfig);
-            console.log("Gaze detection model loaded successfully.");
-        } catch (error) {
-            console.error("Failed to load gaze model:", error);
-            showToast("Proctoring AI could not start. Please check camera & internet.", "warning");
-        }
-    }
-
-    function startGazeDetection() {
-        if (!gazeModel) return;
-        isGazeDetectionRunning = true;
-        const videoElement = document.getElementById('camera-view');
+    <div class="container">
+        <h1>AI Proctored Exam System</h1>
         
-        async function detectGaze() {
-            if (!quizInProgress || !isGazeDetectionRunning) return;
+        <div class="status" id="status">
+            <strong>Status:</strong> <span id="status-text">Initializing...</span>
+        </div>
+        
+        <div class="warning" id="warning" style="display: none;">
+            <strong>Warning:</strong> <span id="warning-text"></span>
+        </div>
+        
+        <div class="success" id="success" style="display: none;">
+            <strong>Success:</strong> <span id="success-text"></span>
+        </div>
+        
+        <div>
+            <button id="start-camera">Start Camera</button>
+            <button id="start-proctoring">Start AI Proctoring</button>
+            <button id="stop-proctoring">Stop Proctoring</button>
+            <button id="fullscreen">Go Fullscreen</button>
+        </div>
+        
+        <div style="margin-top: 20px;">
+            <h3>Proctoring Features:</h3>
+            <ul>
+                <li>Face detection and gaze tracking</li>
+                <li>Tab switching detection</li>
+                <li>Fullscreen enforcement</li>
+                <li>Camera visibility monitoring</li>
+                <li>Warning system with auto-submission</li>
+            </ul>
+        </div>
+    </div>
 
+    <div class="camera-wrapper" id="camera-wrapper" style="display: none;">
+        <div class="camera-header">
+            <span>AI Proctor Camera</span>
+            <button id="minimize-camera" style="background: transparent; border: none; color: white; cursor: pointer;">−</button>
+        </div>
+        <video id="camera-view" class="camera-view" autoplay playsinline muted></video>
+    </div>
+
+    <script>
+        // Global variables
+        let gazeModel = null;
+        let isProctoringActive = false;
+        let warningCount = 0;
+        const maxWarnings = 3;
+        let lookAwayStartTime = null;
+        const LOOK_AWAY_THRESHOLD = 3000; // 3 seconds
+        let proctoringInterval = null;
+
+        // Initialize TensorFlow.js
+        async function initializeTensorFlow() {
             try {
-                const faces = await gazeModel.estimateFaces(videoElement, { flipHorizontal: false });
+                updateStatus("Initializing TensorFlow.js...");
+                
+                // Set backend to WebGL for better performance
+                await tf.setBackend('webgl');
+                await tf.ready();
+                
+                updateStatus("TensorFlow.js initialized successfully");
+                return true;
+            } catch (error) {
+                console.error("TensorFlow initialization failed:", error);
+                updateStatus("TensorFlow.js initialization failed: " + error.message);
+                return false;
+            }
+        }
 
-                if (faces.length > 0) {
-                    const keypoints = faces[0].keypoints;
-                    const leftEye = keypoints[33];
-                    const rightEye = keypoints[263];
-                    const nose = keypoints[1];
+        // Load the face detection model
+        async function loadFaceModel() {
+            try {
+                updateStatus("Loading face detection model...");
+                
+                const model = faceLandmarksDetection.SupportedModels.MediaPipeFaceMesh;
+                const detectorConfig = {
+                    runtime: 'mediapipe',
+                    solutionPath: 'https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh',
+                    refineLandmarks: true
+                };
+                
+                gazeModel = await faceLandmarksDetection.createDetector(model, detectorConfig);
+                updateStatus("Face detection model loaded successfully");
+                return true;
+            } catch (error) {
+                console.error("Face model loading failed:", error);
+                updateStatus("Face model loading failed: " + error.message);
+                return false;
+            }
+        }
 
-                    const eyeCenterX = (leftEye.x + rightEye.x) / 2;
-                    const horizontalGaze = nose.x - eyeCenterX;
+        // Start camera
+        async function startCamera() {
+            try {
+                updateStatus("Starting camera...");
+                
+                const videoElement = document.getElementById('camera-view');
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        width: { ideal: 640 }, 
+                        height: { ideal: 480 },
+                        facingMode: 'user'
+                    } 
+                });
+                
+                videoElement.srcObject = stream;
+                document.getElementById('camera-wrapper').style.display = 'block';
+                
+                updateStatus("Camera started successfully");
+                showSuccess("Camera is now active");
+                
+                return true;
+            } catch (error) {
+                console.error("Camera start failed:", error);
+                updateStatus("Camera start failed: " + error.message);
+                return false;
+            }
+        }
 
-                    if (Math.abs(horizontalGaze) > 10) {
+        // Start AI proctoring
+        async function startProctoring() {
+            if (!gazeModel) {
+                showWarning("Face detection model not loaded. Please wait...");
+                return;
+            }
+            
+            if (isProctoringActive) {
+                showWarning("Proctoring is already active");
+                return;
+            }
+            
+            isProctoringActive = true;
+            updateStatus("AI proctoring started - monitoring gaze and behavior");
+            showSuccess("AI proctoring is now active");
+            
+            // Start gaze detection loop
+            startGazeDetection();
+            
+            // Setup other monitoring
+            setupTabSwitchDetection();
+            setupFullscreenMonitoring();
+        }
+
+        // Stop AI proctoring
+        function stopProctoring() {
+            isProctoringActive = false;
+            if (proctoringInterval) {
+                clearInterval(proctoringInterval);
+                proctoringInterval = null;
+            }
+            updateStatus("AI proctoring stopped");
+        }
+
+        // Gaze detection function
+        function startGazeDetection() {
+            const videoElement = document.getElementById('camera-view');
+            
+            async function detectGaze() {
+                if (!isProctoringActive || !gazeModel) return;
+                
+                try {
+                    const faces = await gazeModel.estimateFaces(videoElement, { 
+                        flipHorizontal: false 
+                    });
+                    
+                    if (faces.length > 0) {
+                        const keypoints = faces[0].keypoints;
+                        
+                        // Get key facial landmarks
+                        const leftEye = keypoints[33];  // Left eye center
+                        const rightEye = keypoints[263]; // Right eye center
+                        const nose = keypoints[1];       // Nose tip
+                        
+                        if (leftEye && rightEye && nose) {
+                            // Calculate eye center
+                            const eyeCenterX = (leftEye.x + rightEye.x) / 2;
+                            const eyeCenterY = (leftEye.y + rightEye.y) / 2;
+                            
+                            // Calculate gaze direction relative to screen center
+                            const screenCenterX = window.innerWidth / 2;
+                            const screenCenterY = window.innerHeight / 2;
+                            
+                            const gazeOffsetX = Math.abs(eyeCenterX - screenCenterX);
+                            const gazeOffsetY = Math.abs(eyeCenterY - screenCenterY);
+                            
+                            // Check if looking away (threshold can be adjusted)
+                            if (gazeOffsetX > 100 || gazeOffsetY > 100) {
+                                if (lookAwayStartTime === null) {
+                                    lookAwayStartTime = Date.now();
+                                } else if (Date.now() - lookAwayStartTime > LOOK_AWAY_THRESHOLD) {
+                                    handleWarning("You are looking away from the screen for too long");
+                                    lookAwayStartTime = null;
+                                }
+                            } else {
+                                lookAwayStartTime = null;
+                            }
+                        }
+                    } else {
+                        // No face detected
                         if (lookAwayStartTime === null) {
                             lookAwayStartTime = Date.now();
                         } else if (Date.now() - lookAwayStartTime > LOOK_AWAY_THRESHOLD) {
-                            handleWarning("You are looking away from the screen.");
+                            handleWarning("No face detected - please return to camera view");
                             lookAwayStartTime = null;
                         }
-                    } else {
-                        lookAwayStartTime = null;
                     }
+                } catch (error) {
+                    console.error("Gaze detection error:", error);
                 }
-            } catch (error) {
-                console.error("Gaze detection error:", error);
+                
+                // Continue detection loop
+                if (isProctoringActive) {
+                    requestAnimationFrame(detectGaze);
+                }
             }
             
-            requestAnimationFrame(detectGaze);
+            detectGaze();
         }
-        detectGaze();
-    }
 
-    function stopGazeDetection() { isGazeDetectionRunning = false; }
-
-    function displayInitialScreen() {
-        document.getElementById('student-details-screen').style.display = 'block';
-        const quizSelectionContainer = document.getElementById('quiz-selection-container');
-        let selectHTML = '<label for="quiz-select">Select a Test:</label><select id="quiz-select">';
-        allQuizzes.forEach((quiz, index) => { selectHTML += `<option value="${index}">${quiz.title}</option>`; });
-        selectHTML += '</select>';
-        quizSelectionContainer.innerHTML = selectHTML;
-        document.getElementById('proceed-btn').onclick = handleProceed;
-    }
-
-    async function handleProceed() {
-        const name = document.getElementById('student-name').value.trim();
-        const mobile = document.getElementById('student-mobile').value.trim();
-        const quizSelect = document.getElementById('quiz-select');
-        const selectedQuizIndex = quizSelect ? quizSelect.value : 0;
-        currentQuiz = allQuizzes[selectedQuizIndex];
-        if (!name || !mobile) { alert("Please fill in all details."); return; }
-        studentDetails = { name, mobile };
-        const response = await fetch('/check-attempt', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ mobile: studentDetails.mobile, quizId: currentQuiz.id })
-        });
-        const data = await response.json();
-        if (data.canAttempt) showPasswordScreen(); else alert(data.message);
-    }
-
-    function showPasswordScreen() {
-        const detailsScreen = document.getElementById('student-details-screen');
-        detailsScreen.innerHTML = `
-            <div style="max-width: 500px; margin: 50px auto; background: #fff; padding: 30px; border-radius: 8px;">
-                <h2>Enter Exam Password</h2>
-                <input type="password" id="exam-password" placeholder="Enter the password" required>
-                <button id="password-submit-btn" style="width: 100%">Continue</button>
-            </div>
-        `;
-        document.getElementById('password-submit-btn').onclick = () => {
-            if (document.getElementById('exam-password').value === currentQuiz.password) prepareQuiz();
-            else alert("Incorrect password.");
-        };
-    }
-
-    function prepareQuiz() {
-        loadGazeModel();
-        const detailsScreen = document.getElementById('student-details-screen');
-        detailsScreen.innerHTML = `
-            <div style="max-width: 500px; margin: 50px auto; background: #fff; padding: 30px; border-radius: 8px;">
-                <h2>Exam Instructions</h2>
-                <p>This test is proctored. Do not switch tabs or exit full-screen.</p>
-                <p>After ${maxWarnings} warnings, your test will be submitted automatically.</p>
-                <button id="start-test-btn" style="width: 100%">Start Camera & Full Screen</button>
-            </div>
-        `;
-        document.getElementById('start-test-btn').onclick = async () => {
-            try {
-                await startCamera();
-                await startFullScreen();
-                showToast("Permissions Granted!", "success");
+        // Handle warnings
+        function handleWarning(message) {
+            warningCount++;
+            const warningMessage = `Warning ${warningCount}/${maxWarnings}: ${message}`;
+            showWarning(warningMessage);
+            
+            if (warningCount >= maxWarnings) {
+                showWarning("Maximum warnings exceeded. Exam will be submitted automatically.");
                 setTimeout(() => {
-                    document.getElementById('student-details-screen').style.display = 'none';
-                    document.getElementById('quiz-screen').style.display = 'flex';
-                    document.getElementById('camera-wrapper').style.display = 'block';
-                    initializeQuiz();
-                }, 800);
-            } catch (err) {
-                showToast("Could not start. Please allow permissions.", "warning");
+                    stopProctoring();
+                    alert("Exam terminated due to multiple violations.");
+                }, 2000);
             }
-        };
-    }
-
-    async function startCamera() {
-        const videoElement = document.getElementById('camera-view');
-        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-            videoElement.srcObject = stream;
-            videoElement.muted = true;
-            document.getElementById('camera-wrapper').style.display = 'block';
-            setupCameraVisibilityDetection();
-        } else { throw new Error("Camera not supported."); }
-    }
-
-    async function startFullScreen() {
-        if (document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen();
-    }
-
-    function initializeQuiz() {
-        quizInProgress = true;
-        document.getElementById('quiz-title-main').textContent = currentQuiz.title;
-        const subjectTabsContainer = document.querySelector('.subject-tabs');
-        subjectTabsContainer.innerHTML = '';
-
-        // reset userResponses & times for all subjects
-        Object.keys(currentQuiz.subjects).forEach(subject => {
-            shuffleArray(currentQuiz.subjects[subject]);
-            userResponses[subject] = {};
-            questionTimes[subject] = {};
-            const tab = document.createElement('button');
-            tab.className = 'subject-tab';
-            tab.textContent = subject;
-            tab.onclick = (e) => switchSubject(subject, e.currentTarget);
-            subjectTabsContainer.appendChild(tab);
-        });
-
-        currentSubject = Object.keys(currentQuiz.subjects)[0] || "";
-        setupProctoringListeners();
-
-        if (currentSubject) { switchSubject(currentSubject, subjectTabsContainer.firstChild); }
-
-        startTimer((currentQuiz.timeLimit || 0) * 60);
-        setTimeout(startGazeDetection, 2000);
-        updateWarningsIndicator();
-        tryRestoreForCurrent(); // restore saved answers if available for this quiz+mobile
-    }
-
-    function setupProctoringListeners() {
-        document.addEventListener('visibilitychange', () => {
-            if (document.hidden && quizInProgress) handleWarning("You have switched tabs.");
-        });
-        document.addEventListener('fullscreenchange', () => {
-            if (!document.fullscreenElement && quizInProgress) handleWarning("You have exited full-screen.");
-        });
-    }
-
-    function handleWarning(message) {
-        warningCount++;
-        const warningMessage = `Warning ${warningCount}/${maxWarnings}: ${message}`;
-        showToast(warningMessage, 'warning');
-        saveAutosave();
-        if (warningCount >= maxWarnings) {
-            setTimeout(() => {
-                showToast(`Maximum warnings exceeded. Submitting test automatically.`, 'warning');
-                submitTest();
-            }, 1000);
-        }
-    }
-
-    function accumulateTimeForCurrent() {
-        if (!quizInProgress || lastQuestionStart === null) return;
-        const now = Date.now();
-        const elapsed = now - lastQuestionStart; // ms
-        if (!questionTimes[currentSubject]) questionTimes[currentSubject] = {};
-        questionTimes[currentSubject][currentQuestionIndex] = (questionTimes[currentSubject][currentQuestionIndex] || 0) + elapsed;
-        lastQuestionStart = now; // reset start for the next period
-    }
-
-    function switchSubject(subject, clickedTab) {
-        accumulateTimeForCurrent();
-        currentSubject = subject;
-        currentQuestionIndex = 0;
-        document.querySelectorAll('.subject-tab').forEach(tab => tab.classList.remove('active'));
-        if (clickedTab) clickedTab.classList.add('active');
-        loadQuestion();
-        updatePalette();
-    }
-
-    function loadQuestion() {
-        const questionsForSubject = currentQuiz.subjects[currentSubject] || [];
-        const question = questionsForSubject[currentQuestionIndex];
-        if (!question) {
-            document.getElementById('question-number').textContent = '';
-            document.getElementById('question-text').textContent = 'No question available.';
-            document.getElementById('options-container').innerHTML = '';
-            return;
-        }
-        const response = userResponses[currentSubject][currentQuestionIndex] || {};
-        let shuffledOptions;
-        if (question.shuffledOptions && Array.isArray(question.shuffledOptions)) {
-            shuffledOptions = question.shuffledOptions.slice();
-        } else {
-            const originalCorrectAnswerText = question.options[question.correctAnswer];
-            shuffledOptions = [...question.options];
-            shuffleArray(shuffledOptions);
-            question.shuffledOptions = shuffledOptions.slice();
-            question.shuffledCorrectAnswerIndex = shuffledOptions.indexOf(originalCorrectAnswerText);
-        }
-        if (question.shuffledOptions && (question.shuffledCorrectAnswerIndex === undefined || question.shuffledCorrectAnswerIndex === null)) {
-            const originalCorrectAnswerText = question.options[question.correctAnswer];
-            question.shuffledCorrectAnswerIndex = question.shuffledOptions.indexOf(originalCorrectAnswerText);
         }
 
-        document.getElementById('question-number').textContent = `Question ${currentQuestionIndex + 1}`;
-        document.getElementById('question-text').textContent = question.text || '';
-        const img = document.getElementById('question-image');
-        img.style.display = question.imageUrl ? 'block' : 'none';
-        if (question.imageUrl) img.src = question.imageUrl;
-        const optionsContainer = document.getElementById('options-container');
-        optionsContainer.innerHTML = '';
-        shuffledOptions.forEach((option, index) => {
-            const div = document.createElement('div');
-            div.className = 'option';
-            div.textContent = option;
-            if (response.answer === index) div.classList.add('selected');
-            div.onclick = () => { selectOption(index); };
-            optionsContainer.appendChild(div);
-        });
-        lastQuestionStart = Date.now(); // start timing this question
-        updatePalette();
-    }
-
-    function selectOption(index) {
-        const response = userResponses[currentSubject][currentQuestionIndex] || {};
-        response.answer = index;
-        userResponses[currentSubject][currentQuestionIndex] = response;
-        document.querySelectorAll('.option').forEach((opt, optIndex) => {
-            opt.classList.toggle('selected', optIndex === index);
-        });
-        response.status = 'answered';
-        scheduleAutosave();
-        updatePalette();
-    }
-
-    function goNextIfPossible() {
-        if (currentQuestionIndex < (currentQuiz.subjects[currentSubject].length - 1)) {
-            currentQuestionIndex++;
-            loadQuestion();
-        }
-    }
-
-    function saveAndNext() {
-        accumulateTimeForCurrent();
-        const response = userResponses[currentSubject][currentQuestionIndex];
-        if (response && response.answer !== undefined) response.status = 'answered';
-        goNextIfPossible();
-        scheduleAutosave();
-        updatePalette();
-    }
-
-    function markForReview() {
-        accumulateTimeForCurrent();
-        const response = userResponses[currentSubject][currentQuestionIndex] || {};
-        response.status = 'review';
-        userResponses[currentSubject][currentQuestionIndex] = response;
-        goNextIfPossible();
-        scheduleAutosave();
-        updatePalette();
-    }
-
-    function clearResponse() {
-        if (userResponses[currentSubject][currentQuestionIndex]) {
-            delete userResponses[currentSubject][currentQuestionIndex].answer;
-            delete userResponses[currentSubject][currentQuestionIndex].status;
-        }
-        scheduleAutosave();
-        loadQuestion();
-    }
-
-    function updatePalette() {
-        const palette = document.getElementById('question-palette');
-        palette.innerHTML = '';
-        const questions = currentQuiz.subjects[currentSubject] || [];
-        questions.forEach((_, index) => {
-            const response = userResponses[currentSubject][index] || {};
-            const item = document.createElement('div');
-            item.className = 'palette-item';
-            if (response.status === 'answered') item.classList.add('status-answered');
-            else if (response.status === 'review') item.classList.add('status-review');
-            else item.classList.add('status-not-answered');
-            item.textContent = index + 1;
-            item.onclick = () => { accumulateTimeForCurrent(); currentQuestionIndex = index; loadQuestion(); };
-            palette.appendChild(item);
-        });
-    }
-
-    function startTimer(duration) {
-        let timeLeft = duration; // seconds
-        if (timerInterval) clearInterval(timerInterval);
-        timerInterval = setInterval(() => {
-            if (timeLeft <= 0) {
-                clearInterval(timerInterval);
-                showToast("Time's up! Submitting your test.", 'warning');
-                submitTest();
-                return;
-            }
-            // 5 minute remaining warning (only once)
-            if (!fiveMinWarned && timeLeft === 300) {
-                fiveMinWarned = true;
-                showToast("Only 5 minutes left! Please review and submit.", 'warning');
-            }
-
-            const hours = Math.floor(timeLeft / 3600);
-            const minutes = Math.floor((timeLeft % 3600) / 60);
-            const seconds = timeLeft % 60;
-            document.getElementById('timer').textContent = `${hours.toString().padStart(2,'0')}:${minutes.toString().padStart(2,'0')}:${seconds.toString().padStart(2,'0')}`;
-            timeLeft--;
-        }, 1000);
-    }
-
-    function confirmSubmit() { if (confirm("Are you sure you want to submit the test?")) submitTest(); }
-
-    function submitTest() {
-        stopGazeDetection();
-        accumulateTimeForCurrent(); // final capture
-        const submitBtn = document.querySelector('.submit');
-        if (submitBtn) submitBtn.disabled = true;
-        if (!quizInProgress) return;
-        quizInProgress = false;
-        clearInterval(timerInterval);
-        let totalScore = 0;
-        let subjectScores = {};
-        Object.keys(currentQuiz.subjects).forEach(subject => {
-            let subjectScore = 0;
-            currentQuiz.subjects[subject].forEach((question, index) => {
-                const response = userResponses[subject][index];
-                if (response && response.answer !== undefined) {
-                    if (response.answer === question.shuffledCorrectAnswerIndex) subjectScore += 4; else subjectScore -= 1;
+        // Tab switch detection
+        function setupTabSwitchDetection() {
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden && isProctoringActive) {
+                    handleWarning("Tab switching detected");
                 }
             });
-            subjectScores[subject] = subjectScore;
-            totalScore += subjectScore;
-        });
+        }
 
-        // Convert ms -> seconds (rounded) for sending
-        const questionTimesSeconds = {};
-        Object.keys(questionTimes).forEach(sub => {
-            questionTimesSeconds[sub] = {};
-            Object.keys(questionTimes[sub]).forEach(qi => {
-                questionTimesSeconds[sub][qi] = Math.round(questionTimes[sub][qi] / 1000);
+        // Fullscreen monitoring
+        function setupFullscreenMonitoring() {
+            document.addEventListener('fullscreenchange', () => {
+                if (!document.fullscreenElement && isProctoringActive) {
+                    handleWarning("Fullscreen exited");
+                }
             });
-        });
+        }
 
-        const resultData = {
-            date: new Date().toISOString(),
-            studentName: studentDetails.name,
-            mobile: studentDetails.mobile,
-            class: currentQuiz.class,
-            quizId: currentQuiz.id,
-            quizTitle: currentQuiz.title,
-            totalScore: totalScore,
-            subjectScores: subjectScores,
-            warnings: warningCount,
-            questionTimes: questionTimesSeconds
-        };
-
-        try { localStorage.removeItem(AUTOSAVE_KEY_PREFIX + (currentQuiz.id || 'noquiz') + '_' + (studentDetails.mobile || 'nomobile')); } catch(e){}
-
-        fetch('/submit-result', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(resultData),
-        })
-        .then(response => {
-            if (!response.ok) throw new Error('Submission failed');
-            alert(`Test Submitted Successfully!`);
-            document.getElementById('quiz-screen').innerHTML = `<div style="max-width: 600px; margin: 50px auto; text-align:center;"><h1>Test Submitted Successfully</h1></div>`;
-        })
-        .catch(error => {
-            alert('There was an error submitting your test.');
-            if (submitBtn) submitBtn.disabled = false;
-        });
-    }
-
-    // ----------------------- Autosave to localStorage -----------------------
-    function scheduleAutosave() { if (autosaveTimeout) clearTimeout(autosaveTimeout); autosaveTimeout = setTimeout(saveAutosave, 800); }
-
-    function saveAutosave() {
-        try {
-            const key = AUTOSAVE_KEY_PREFIX + (currentQuiz.id || 'noquiz') + '_' + (studentDetails.mobile || 'nomobile');
-            const payload = { userResponses, warningCount, questionTimes, timestamp: Date.now(), currentSubject, currentQuestionIndex };
-            localStorage.setItem(key, JSON.stringify(payload));
-            const t = document.createElement('div');
-            t.className = 'toast success';
-            t.textContent = 'Autosaved locally';
-            document.body.appendChild(t);
-            setTimeout(()=> t.classList.add('show'), 50);
-            setTimeout(()=> { t.classList.remove('show'); setTimeout(()=> t.remove(), 500); }, 1200);
-        } catch (e) {}
-    }
-
-    function restoreAutosaveIfAny() {
-        try {
-            const keys = Object.keys(localStorage).filter(k => k.startsWith(AUTOSAVE_KEY_PREFIX));
-            if (!keys.length) return;
-            let latestKey = null; let latestTime = 0;
-            keys.forEach(k => {
-                try { const p = JSON.parse(localStorage.getItem(k)); if (p && p.timestamp && p.timestamp > latestTime) { latestTime = p.timestamp; latestKey = k; } } catch(e){}
-            });
-            if (!latestKey) return;
-            const payload = JSON.parse(localStorage.getItem(latestKey));
-            if (!payload) return;
-            if (confirm('Found a locally saved in-progress attempt. Restore answers?')) {
-                userResponses = payload.userResponses || {};
-                warningCount = payload.warningCount || 0;
-                questionTimes = payload.questionTimes || {};
-                updateWarningsIndicator();
+        // Go fullscreen
+        async function goFullscreen() {
+            try {
+                if (document.documentElement.requestFullscreen) {
+                    await document.documentElement.requestFullscreen();
+                    showSuccess("Fullscreen mode activated");
+                }
+            } catch (error) {
+                showWarning("Fullscreen request failed: " + error.message);
             }
-        } catch(e){}
-    }
+        }
 
-    function tryRestoreForCurrent() {
-        try {
-            const key = AUTOSAVE_KEY_PREFIX + (currentQuiz.id || 'noquiz') + '_' + (studentDetails.mobile || 'nomobile');
-            const payloadStr = localStorage.getItem(key);
-            if (!payloadStr) return;
-            const payload = JSON.parse(payloadStr);
-            if (!payload) return;
-            if (confirm('Found a saved attempt for this quiz & number. Restore?')) {
-                userResponses = payload.userResponses || {};
-                warningCount = payload.warningCount || 0;
-                questionTimes = payload.questionTimes || {};
-                currentSubject = payload.currentSubject || currentSubject;
-                currentQuestionIndex = payload.currentQuestionIndex || 0;
-                updateWarningsIndicator();
-                // ensure tab selection reflects restored subject
-                document.querySelectorAll('.subject-tab').forEach(tab => {
-                    if (tab.textContent === currentSubject) tab.classList.add('active'); else tab.classList.remove('active');
-                });
-                loadQuestion();
-            }
-        } catch(e){}
-    }
+        // Utility functions
+        function updateStatus(message) {
+            document.getElementById('status-text').textContent = message;
+            console.log("Status:", message);
+        }
 
-    // ----------------------- Draggable & minimize camera logic -----------------------
-    (function makeCameraDraggable(){
-        const wrapper = document.getElementById('camera-wrapper');
-        const header = document.getElementById('camera-header');
-        const title = document.getElementById('camera-title');
-        const hideBtn = document.getElementById('camera-hide-btn');
-        let isDown = false; let startX=0, startY=0, startLeft=0, startTop=0;
-        header.addEventListener('pointerdown', (e)=>{
-            isDown = true;
-            startX = e.clientX; startY = e.clientY;
-            const rect = wrapper.getBoundingClientRect();
-            startLeft = rect.left; startTop = rect.top;
-            header.setPointerCapture(e.pointerId);
-        });
-        header.addEventListener('pointermove', (e)=>{
-            if (!isDown) return;
-            const dx = e.clientX - startX; const dy = e.clientY - startY;
-            wrapper.style.left = (startLeft + dx) + 'px';
-            wrapper.style.top = (startTop + dy) + 'px';
-            wrapper.style.right = 'auto';
-            wrapper.style.bottom = 'auto';
-        });
-        header.addEventListener('pointerup', (e)=>{ isDown = false; try{ header.releasePointerCapture(e.pointerId);}catch(e){} });
-        header.addEventListener('pointercancel', ()=>{ isDown = false; });
+        function showWarning(message) {
+            document.getElementById('warning-text').textContent = message;
+            document.getElementById('warning').style.display = 'block';
+            document.getElementById('success').style.display = 'none';
+            console.warn("Warning:", message);
+        }
 
-        // Instead of hiding, toggle minimized (blur + enforce min size)
-        hideBtn.addEventListener('click', ()=>{
-            if (!wrapper.classList.contains('minimized')) {
-                wrapper.classList.add('minimized');
-                title.textContent = 'Camera (minimized)';
-                wrapper.style.width = '140px';
-                wrapper.style.height = '110px';
-                showToast('Camera minimized – video blurred, proctor can still see you.', 'warning');
+        function showSuccess(message) {
+            document.getElementById('success-text').textContent = message;
+            document.getElementById('success').style.display = 'block';
+            document.getElementById('warning').style.display = 'none';
+            console.log("Success:", message);
+        }
+
+        // Event listeners
+        document.getElementById('start-camera').addEventListener('click', startCamera);
+        document.getElementById('start-proctoring').addEventListener('click', startProctoring);
+        document.getElementById('stop-proctoring').addEventListener('click', stopProctoring);
+        document.getElementById('fullscreen').addEventListener('click', goFullscreen);
+        
+        document.getElementById('minimize-camera').addEventListener('click', () => {
+            const wrapper = document.getElementById('camera-wrapper');
+            if (wrapper.style.width === '60px') {
+                wrapper.style.width = '200px';
+                wrapper.style.height = '150px';
             } else {
-                wrapper.classList.remove('minimized');
-                title.textContent = 'Camera';
-                wrapper.style.width = '160px';
-                wrapper.style.height = '120px';
+                wrapper.style.width = '60px';
+                wrapper.style.height = '45px';
             }
         });
-    })();
 
-    function setupCameraVisibilityDetection() {
-        const wrapper = document.getElementById('camera-wrapper');
-
-        // Observe size: if below min, keep minimized class and warn once
-        const ro = new ResizeObserver(entries => {
-            for (const entry of entries) {
-                const { width, height } = entry.contentRect;
-                if (width < 140 || height < 110) {
-                    if (!wrapper.classList.contains('minimized')) {
-                        wrapper.classList.add('minimized');
-                        showToast('Camera too small. Video blurred and warning applied.', 'warning');
-                        handleWarning('Camera window minimized below allowed size.');
-                    }
-                }
+        // Initialize on page load
+        window.addEventListener('load', async () => {
+            updateStatus("Page loaded, initializing...");
+            
+            // Initialize TensorFlow first
+            const tfReady = await initializeTensorFlow();
+            if (tfReady) {
+                // Load face model
+                await loadFaceModel();
+                updateStatus("System ready - you can start the camera and proctoring");
             }
         });
-        ro.observe(wrapper);
 
-        // Observe visibility within viewport
-        const io = new IntersectionObserver((entries)=>{
-            entries.forEach(entry => {
-                if (entry.intersectionRatio < 0.6) {
-                    if (camHiddenSince === null) camHiddenSince = Date.now();
-                    else if (Date.now() - camHiddenSince > CAM_HIDDEN_THRESHOLD) {
-                        handleWarning('Camera window is mostly hidden/off-screen.');
-                        camHiddenSince = null; // reset after warning
-                    }
-                } else { camHiddenSince = null; }
-            });
-        }, { threshold: [0,0.25,0.5,0.6,0.75,1] });
-        io.observe(wrapper);
-
-        // Guard against style tampering to hide camera
-        const mo = new MutationObserver(() => {
-            const style = getComputedStyle(wrapper);
-            if (style.display === 'none' || parseFloat(style.opacity) < 0.2) {
-                wrapper.style.display = 'block';
-                wrapper.style.opacity = '1';
-                handleWarning('Attempt to hide camera detected.');
+        // Prevent right-click and other shortcuts
+        document.addEventListener('contextmenu', e => e.preventDefault());
+        document.addEventListener('keydown', e => {
+            if (e.ctrlKey && (e.key === 'u' || e.key === 'U')) {
+                e.preventDefault();
+                handleWarning("View source attempt detected");
+            }
+            if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) {
+                e.preventDefault();
+                handleWarning("Developer tools access attempt detected");
             }
         });
-        mo.observe(wrapper, { attributes: true, attributeFilter: ['style', 'class'] });
-    }
-
-    // ----------------------- Misc helpers -----------------------
-    document.addEventListener('visibilitychange', ()=>{ if (!document.hidden) updateWarningsIndicator(); });
-
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('/service-worker.js')
-                .then(reg => console.log('Service Worker registered:', reg))
-                .catch(err => console.error('Service Worker registration failed:', err));
-        });
-    }
-
-    document.addEventListener('DOMContentLoaded', loadInitialData);
-    
-    document.addEventListener('keydown', function(e) {
-        if (e.ctrlKey && (e.key === 'u' || e.key === 'U')) {
-            e.preventDefault();
-            alert("View source is disabled during exam!");
-        }
-        if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) {
-            e.preventDefault();
-            alert("Developer tools are disabled!");
-        }
-    });
-
-    document.addEventListener('contextmenu', function(e) {
-        e.preventDefault();
-        alert("Right-click disabled during exam!");
-    });
-   // Strict Fullscreen Enforcement
-document.addEventListener("fullscreenchange", () => {
-    if (!document.fullscreenElement) {
-        // Blur the exam UI to block answering
-        document.body.style.filter = "blur(8px)";
-        document.body.style.pointerEvents = "none";
-        showToast("⚠️ You must return to fullscreen to continue the exam.", "error");
-
-        // Ask student to return to fullscreen
-        setTimeout(() => {
-            if (confirm("Exam is locked until you return to fullscreen. Click OK to continue.")) {
-                document.documentElement.requestFullscreen().then(() => {
-                    // Restore UI after going fullscreen again
-                    document.body.style.filter = "none";
-                    document.body.style.pointerEvents = "auto";
-                    showToast("✅ Fullscreen restored. You may continue.", "success");
-                }).catch(err => {
-                    alert("Fullscreen request failed: " + err.message);
-                });
-            }
-        }, 500);
-    }
-});
-    window.onload = function() {
-  if (confirm("Exam requires fullscreen. Do you want to go fullscreen now?")) {
-    document.documentElement.requestFullscreen();
-  }
-};
-
-
-</script>
+    </script>
 </body>
 </html>
