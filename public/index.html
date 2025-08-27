@@ -774,6 +774,30 @@
         e.preventDefault();
         alert("Right-click disabled during exam!");
     });
+   // Strict Fullscreen Enforcement
+document.addEventListener("fullscreenchange", () => {
+    if (!document.fullscreenElement) {
+        // Blur the exam UI to block answering
+        document.body.style.filter = "blur(8px)";
+        document.body.style.pointerEvents = "none";
+        showToast("⚠️ You must return to fullscreen to continue the exam.", "error");
+
+        // Ask student to return to fullscreen
+        setTimeout(() => {
+            if (confirm("Exam is locked until you return to fullscreen. Click OK to continue.")) {
+                document.documentElement.requestFullscreen().then(() => {
+                    // Restore UI after going fullscreen again
+                    document.body.style.filter = "none";
+                    document.body.style.pointerEvents = "auto";
+                    showToast("✅ Fullscreen restored. You may continue.", "success");
+                }).catch(err => {
+                    alert("Fullscreen request failed: " + err.message);
+                });
+            }
+        }, 500);
+    }
+});
+
 </script>
 </body>
 </html>
