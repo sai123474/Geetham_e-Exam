@@ -33,7 +33,6 @@
         .status-not-answered { background-color: #f0f0f0; }
         .status-answered { background-color: #28a745; color: white; }
         .status-review { background-color: #ffc107; }
-        /* make camera draggable & resizable */
         #camera-wrapper { position: fixed; bottom: 10px; left: 10px; width: 200px; height: 150px; border: 2px solid #0056b3; border-radius: 6px; background: #000; overflow: hidden; display: none; z-index: 9998; resize: both; min-width: 120px; min-height: 80px; }
         #camera-header { height: 26px; background: rgba(0,86,179,0.95); color: #fff; display:flex; align-items:center; justify-content:center; padding: 0 6px; cursor: move; font-size: 12px; user-select: none; }
         #camera-view { width:100%; height: calc(100% - 26px); object-fit: cover; display:block; }
@@ -46,11 +45,18 @@
         #ai-status.loading { background: #ffc107; color: #333; }
         #ai-status.ready { background: #28a745; color: white; }
         #ai-status.error { background: #dc3545; color: white; }
+        /* Added pulse animation for warnings */
+        .pulse { animation: pulseFlash 1s ease; }
+        @keyframes pulseFlash {
+            0%   { background-color: #ffc107; color: #333; }
+            50%  { background-color: #dc3545; color: white; }
+            100% { background-color: #ffc107; color: #333; }
+        }
     </style>
 </head>
 <body>
     <div id="ai-status" class="loading">AI Proctor Loading...</div>
-    <div id="warnings-indicator" title="Warnings">Warnings: <span id="warning-count">0</span></div>
+    <div id="warnings-indicator" title="Warnings">Warnings: 0</div>
     <div id="camera-wrapper">
         <div id="camera-header"><span>Camera</span></div>
         <video id="camera-view" autoplay playsinline muted></video>
@@ -66,7 +72,6 @@
                 <h2>Enter Your Details</h2>
                 <p>You can only attempt each test once.</p>
                 <div id="quiz-selection-container"></div>
-                <!-- autocomplete off to prevent browser suggestions -->
                 <input type="text" id="student-name" placeholder="Enter your full name" required autocomplete="off">
                 <input type="tel" id="student-mobile" placeholder="Enter your mobile number" required autocomplete="off" inputmode="numeric" pattern="[0-9]{10}">
                 <button id="proceed-btn" style="width: 100%;">Proceed</button>
@@ -125,6 +130,8 @@
     let isGazeDetectionRunning = false;
     let lookAwayStartTime = null;
     const LOOK_AWAY_THRESHOLD = 3000; // ms
+    let lastWarningTime = 0; // Added for warning cooldown
+    const WARNING_COOLDOWN = 5000; // 5 seconds
 
     // --- UTILS ---
     function showToast(message, type = 'warning') {
@@ -220,7 +227,6 @@
             if (lastVideoTime !== video.currentTime) {
                 try {
                     const results = faceLandmarker.detectForVideo(video, startTimeMs);
-                    // If no results or empty, treat as not detected
                     if (!results || !results.faceLandmarks || results.faceLandmarks.length === 0) {
                         if (lookAwayStartTime === null) lookAwayStartTime = Date.now();
                         else if (Date.now() - lookAwayStartTime > LOOK_AWAY_THRESHOLD) {
@@ -230,21 +236,16 @@
                     } else if (results.faceLandmarks.length > 1) {
                         handleWarning("Multiple faces detected.");
                     } else {
-                        // Single face detected - perform head-turn detection
                         const landmarks = results.faceLandmarks[0];
-                        // landmarks are in normalized coordinates {x, y, z}
-                        const nose = landmarks[1] || landmarks[4] || landmarks[0];
-                        const leftEye = landmarks[33] || landmarks[159] || landmarks[263];
-                        const rightEye = landmarks[263] || landmarks[386] || landmarks[33];
+                        const nose = landmarks[1];
+                        const leftEye = landmarks[33];
+                        const rightEye = landmarks[263];
                         const avgEyeX = (leftEye.x + rightEye.x) / 2;
-                        const noseOffsetX = nose.x - avgEyeX; // positive -> nose to right side
+                        const noseOffsetX = nose.x - avgEyeX;
 
-                        // Thresholds may need tuning per environment.
                         if (Math.abs(noseOffsetX) > 0.08) {
                             handleWarning("Head turned away from screen.");
                         }
-
-                        // reset look-away timer if face present
                         lookAwayStartTime = null;
                     }
                 } catch (e) {
@@ -379,23 +380,32 @@
                 }
             }
         });
-
-        // detect switching to other apps / alt+tab / minimize
         window.addEventListener("blur", () => {
             if (quizInProgress) {
-                handleWarning("You switched to another application or minimized the exam window.");
+                handleWarning("You switched to another application.");
             }
         });
-        window.addEventListener("focus", () => { if (quizInProgress) console.log('Back to exam window'); });
     }
 
     function handleWarning(message) {
+        // Added cooldown feature from original script
+        const now = Date.now();
+        if (now - lastWarningTime < WARNING_COOLDOWN) return;
+        lastWarningTime = now;
+
+        if (!quizInProgress) return; // Do not issue warnings if exam isn't active
+
         warningCount++;
         const warningMessage = `Warning ${warningCount}/${maxWarnings}: ${message}`;
         showToast(warningMessage, 'warning');
-        document.getElementById('warning-count').textContent = warningCount;
-        document.getElementById('warnings-indicator').style.display = 'block';
         updateWarningIndicator();
+
+        // Added pulse animation trigger from original script
+        const indicator = document.getElementById('warnings-indicator');
+        indicator.classList.remove('pulse');
+        void indicator.offsetWidth; // Trigger reflow to restart animation
+        indicator.classList.add('pulse');
+
         if (warningCount >= maxWarnings) {
             setTimeout(() => {
                 showToast(`Maximum warnings exceeded. Submitting test automatically.`, 'warning');
@@ -405,10 +415,9 @@
     }
 
     function updateWarningIndicator() {
-        const remaining = Math.max(0, maxWarnings - warningCount);
         const el = document.getElementById('warnings-indicator');
-        el.textContent = `Warnings: ${warningCount} — Left: ${remaining}`;
-        el.style.display = warningCount > 0 ? 'block' : 'none';
+        el.textContent = `Warnings: ${warningCount} / ${maxWarnings}`;
+        el.style.display = 'block';
     }
 
     function switchSubject(subject, clickedTab) {
@@ -571,7 +580,6 @@
         })
         .then(response => {
             if (!response.ok) throw new Error('Submission failed');
-            // clear saved progress on successful submission
             try { localStorage.removeItem("geetham_quiz_progress"); } catch(e){}
             alert(`Test Submitted Successfully!`);
             document.getElementById('quiz-screen').innerHTML = `<div style="max-width: 600px; margin: 50px auto; text-align:center;"><h1>Test Submitted Successfully</h1></div>`;
@@ -582,7 +590,6 @@
         });
     }
 
-    // make camera draggable
     (function makeCameraDraggable(){
         const cameraWrapper = document.getElementById('camera-wrapper');
         const cameraHeader = document.getElementById('camera-header');
@@ -601,7 +608,6 @@
         document.addEventListener('mouseup', () => { isDragging = false; document.body.style.userSelect = ''; });
     })();
 
-    // service worker registration
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
             navigator.serviceWorker.register('/service-worker.js');
