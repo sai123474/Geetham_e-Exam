@@ -113,9 +113,12 @@
     </div>
 
 <script type="module">
+
     import { FaceLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/vision_bundle.js";
 
     // --- GLOBAL VARIABLES ---
+      let questionStartTime = Date.now();
+let perQuestionTimes = {};
     let allQuizzes = [];
     let currentQuiz = {};
     let currentSubject = "";
@@ -385,6 +388,16 @@
                 handleWarning("You switched to another application.");
             }
         });
+        document.addEventListener("visibilitychange", () => {
+    const cam = document.getElementById("camera-view");
+    if (document.hidden && quizInProgress) {
+        cam.style.filter = "blur(8px)";
+        handleWarning("Camera hidden/minimized.");
+    } else {
+        cam.style.filter = "none";
+    }
+});
+
     }
 
     function handleWarning(message) {
@@ -422,6 +435,7 @@
 
     function switchSubject(subject, clickedTab) {
         currentSubject = subject;
+         recordQuestionTime()
         currentQuestionIndex = 0;
         document.querySelectorAll('.subject-tab').forEach(tab => tab.classList.remove('active'));
         if (clickedTab) clickedTab.classList.add('active');
@@ -471,9 +485,17 @@
         saveProgress();
         updatePalette();
     }
+function recordQuestionTime() {
+    const now = Date.now();
+    const spent = Math.floor((now - questionStartTime) / 1000);
+    perQuestionTimes[`${currentSubject}-${currentQuestionIndex}`] =
+        (perQuestionTimes[`${currentSubject}-${currentQuestionIndex}`] || 0) + spent;
+    questionStartTime = now;
+}
 
     function saveAndNext() {
         const response = userResponses[currentSubject][currentQuestionIndex];
+         recordQuestionTime()
         if (response && response.answer !== undefined) response.status = 'answered';
         saveProgress();
         if (currentQuestionIndex < currentQuiz.subjects[currentSubject].length - 1) {
@@ -485,6 +507,7 @@
 
     function markForReview() {
         const response = userResponses[currentSubject][currentQuestionIndex] || {};
+         recordQuestionTime()
         response.status = 'review';
         userResponses[currentSubject][currentQuestionIndex] = response;
         saveProgress();
@@ -522,7 +545,12 @@
     
     function startTimer(duration) {
         let timeLeft = duration;
+       
+
         timerInterval = setInterval(() => {
+             if (timeLeft === 300) {
+    showToast("⚠️ Only 5 minutes left!", "warning");
+}
             if (timeLeft <= 0) {
                 clearInterval(timerInterval);
                 showToast("Time's up! Submitting your test.", 'warning');
@@ -544,6 +572,7 @@
 
     function submitTest() {
         const submitBtn = document.querySelector('.submit');
+         recordQuestionTime(); 
         if (submitBtn) submitBtn.disabled = true;
         if (!quizInProgress) return;
         quizInProgress = false;
@@ -571,7 +600,8 @@
             quizTitle: currentQuiz.title,
             totalScore: totalScore,
             subjectScores: subjectScores,
-            warnings: warningCount
+            warnings: warningCount,
+            questionTimes: perQuestionTimes 
         };
         fetch('/submit-result', {
             method: 'POST',
@@ -613,6 +643,21 @@
             navigator.serviceWorker.register('/service-worker.js');
         });
     }
+    document.addEventListener('keydown', function(e) {
+    if (e.ctrlKey && (e.key === 'u' || e.key === 'U')) {
+        e.preventDefault();
+        alert("View source is disabled during exam!");
+    }
+    if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) {
+        e.preventDefault();
+        alert("Developer tools are disabled!");
+    }
+});
+document.addEventListener('contextmenu', function(e) {
+    e.preventDefault();
+    alert("Right-click disabled during exam!");
+});
+
     document.addEventListener('DOMContentLoaded', loadInitialData);
 </script>
 </body>
