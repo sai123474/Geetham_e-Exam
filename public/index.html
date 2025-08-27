@@ -453,45 +453,74 @@ function switchSubject(subj, clickedTab){
   updatePalette();
 }
 
-function loadQuestion(){
-  const qs = currentQuiz.subjects[currentSubject] || [];
-  const q = qs[currentQuestionIndex];
-  if (!q) {
-    document.getElementById('question-number').textContent = '';
-    document.getElementById('question-text').textContent = 'No question.';
-    document.getElementById('options-container').innerHTML = '';
-    return;
-  }
-  // shuffle options & compute shuffledCorrectAnswerIndex (store on question)
-  if (!Array.isArray(q.shuffledOptions)) {
-    const originalCorrectText = q.options[q.correctAnswer];
-    const opts = q.options.slice();
-    shuffleArray(opts);
-    q.shuffledOptions = opts.slice();
-    q.shuffledCorrectAnswerIndex = opts.indexOf(originalCorrectText);
-  }
+function loadQuestion() {
+    const questionsForSubject = currentQuiz.subjects[currentSubject] || [];
+    const question = questionsForSubject[currentQuestionIndex];
+    
+    if (!question) {
+        document.getElementById('question-number').textContent = '';
+        document.getElementById('question-text').textContent = 'No question available in this section.';
+        document.getElementById('options-container').innerHTML = '';
+        return;
+    }
 
-  document.getElementById('question-number').textContent = `Question ${currentQuestionIndex+1}`;
-  document.getElementById('question-text').textContent = q.text || '';
-  const img = document.getElementById('question-image');
-  if (q.imageUrl) { img.src = q.imageUrl; img.style.display='block'; } else img.style.display='none';
+    // --- Display common elements (question number, text, image) ---
+    document.getElementById('question-number').textContent = `Question ${currentQuestionIndex + 1}`;
+    document.getElementById('question-text').textContent = question.text || '';
+    const img = document.getElementById('question-image');
+    if (question.imageUrl) {
+        img.src = question.imageUrl;
+        img.style.display = 'block';
+    } else {
+        img.style.display = 'none';
+    }
 
-  const resp = userResponses[currentSubject][currentQuestionIndex] || {};
-  const container = document.getElementById('options-container');
-  container.innerHTML = '';
-  q.shuffledOptions.forEach((opt, idx)=>{
-    const d = document.createElement('div');
-    d.className = 'option';
-    d.textContent = opt;
-    if (resp.answer === idx) d.classList.add('selected');
-    d.onclick = ()=> selectOption(idx);
-    container.appendChild(d);
-  });
+    const response = userResponses[currentSubject][currentQuestionIndex] || {};
+    const optionsContainer = document.getElementById('options-container');
+    optionsContainer.innerHTML = ''; // Clear previous content
 
-  // start timing this question
-  lastQuestionStart = Date.now();
+    // --- Logic to display the correct answer type ---
+    if (question.type === 'fill-in-the-blank' || question.type === 'subjective') {
+        const answerInput = document.createElement('textarea');
+        answerInput.className = 'subjective-answer'; // Add a class for styling
+        answerInput.rows = question.type === 'subjective' ? 5 : 1;
+        answerInput.placeholder = "Type your answer here...";
+        answerInput.value = response.answer || ""; // Restore previous answer if it exists
+
+        // Save the answer as the user types
+        answerInput.oninput = (e) => {
+            userResponses[currentSubject][currentQuestionIndex] = { answer: e.target.value, status: 'answered' };
+            scheduleAutosave(); // Trigger autosave
+        };
+        optionsContainer.appendChild(answerInput);
+
+    } else { // Default to Multiple Choice
+        // Shuffle options if they haven't been shuffled yet
+        if (!question.shuffledOptions) {
+            const originalCorrectAnswerText = question.options[question.correctAnswer];
+            const shuffledOptions = [...question.options];
+            shuffleArray(shuffledOptions);
+            question.shuffledOptions = shuffledOptions;
+            question.shuffledCorrectAnswerIndex = shuffledOptions.indexOf(originalCorrectAnswerText);
+        }
+
+        // Display the shuffled multiple-choice options
+        question.shuffledOptions.forEach((option, index) => {
+            const div = document.createElement('div');
+            div.className = 'option';
+            div.textContent = option;
+            if (response.answer === index) {
+                div.classList.add('selected');
+            }
+            div.onclick = () => selectOption(index);
+            optionsContainer.appendChild(div);
+        });
+    }
+
+    // Start timing this question
+    lastQuestionStart = Date.now();
+    updatePalette();
 }
-
 function selectOption(index){
   const resp = userResponses[currentSubject][currentQuestionIndex] || {};
   resp.answer = index;
