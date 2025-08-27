@@ -137,8 +137,42 @@ app.post('/clear-results', async (req, res) => {
 });
 
 // AI Endpoints (no changes needed here)
-app.post('/generate-questions', async (req, res) => { /* ... same as before ... */ });
-app.post('/generate-from-text', async (req, res) => { /* ... same as before ... */ });
+// AI Endpoint to generate questions from a topic
+app.post('/generate-questions', async (req, res) => {
+    try {
+        const { topic, numQuestions } = req.body;
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+        const prompt = `Generate ${numQuestions} multiple-choice questions for a JEE Mains level exam on the topic of "${topic}". Provide the question text, four options, and the 0-based index of the correct answer. Format the response as a single, valid JSON array of objects. Each object must have keys: "text", "options" (an array of 4 strings), and "correctAnswer" (a number). Output only the raw JSON array.`;
+        
+        const result = await model.generateContent(prompt);
+        const text = result.response.text();
+        const jsonResponse = text.replace(/```json/g, '').replace(/```/g, '').trim();
+        
+        res.json(JSON.parse(jsonResponse));
+    } catch (error) {
+        console.error("Error generating questions with AI:", error);
+        res.status(500).send("Failed to generate questions with AI.");
+    }
+});
+
+// AI Endpoint to generate questions from pasted text
+app.post('/generate-from-text', async (req, res) => {
+    try {
+        const { text } = req.body;
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+        const prompt = `Analyze the following text from a question paper and convert it into a valid JSON array of objects. Each object must have keys: "subject" (either "Physics", "Chemistry", or "Mathematics"), "text" (the question), "options" (an array of 4 strings), and "correctAnswer" (the 0-based index of the correct option). Extract all questions. Output only the raw JSON array. Text to analyze: "${text}"`;
+
+        const result = await model.generateContent(prompt);
+        const aiResponseText = result.response.text();
+        const jsonResponse = aiResponseText.replace(/```json/g, '').replace(/```/g, '').trim();
+        
+        res.json(JSON.parse(jsonResponse));
+    } catch (error) {
+        console.error("Error generating from text with AI:", error);
+        res.status(500).send("Failed to process text with AI.");
+    }
+});
+
 
 // --- START SERVER ---
 connectDB().then(() => {
