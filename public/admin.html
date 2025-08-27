@@ -241,7 +241,41 @@
             loadQuizzes();
         }
     }
+async function generateFromText() {
+    const textInput = document.getElementById('ai-text-input').value;
+    if (!textInput.trim()) {
+        alert("Please paste text into the text area to generate questions.");
+        return;
+    }
 
+    try {
+        const response = await fetch('/generate-from-text', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: textInput })
+        });
+
+        if (!response.ok) {
+            throw new Error('AI generation failed. The server responded with an error.');
+        }
+
+        const newQuestions = await response.json();
+        
+        // This logic sorts the generated questions into their correct subjects
+        newQuestions.forEach(q => {
+            if (quizzesData[selectedQuizIndex].subjects[q.subject]) {
+                quizzesData[selectedQuizIndex].subjects[q.subject].push(q);
+            }
+        });
+
+        renderQuizEditor(); // Refresh the editor to show the new questions
+        alert(`${newQuestions.length} questions were successfully generated and added!`);
+
+    } catch (error) {
+        console.error("Error generating from text:", error);
+        alert("Could not generate questions from the provided text. Please check the server logs.");
+    }
+}
     async function saveQuiz(isManualSave = false) {
         const quizToSave = quizzesData[selectedQuizIndex];
         if (!quizToSave) return;
