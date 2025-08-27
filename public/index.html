@@ -3,10 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Geetham e-Exam - Proctored</title>
+    <title>Geetham e-Exam</title>
     <link rel="icon" type="image/jpeg" href="/geetham.jpg">
     <link rel="manifest" href="/manifest.json">
 
+    <!-- TensorFlow.js & MediaPipe Vision Bundle -->
     <script type="module" src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/vision_bundle.js"></script>
 
     <meta name="theme-color" content="#0056b3"/>
@@ -33,37 +34,30 @@
         .status-not-answered { background-color: #f0f0f0; }
         .status-answered { background-color: #28a745; color: white; }
         .status-review { background-color: #ffc107; }
-        #camera-wrapper { position: fixed; bottom: 10px; left: 10px; width: 200px; height: 150px; border: 2px solid #0056b3; border-radius: 6px; background: #000; overflow: hidden; display: none; z-index: 9998; resize: both; min-width: 120px; min-height: 80px; }
-        #camera-header { height: 26px; background: rgba(0,86,179,0.95); color: #fff; display:flex; align-items:center; justify-content:center; padding: 0 6px; cursor: move; font-size: 12px; user-select: none; }
-        #camera-view { width:100%; height: calc(100% - 26px); object-fit: cover; display:block; }
+        #camera-wrapper { position: fixed; bottom: 10px; left: 10px; width: 160px; height: 120px; border: 2px solid #0056b3; border-radius: 6px; background: #000; overflow: hidden; display: none; z-index: 9998; }
+        #camera-header { height: 22px; background: rgba(0,86,179,0.9); color: #fff; display:flex; align-items:center; justify-content:center; padding: 0 6px; cursor: move; font-size: 12px; }
+        #camera-view { width:100%; height: calc(100% - 22px); object-fit: cover; display:block; }
         .toast { position: fixed; top: -100px; left: 50%; transform: translateX(-50%); padding: 15px 25px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); font-size: 16px; font-weight: bold; z-index: 9999; opacity: 0; transition: opacity 0.5s, top 0.5s; }
         .toast.show { top: 40px; opacity: 1; }
         .toast.warning { background-color: #dc3545; color: white; }
         .toast.success { background-color: #28a745; color: white; }
-        #warnings-indicator { position: fixed; top: 14px; right: 14px; background: #ffc107; color: #333; padding: 6px 10px; border-radius: 18px; font-weight: 700; z-index: 9999; display:none; }
-        #ai-status { position: fixed; top: 14px; left: 14px; padding: 6px 10px; border-radius: 18px; font-weight: 700; z-index: 9999; font-size: 12px; display:none; }
+        #warnings-indicator { position: fixed; top: 14px; right: 14px; background: #ffc107; color: #333; padding: 6px 10px; border-radius: 18px; font-weight: 700; z-index: 9999; }
+        #ai-status { position: fixed; top: 14px; left: 14px; padding: 6px 10px; border-radius: 18px; font-weight: 700; z-index: 9999; font-size: 12px; }
         #ai-status.loading { background: #ffc107; color: #333; }
         #ai-status.ready { background: #28a745; color: white; }
         #ai-status.error { background: #dc3545; color: white; }
-        /* Added pulse animation for warnings */
-        .pulse { animation: pulseFlash 1s ease; }
-        @keyframes pulseFlash {
-            0%   { background-color: #ffc107; color: #333; }
-            50%  { background-color: #dc3545; color: white; }
-            100% { background-color: #ffc107; color: #333; }
-        }
     </style>
 </head>
 <body>
-    <div id="ai-status" class="loading">AI Proctor Loading...</div>
-    <div id="warnings-indicator" title="Warnings">Warnings: 0</div>
+    <div id="ai-status" class="loading" style="display:none;">AI Proctor Loading...</div>
+    <div id="warnings-indicator" title="Warnings" style="display:none;">Warnings: <span id="warning-count">0</span></div>
     <div id="camera-wrapper">
         <div id="camera-header"><span>Camera</span></div>
         <video id="camera-view" autoplay playsinline muted></video>
     </div>
 
     <div id="student-details-screen" style="display: block;">
-        <div style="max-width: 600px; margin: 40px auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        <div style="max-width: 500px; margin: 50px auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
             <div style="text-align: center; margin-bottom: 15px;">
                 <img src="/geetham.jpg" alt="Geetham Institute Logo" style="max-height: 80px;">
             </div>
@@ -72,8 +66,8 @@
                 <h2>Enter Your Details</h2>
                 <p>You can only attempt each test once.</p>
                 <div id="quiz-selection-container"></div>
-                <input type="text" id="student-name" placeholder="Enter your full name" required autocomplete="off">
-                <input type="tel" id="student-mobile" placeholder="Enter your mobile number" required autocomplete="off" inputmode="numeric" pattern="[0-9]{10}">
+                <input type="text" id="student-name" placeholder="Enter your full name" required>
+                <input type="tel" id="student-mobile" placeholder="Enter your mobile number" required>
                 <button id="proceed-btn" style="width: 100%;">Proceed</button>
             </div>
         </div>
@@ -113,12 +107,9 @@
     </div>
 
 <script type="module">
-
     import { FaceLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/vision_bundle.js";
 
     // --- GLOBAL VARIABLES ---
-      let questionStartTime = Date.now();
-let perQuestionTimes = {};
     let allQuizzes = [];
     let currentQuiz = {};
     let currentSubject = "";
@@ -132,11 +123,8 @@ let perQuestionTimes = {};
     let faceLandmarker;
     let isGazeDetectionRunning = false;
     let lookAwayStartTime = null;
-    const LOOK_AWAY_THRESHOLD = 3000; // ms
-    let lastWarningTime = 0; // Added for warning cooldown
-    const WARNING_COOLDOWN = 5000; // 5 seconds
+    const LOOK_AWAY_THRESHOLD = 3000;
 
-    // --- UTILS ---
     function showToast(message, type = 'warning') {
         const toast = document.createElement('div');
         toast.className = `toast ${type}`;
@@ -166,25 +154,6 @@ let perQuestionTimes = {};
         }
     }
 
-    // --- AUTOSAVE (localStorage) ---
-    function saveProgress() {
-        try {
-            const payload = { userResponses, studentDetails, quizId: currentQuiz.id };
-            localStorage.setItem("geetham_quiz_progress", JSON.stringify(payload));
-        } catch (e) { console.warn('Could not save progress', e); }
-    }
-    function loadProgress() {
-        try {
-            const saved = localStorage.getItem("geetham_quiz_progress");
-            if (!saved) return;
-            const parsed = JSON.parse(saved);
-            if (parsed && parsed.quizId === currentQuiz.id) {
-                userResponses = parsed.userResponses || userResponses;
-            }
-        } catch (e) { console.warn('Could not load progress', e); }
-    }
-
-    // --- INITIAL LOAD ---
     async function loadInitialData() {
         try {
             const response = await fetch('/get-quizzes');
@@ -217,7 +186,6 @@ let perQuestionTimes = {};
         }
     }
 
-    // --- GAZE / FACE DETECTION & HEAD TURN ---
     function startGazeDetection() {
         if (!faceLandmarker || isGazeDetectionRunning) return;
         isGazeDetectionRunning = true;
@@ -228,31 +196,21 @@ let perQuestionTimes = {};
             if (!quizInProgress || !isGazeDetectionRunning) return;
             const startTimeMs = performance.now();
             if (lastVideoTime !== video.currentTime) {
-                try {
-                    const results = faceLandmarker.detectForVideo(video, startTimeMs);
-                    if (!results || !results.faceLandmarks || results.faceLandmarks.length === 0) {
-                        if (lookAwayStartTime === null) lookAwayStartTime = Date.now();
-                        else if (Date.now() - lookAwayStartTime > LOOK_AWAY_THRESHOLD) {
-                            handleWarning("Looking away or face not detected.");
-                            lookAwayStartTime = null;
-                        }
-                    } else if (results.faceLandmarks.length > 1) {
-                        handleWarning("Multiple faces detected.");
-                    } else {
-                        const landmarks = results.faceLandmarks[0];
-                        const nose = landmarks[1];
-                        const leftEye = landmarks[33];
-                        const rightEye = landmarks[263];
-                        const avgEyeX = (leftEye.x + rightEye.x) / 2;
-                        const noseOffsetX = nose.x - avgEyeX;
+                const results = faceLandmarker.detectForVideo(video, startTimeMs);
+                let isLookingAway = !results.faceLandmarks || results.faceLandmarks.length === 0;
 
-                        if (Math.abs(noseOffsetX) > 0.08) {
-                            handleWarning("Head turned away from screen.");
-                        }
+                if (results.faceLandmarks && results.faceLandmarks.length > 1) {
+                    handleWarning("Multiple faces detected.");
+                }
+                
+                if (isLookingAway) {
+                    if (lookAwayStartTime === null) lookAwayStartTime = Date.now();
+                    else if (Date.now() - lookAwayStartTime > LOOK_AWAY_THRESHOLD) {
+                        handleWarning("Looking away or face not detected.");
                         lookAwayStartTime = null;
                     }
-                } catch (e) {
-                    console.warn('FaceLandmarker error', e);
+                } else {
+                    lookAwayStartTime = null;
                 }
                 lastVideoTime = video.currentTime;
             }
@@ -363,62 +321,25 @@ let perQuestionTimes = {};
         currentSubject = Object.keys(currentQuiz.subjects)[0];
         setupProctoringListeners();
         switchSubject(currentSubject, subjectTabsContainer.firstChild);
-        loadProgress();
         startTimer(currentQuiz.timeLimit * 60);
         setTimeout(startGazeDetection, 2000);
-        updateWarningIndicator();
     }
     
     function setupProctoringListeners() {
         document.addEventListener('visibilitychange', () => {
             if (document.hidden && quizInProgress) handleWarning("You have switched tabs.");
         });
-        document.addEventListener('fullscreenchange', async () => {
-            if (!document.fullscreenElement && quizInProgress) {
-                handleWarning("You have exited full-screen.");
-                try {
-                    await document.documentElement.requestFullscreen();
-                } catch (err) {
-                    console.warn("Fullscreen re-entry failed:", err);
-                }
-            }
+        document.addEventListener('fullscreenchange', () => {
+            if (!document.fullscreenElement && quizInProgress) handleWarning("You have exited full-screen.");
         });
-        window.addEventListener("blur", () => {
-            if (quizInProgress) {
-                handleWarning("You switched to another application.");
-            }
-        });
-        document.addEventListener("visibilitychange", () => {
-    const cam = document.getElementById("camera-view");
-    if (document.hidden && quizInProgress) {
-        cam.style.filter = "blur(8px)";
-        handleWarning("Camera hidden/minimized.");
-    } else {
-        cam.style.filter = "none";
-    }
-});
-
     }
 
     function handleWarning(message) {
-        // Added cooldown feature from original script
-        const now = Date.now();
-        if (now - lastWarningTime < WARNING_COOLDOWN) return;
-        lastWarningTime = now;
-
-        if (!quizInProgress) return; // Do not issue warnings if exam isn't active
-
         warningCount++;
         const warningMessage = `Warning ${warningCount}/${maxWarnings}: ${message}`;
         showToast(warningMessage, 'warning');
-        updateWarningIndicator();
-
-        // Added pulse animation trigger from original script
-        const indicator = document.getElementById('warnings-indicator');
-        indicator.classList.remove('pulse');
-        void indicator.offsetWidth; // Trigger reflow to restart animation
-        indicator.classList.add('pulse');
-
+        document.getElementById('warning-count').textContent = warningCount;
+        document.getElementById('warnings-indicator').style.display = 'block';
         if (warningCount >= maxWarnings) {
             setTimeout(() => {
                 showToast(`Maximum warnings exceeded. Submitting test automatically.`, 'warning');
@@ -427,15 +348,8 @@ let perQuestionTimes = {};
         }
     }
 
-    function updateWarningIndicator() {
-        const el = document.getElementById('warnings-indicator');
-        el.textContent = `Warnings: ${warningCount} / ${maxWarnings}`;
-        el.style.display = 'block';
-    }
-
     function switchSubject(subject, clickedTab) {
         currentSubject = subject;
-         recordQuestionTime()
         currentQuestionIndex = 0;
         document.querySelectorAll('.subject-tab').forEach(tab => tab.classList.remove('active'));
         if (clickedTab) clickedTab.classList.add('active');
@@ -477,27 +391,15 @@ let perQuestionTimes = {};
     function selectOption(index) {
         const response = userResponses[currentSubject][currentQuestionIndex] || {};
         response.answer = index;
-        response.status = 'answered';
         userResponses[currentSubject][currentQuestionIndex] = response;
         document.querySelectorAll('.option').forEach((opt, optIndex) => {
             opt.classList.toggle('selected', optIndex === index);
         });
-        saveProgress();
-        updatePalette();
     }
-function recordQuestionTime() {
-    const now = Date.now();
-    const spent = Math.floor((now - questionStartTime) / 1000);
-    perQuestionTimes[`${currentSubject}-${currentQuestionIndex}`] =
-        (perQuestionTimes[`${currentSubject}-${currentQuestionIndex}`] || 0) + spent;
-    questionStartTime = now;
-}
 
     function saveAndNext() {
         const response = userResponses[currentSubject][currentQuestionIndex];
-         recordQuestionTime()
         if (response && response.answer !== undefined) response.status = 'answered';
-        saveProgress();
         if (currentQuestionIndex < currentQuiz.subjects[currentSubject].length - 1) {
             currentQuestionIndex++;
             loadQuestion();
@@ -507,10 +409,8 @@ function recordQuestionTime() {
 
     function markForReview() {
         const response = userResponses[currentSubject][currentQuestionIndex] || {};
-         recordQuestionTime()
         response.status = 'review';
         userResponses[currentSubject][currentQuestionIndex] = response;
-        saveProgress();
         if (currentQuestionIndex < currentQuiz.subjects[currentSubject].length - 1) {
             currentQuestionIndex++;
             loadQuestion();
@@ -522,7 +422,6 @@ function recordQuestionTime() {
         if (userResponses[currentSubject][currentQuestionIndex]) {
             delete userResponses[currentSubject][currentQuestionIndex].answer;
             delete userResponses[currentSubject][currentQuestionIndex].status;
-            saveProgress();
         }
         loadQuestion();
     }
@@ -545,12 +444,7 @@ function recordQuestionTime() {
     
     function startTimer(duration) {
         let timeLeft = duration;
-       
-
         timerInterval = setInterval(() => {
-             if (timeLeft === 300) {
-    showToast("⚠️ Only 5 minutes left!", "warning");
-}
             if (timeLeft <= 0) {
                 clearInterval(timerInterval);
                 showToast("Time's up! Submitting your test.", 'warning');
@@ -572,7 +466,6 @@ function recordQuestionTime() {
 
     function submitTest() {
         const submitBtn = document.querySelector('.submit');
-         recordQuestionTime(); 
         if (submitBtn) submitBtn.disabled = true;
         if (!quizInProgress) return;
         quizInProgress = false;
@@ -600,8 +493,7 @@ function recordQuestionTime() {
             quizTitle: currentQuiz.title,
             totalScore: totalScore,
             subjectScores: subjectScores,
-            warnings: warningCount,
-            questionTimes: perQuestionTimes 
+            warnings: warningCount
         };
         fetch('/submit-result', {
             method: 'POST',
@@ -610,9 +502,8 @@ function recordQuestionTime() {
         })
         .then(response => {
             if (!response.ok) throw new Error('Submission failed');
-            try { localStorage.removeItem("geetham_quiz_progress"); } catch(e){}
             alert(`Test Submitted Successfully!`);
-            document.getElementById('quiz-screen').innerHTML = `<div style="max-width: 600px; margin: 50px auto; text-align:center;"><h1>Test Submitted Successfully</h1></div>`;
+            document.getElementById('quiz-screen').innerHTML = `<div style="max-width: 600px; margin: 50px auto; text-align:center;"><h1>Test Submitted Successfully</h1><h2>Your Final Score: ${totalScore}</h2></div>`;
         })
         .catch(error => {
             alert('There was an error submitting your test.');
@@ -620,44 +511,11 @@ function recordQuestionTime() {
         });
     }
 
-    (function makeCameraDraggable(){
-        const cameraWrapper = document.getElementById('camera-wrapper');
-        const cameraHeader = document.getElementById('camera-header');
-        let offsetX = 0, offsetY = 0, isDragging = false;
-        cameraHeader.addEventListener('mousedown', (e) => {
-            isDragging = true;
-            offsetX = e.clientX - cameraWrapper.offsetLeft;
-            offsetY = e.clientY - cameraWrapper.offsetTop;
-            document.body.style.userSelect = 'none';
-        });
-        document.addEventListener('mousemove', (e) => {
-            if (!isDragging) return;
-            cameraWrapper.style.left = (e.clientX - offsetX) + 'px';
-            cameraWrapper.style.top = (e.clientY - offsetY) + 'px';
-        });
-        document.addEventListener('mouseup', () => { isDragging = false; document.body.style.userSelect = ''; });
-    })();
-
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
             navigator.serviceWorker.register('/service-worker.js');
         });
     }
-    document.addEventListener('keydown', function(e) {
-    if (e.ctrlKey && (e.key === 'u' || e.key === 'U')) {
-        e.preventDefault();
-        alert("View source is disabled during exam!");
-    }
-    if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) {
-        e.preventDefault();
-        alert("Developer tools are disabled!");
-    }
-});
-document.addEventListener('contextmenu', function(e) {
-    e.preventDefault();
-    alert("Right-click disabled during exam!");
-});
-
     document.addEventListener('DOMContentLoaded', loadInitialData);
 </script>
 </body>
