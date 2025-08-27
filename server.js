@@ -13,8 +13,8 @@ const PORT = 3000;
 // ----- SECURITY NOTE -----
 // For production, use environment variables.
 // On Render, set these in the "Environment" tab.
-const API_KEY = process.env.API_KEY || "AIzaSyA3WIHFw2_5E8hYUSlG2rrLdq7J7KKwbe0"; // Fallback for local testing
-const MONGO_URI = process.env.MONGO_URI || "mongodb+srv://yamparalasaikrishna6:Tngy9EWjTg1akDXW@saikrishna.dced3fy.mongodb.net/?retryWrites=true&w=majority&appName=SaiKrishna"; // Fallback for local testing
+const API_KEY = process.env.API_KEY || "YOUR_GOOGLE_AI_API_KEY"; // Fallback for local testing
+const MONGO_URI = process.env.MONGO_URI || "YOUR_MONGODB_ATLAS_CONNECTION_STRING"; // Fallback for local testing
 
 const genAI = new GoogleGenerativeAI(API_KEY);
 const client = new MongoClient(MONGO_URI, {
