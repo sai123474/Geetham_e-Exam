@@ -1,420 +1,719 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Geetham e-Exam</title>
-    
-    <!-- TensorFlow.js Core and Backend -->
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter"></script>
-
-    <!-- Face Landmarker Model -->
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/face-landmarks-detection"></script>
-
-    <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            background-color: #f0f2f5; 
-            margin: 0; 
-            padding: 20px; 
-        }
-        .container { 
-            max-width: 800px; 
-            margin: 0 auto; 
-            background: white; 
-            padding: 30px; 
-            border-radius: 10px; 
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1); 
-        }
-        .camera-wrapper { 
-            position: fixed; 
-            bottom: 20px; 
-            right: 20px; 
-            width: 200px; 
-            height: 150px; 
-            border: 3px solid #007bff; 
-            border-radius: 8px; 
-            background: #000; 
-            overflow: hidden; 
-            z-index: 1000; 
-        }
-        .camera-header { 
-            height: 25px; 
-            background: #007bff; 
-            color: white; 
-            display: flex; 
-            align-items: center; 
-            justify-content: space-between; 
-            padding: 0 10px; 
-            font-size: 12px; 
-        }
-        .camera-view { 
-            width: 100%; 
-            height: calc(100% - 25px); 
-            object-fit: cover; 
-        }
-        .warning { 
-            background: #dc3545; 
-            color: white; 
-            padding: 10px; 
-            border-radius: 5px; 
-            margin: 10px 0; 
-        }
-        .success { 
-            background: #28a745; 
-            color: white; 
-            padding: 10px; 
-            border-radius: 5px; 
-            margin: 10px 0; 
-        }
-        button { 
-            background: #007bff; 
-            color: white; 
-            border: none; 
-            padding: 10px 20px; 
-            border-radius: 5px; 
-            cursor: pointer; 
-            margin: 5px; 
-        }
-        button:hover { background: #0056b3; }
-        .status { 
-            padding: 10px; 
-            margin: 10px 0; 
-            border-radius: 5px; 
-            background: #f8f9fa; 
-        }
-    </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Geetham e-Exam</title>
+<link rel="icon" type="image/jpeg" href="/geetham.jpg">
+<meta name="theme-color" content="#0056b3"/>
+<style>
+  :root { --brand:#007bff; --danger:#dc3545; --ok:#28a745; --muted:#6c757d; }
+  body{font-family:Inter,system-ui,Segoe UI,Roboto,system-ui,-apple-system; background:#f0f2f5;margin:0;padding:12px;color:#222;}
+  .center-card{max-width:720px;margin:36px auto;background:#fff;padding:22px;border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,0.06);}
+  h1{color:var(--brand);text-align:center;margin:6px 0 14px;}
+  input,select{width:100%;padding:10px;margin:8px 0;border:1px solid #dfe6ef;border-radius:6px;box-sizing:border-box;}
+  button{background:var(--brand);color:#fff;border:none;padding:10px 14px;border-radius:6px;cursor:pointer;}
+  button.secondary{background:#6c757d;}
+  .flex{display:flex;gap:12px;}
+  .quiz-wrap{display:flex;gap:18px;align-items:flex-start;}
+  .quiz-panel{flex:1;background:#fff;padding:18px;border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,0.04);}
+  .sidebar{width:280px;background:#fff;padding:14px;border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,0.04);}
+  .subject-tabs{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+  .subject-tab{padding:8px 12px;border-radius:8px;background:#eef4fb;border:none;cursor:pointer;font-weight:600;}
+  .subject-tab.active{background:var(--brand);color:#fff;}
+  .question-area{min-height:240px;}
+  .option{padding:10px;border-radius:6px;border:1px solid #e6e9ef;margin:8px 0;cursor:pointer;}
+  .option.selected{background:var(--brand);color:#fff;border-color:var(--brand);}
+  .nav-buttons{display:flex;justify-content:space-between;margin-top:16px;}
+  .palette-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;}
+  .palette-item{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;background:#f0f0f0;}
+  .status-answered{background:var(--ok);color:#fff;}
+  .status-review{background:#ffc107;color:#111;}
+  .status-not-answered{background:#f0f0f0;color:#222;}
+  #camera-wrapper{position:fixed;bottom:12px;left:12px;width:160px;height:120px;border:2px solid #0056b3;border-radius:8px;background:#000;overflow:hidden;z-index:9998;resize:both;min-width:140px;min-height:110px;display:none;}
+  #camera-header{height:26px;background:rgba(0,86,179,0.92);color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 8px;font-size:12px;cursor:move;}
+  #camera-view{width:100%;height:calc(100% - 26px);object-fit:cover;display:block;transition:filter .25s;}
+  #camera-wrapper.minimized #camera-view{filter:blur(6px);opacity:.9;}
+  .toast{position:fixed;left:50%;transform:translateX(-50%);top:-120px;padding:12px 18px;border-radius:8px;color:#fff;font-weight:700;z-index:10000;transition:top .35s,opacity .35s;opacity:0;}
+  .toast.show{top:34px;opacity:1;}
+  .toast.warning{background:var(--danger);}
+  .toast.success{background:var(--ok);}
+  #warnings-indicator{position:fixed;top:14px;right:14px;background:#ffc107;padding:6px 10px;border-radius:20px;font-weight:800;z-index:9999;display:none;}
+  #fullscreen-return-btn{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:10001;padding:12px 16px;border-radius:8px;background:var(--brand);color:#fff;border:none;display:none;box-shadow:0 8px 30px rgba(0,0,0,0.25);}
+  /* small screens */
+  @media (max-width:980px){ .quiz-wrap{flex-direction:column}.sidebar{width:100%}}
+</style>
 </head>
 <body>
-    <div class="container">
-        <h1>AI Proctored Exam System</h1>
-        
-        <div class="status" id="status">
-            <strong>Status:</strong> <span id="status-text">Initializing...</span>
+  <div id="warnings-indicator">Warnings left: <span id="warnings-left">3</span></div>
+
+  <div class="center-card" id="student-details-screen">
+    <img src="/geetham.jpg" alt="logo" style="height:64px;display:block;margin:0 auto 8px;">
+    <h1>Geetham e-Exam</h1>
+    <div>
+      <label for="quiz-select">Select Test</label>
+      <div id="quiz-selection-container"></div>
+      <input id="student-name" placeholder="Full name" autocomplete="off" />
+      <input id="student-mobile" placeholder="Mobile number" inputmode="tel" autocomplete="off" />
+      <button id="proceed-btn" style="width:100%;margin-top:10px">Proceed</button>
+    </div>
+  </div>
+
+  <div class="quiz-wrap" id="quiz-screen" style="display:none">
+    <div class="quiz-panel">
+      <h1 id="quiz-title-main"></h1>
+      <div id="timer">00:00:00</div>
+      <div class="subject-tabs" id="subject-tabs"></div>
+
+      <div class="question-area" id="question-area">
+        <h3 id="question-number"></h3>
+        <p id="question-text"></p>
+        <img id="question-image" style="display:none;max-width:100%;margin-top:10px;border-radius:6px;">
+        <div id="options-container"></div>
+      </div>
+
+      <div class="nav-buttons">
+        <button class="secondary" onclick="markForReview()">Mark for Review & Next</button>
+        <div style="display:flex;gap:8px">
+          <button class="secondary" onclick="clearResponse()">Clear Response</button>
+          <button onclick="saveAndNext()">Save & Next</button>
         </div>
-        
-        <div class="warning" id="warning" style="display: none;">
-            <strong>Warning:</strong> <span id="warning-text"></span>
-        </div>
-        
-        <div class="success" id="success" style="display: none;">
-            <strong>Success:</strong> <span id="success-text"></span>
-        </div>
-        
-        <div>
-            <button id="start-camera">Start Camera</button>
-            <button id="start-proctoring">Start AI Proctoring</button>
-            <button id="stop-proctoring">Stop Proctoring</button>
-            <button id="fullscreen">Go Fullscreen</button>
-        </div>
-        
-        <div style="margin-top: 20px;">
-            <h3>Proctoring Features:</h3>
-            <ul>
-                <li>Face detection and gaze tracking</li>
-                <li>Tab switching detection</li>
-                <li>Fullscreen enforcement</li>
-                <li>Camera visibility monitoring</li>
-                <li>Warning system with auto-submission</li>
-            </ul>
-        </div>
+      </div>
+
+      <div style="text-align:center;margin-top:18px;">
+        <button class="submit" onclick="confirmSubmit()">Submit Test</button>
+      </div>
     </div>
 
-    <div class="camera-wrapper" id="camera-wrapper" style="display: none;">
-        <div class="camera-header">
-            <span>AI Proctor Camera</span>
-            <button id="minimize-camera" style="background: transparent; border: none; color: white; cursor: pointer;">−</button>
-        </div>
-        <video id="camera-view" class="camera-view" autoplay playsinline muted></video>
+    <div class="sidebar">
+      <h4>Question Palette</h4>
+      <div id="question-palette" class="palette-grid"></div>
+      <hr>
+      <h4>Legend</h4>
+      <div style="margin-top:8px"><div style="display:inline-block;width:20px;height:20px;border-radius:50%;background:var(--ok)"></div> <span style="margin-left:8px">Answered</span></div>
+      <div style="margin-top:8px"><div style="display:inline-block;width:20px;height:20px;border-radius:50%;background:#ffc107"></div> <span style="margin-left:8px">Marked for Review</span></div>
+      <div style="margin-top:8px"><div style="display:inline-block;width:20px;height:20px;border-radius:50%;background:#f0f0f0;border:1px solid #ddd"></div> <span style="margin-left:8px">Not Answered</span></div>
     </div>
+  </div>
 
-    <script>
-        // Global variables
-        let gazeModel = null;
-        let isProctoringActive = false;
-        let warningCount = 0;
-        const maxWarnings = 3;
-        let lookAwayStartTime = null;
-        const LOOK_AWAY_THRESHOLD = 3000; // 3 seconds
-        let proctoringInterval = null;
+  <!-- Camera widget -->
+  <div id="camera-wrapper">
+    <div id="camera-header"><span id="camera-title">Camera</span><button id="camera-hide-btn" style="background:transparent;border:none;color:#fff;cursor:pointer">✕</button></div>
+    <video id="camera-view" autoplay playsinline muted></video>
+  </div>
 
-        // Initialize TensorFlow.js
-        async function initializeTensorFlow() {
-            try {
-                updateStatus("Initializing TensorFlow.js...");
-                
-                // Set backend to WebGL for better performance
-                await tf.setBackend('webgl');
-                await tf.ready();
-                
-                updateStatus("TensorFlow.js initialized successfully");
-                return true;
-            } catch (error) {
-                console.error("TensorFlow initialization failed:", error);
-                updateStatus("TensorFlow.js initialization failed: " + error.message);
-                return false;
-            }
+  <button id="fullscreen-return-btn">Return to Fullscreen</button>
+
+<script>
+/* --------------------------
+   Config & State
+   -------------------------- */
+let allQuizzes = [];
+let currentQuiz = null;
+let currentSubject = "";
+let currentQuestionIndex = 0;
+let userResponses = {};
+let studentDetails = {};
+let quizInProgress = false;
+let timerInterval = null;
+let warningCount = 0;
+const MAX_WARNINGS = 3;
+const AUTOSAVE_PREFIX = 'geetham_autosave_v2_';
+let fiveMinWarned = false;
+
+/* Per-question time tracking: ms */
+let questionTimes = {}; // { subject: { index: ms } }
+let lastQuestionStart = null;
+
+/* Camera tamper detection */
+let camHiddenSince = null;
+const CAM_HIDDEN_THRESHOLD = 2000; // ms
+
+/* --------------------------
+   UI helpers
+   -------------------------- */
+function showToast(msg, type='warning') {
+  const t = document.createElement('div');
+  t.className = 'toast ' + (type === 'success' ? 'success' : 'warning');
+  t.textContent = msg;
+  document.body.appendChild(t);
+  requestAnimationFrame(()=> t.classList.add('show'));
+  setTimeout(()=> { t.classList.remove('show'); setTimeout(()=> t.remove(),400); }, 4000);
+}
+
+function updateWarningsIndicator() {
+  const el = document.getElementById('warnings-indicator');
+  const left = Math.max(0, MAX_WARNINGS - warningCount);
+  document.getElementById('warnings-left').textContent = left;
+  el.style.display = (quizInProgress || warningCount>0) ? 'block' : 'none';
+  el.style.background = left === 0 ? '#dc3545' : '#ffc107';
+}
+
+/* --------------------------
+   Data load & selection
+   -------------------------- */
+async function loadInitialData() {
+  try {
+    const resp = await fetch('/get-quizzes');
+    if (!resp.ok) throw new Error('fetch failed');
+    allQuizzes = await resp.json();
+  } catch (e) {
+    // fallback demo
+    allQuizzes = [
+      {
+        id: 'demo_quiz_1',
+        title: 'Demo Quiz',
+        password: 'demo123',
+        class: 'Demo',
+        timeLimit: 10, // minutes
+        subjects: {
+          'Mathematics': [
+            { text:'What is 2+2?', options:['1','2','3','4'], correctAnswer:3 },
+            { text:'5-3=?', options:['1','2','3','4'], correctAnswer:1 }
+          ],
+          'Science': [
+            { text:'H2O is?', options:['Hydrogen','Oxygen','Water','Helium'], correctAnswer:2 }
+          ]
         }
+      }
+    ];
+  }
+  displayInitialScreen();
+  restoreAutosaveAny();
+}
 
-        // Load the face detection model
-        async function loadFaceModel() {
-            try {
-                updateStatus("Loading face detection model...");
-                
-                const model = faceLandmarksDetection.SupportedModels.MediaPipeFaceMesh;
-                const detectorConfig = {
-                    runtime: 'mediapipe',
-                    solutionPath: 'https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh',
-                    refineLandmarks: true
-                };
-                
-                gazeModel = await faceLandmarksDetection.createDetector(model, detectorConfig);
-                updateStatus("Face detection model loaded successfully");
-                return true;
-            } catch (error) {
-                console.error("Face model loading failed:", error);
-                updateStatus("Face model loading failed: " + error.message);
-                return false;
-            }
+function displayInitialScreen() {
+  document.getElementById('student-details-screen').style.display = 'block';
+  const container = document.getElementById('quiz-selection-container');
+  let html = '<select id="quiz-select">';
+  allQuizzes.forEach((q,i) => html += `<option value="${i}">${escapeHtml(q.title)}</option>`);
+  html += '</select>';
+  container.innerHTML = html;
+  document.getElementById('proceed-btn').onclick = handleProceed;
+}
+
+function escapeHtml(s){ return (s+'').replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+
+/* --------------------------
+   Proceed / password / start
+   -------------------------- */
+async function handleProceed(){
+  const name = document.getElementById('student-name').value.trim();
+  const mobile = document.getElementById('student-mobile').value.trim();
+  const sel = document.getElementById('quiz-select');
+  const idx = sel ? parseInt(sel.value||0) : 0;
+  currentQuiz = allQuizzes[idx];
+  if (!name || !mobile) { alert('Please fill all details'); return; }
+  studentDetails = { name, mobile };
+
+  // check attempt on server (optional)
+  try {
+    const res = await fetch('/check-attempt',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ mobile, quizId: currentQuiz.id })});
+    if (res.ok) {
+      const data = await res.json();
+      if (data.canAttempt) showPasswordScreen();
+      else alert(data.message||'Cannot attempt');
+    } else showPasswordScreen();
+  } catch(e) { showPasswordScreen(); }
+}
+
+function showPasswordScreen(){
+  const el = document.getElementById('student-details-screen');
+  el.innerHTML = `
+    <div style="max-width:600px;margin:40px auto;background:#fff;padding:22px;border-radius:10px">
+      <h2>Enter Exam Password</h2>
+      <input id="exam-password" type="password" placeholder="Password" />
+      <button id="password-submit-btn" style="width:100%;margin-top:8px">Continue</button>
+      <p style="color:#666;font-size:13px;margin-top:8px">Demo password: <strong>demo123</strong></p>
+    </div>`;
+  document.getElementById('password-submit-btn').onclick = ()=>{
+    const v = document.getElementById('exam-password').value;
+    if (v === currentQuiz.password) prepareQuiz();
+    else alert('Incorrect password');
+  };
+}
+
+/* --------------------------
+   Camera & fullscreen
+   -------------------------- */
+async function startCamera(){
+  const video = document.getElementById('camera-view');
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('Camera not supported');
+  const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode:'user', width:{ideal:640}, height:{ideal:480} }});
+  video.srcObject = stream;
+  document.getElementById('camera-wrapper').style.display = 'block';
+  await new Promise(r=> video.onloadedmetadata = r);
+  setupCameraTamperDetection();
+}
+
+async function startFullScreen(){
+  if (document.documentElement.requestFullscreen) {
+    try { await document.documentElement.requestFullscreen(); } catch(e) { /* ignore */ }
+  }
+}
+
+/* Return to fullscreen UI button */
+const fullscreenReturnBtn = document.getElementById('fullscreen-return-btn');
+fullscreenReturnBtn.onclick = async ()=>{
+  await startFullScreen();
+  hideFullscreenReturn();
+  unblurCamera();
+};
+
+function showFullscreenReturn(){ fullscreenReturnBtn.style.display='block'; }
+function hideFullscreenReturn(){ fullscreenReturnBtn.style.display='none'; }
+
+function blurCamera(){
+  document.getElementById('camera-view').style.filter = 'blur(6px)';
+}
+function unblurCamera(){
+  document.getElementById('camera-view').style.filter = 'none';
+}
+
+/* Camera tamper detectors */
+function setupCameraTamperDetection(){
+  const wrapper = document.getElementById('camera-wrapper');
+  // ResizeObserver: too small
+  try {
+    const ro = new ResizeObserver(entries=>{
+      for (const e of entries){
+        const { width, height } = e.contentRect;
+        if (width < 140 || height < 110) {
+          if (!wrapper.classList.contains('minimized')) {
+            wrapper.classList.add('minimized');
+            blurCamera();
+            showToast('Camera minimized — blurred. Warning issued.');
+            handleWarning('Camera window minimized below allowed size.');
+          }
+        } else {
+          if (wrapper.classList.contains('minimized')) {
+            wrapper.classList.remove('minimized');
+            unblurCamera();
+          }
         }
+      }
+    });
+    ro.observe(wrapper);
+  } catch(e){ /* not supported */ }
 
-        // Start camera
-        async function startCamera() {
-            try {
-                updateStatus("Starting camera...");
-                
-                const videoElement = document.getElementById('camera-view');
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { 
-                        width: { ideal: 640 }, 
-                        height: { ideal: 480 },
-                        facingMode: 'user'
-                    } 
-                });
-                
-                videoElement.srcObject = stream;
-                document.getElementById('camera-wrapper').style.display = 'block';
-                
-                updateStatus("Camera started successfully");
-                showSuccess("Camera is now active");
-                
-                return true;
-            } catch (error) {
-                console.error("Camera start failed:", error);
-                updateStatus("Camera start failed: " + error.message);
-                return false;
-            }
+  // IntersectionObserver: mostly off-screen
+  try {
+    const io = new IntersectionObserver(entries=>{
+      for(const en of entries){
+        if (en.intersectionRatio < 0.6){
+          if (camHiddenSince === null) camHiddenSince = Date.now();
+          else if (Date.now() - camHiddenSince > CAM_HIDDEN_THRESHOLD) {
+            handleWarning('Camera window is mostly hidden/off-screen.');
+            blurCamera();
+            camHiddenSince = null;
+          }
+        } else {
+          camHiddenSince = null;
+          // restore if previously blurred because of hide
+          // only unblur if not minimized by user
+          if (!document.fullscreenElement) { /* keep blurred until fullscreen restored */ }
         }
+      }
+    }, { threshold:[0,0.25,0.5,0.6,0.75,1] });
+    io.observe(wrapper);
+  } catch(e){}
 
-        // Start AI proctoring
-        async function startProctoring() {
-            if (!gazeModel) {
-                showWarning("Face detection model not loaded. Please wait...");
-                return;
-            }
-            
-            if (isProctoringActive) {
-                showWarning("Proctoring is already active");
-                return;
-            }
-            
-            isProctoringActive = true;
-            updateStatus("AI proctoring started - monitoring gaze and behavior");
-            showSuccess("AI proctoring is now active");
-            
-            // Start gaze detection loop
-            startGazeDetection();
-            
-            // Setup other monitoring
-            setupTabSwitchDetection();
-            setupFullscreenMonitoring();
-        }
+  // MutationObserver: style/class tampering
+  try {
+    const mo = new MutationObserver(muts=>{
+      const style = getComputedStyle(wrapper);
+      if (style.display === 'none' || parseFloat(style.opacity || '1') < 0.2) {
+        wrapper.style.display = 'block';
+        wrapper.style.opacity = '1';
+        handleWarning('Attempt to hide camera detected.');
+        blurCamera();
+      }
+    });
+    mo.observe(wrapper, { attributes:true, attributeFilter:['style','class'] });
+  } catch(e){}
+}
 
-        // Stop AI proctoring
-        function stopProctoring() {
-            isProctoringActive = false;
-            if (proctoringInterval) {
-                clearInterval(proctoringInterval);
-                proctoringInterval = null;
-            }
-            updateStatus("AI proctoring stopped");
-        }
+/* --------------------------
+   Proctoring listeners (fullscreen / visibility)
+   -------------------------- */
+function setupProctoringListeners(){
+  document.addEventListener('visibilitychange', ()=>{
+    if (document.hidden && quizInProgress) {
+      handleWarning('You switched away (tab hidden).');
+      blurCamera();
+      showFullscreenReturn();
+    }
+    if (!document.hidden && quizInProgress) {
+      // do nothing; allow student to continue
+    }
+  });
 
-        // Gaze detection function
-        function startGazeDetection() {
-            const videoElement = document.getElementById('camera-view');
-            
-            async function detectGaze() {
-                if (!isProctoringActive || !gazeModel) return;
-                
-                try {
-                    const faces = await gazeModel.estimateFaces(videoElement, { 
-                        flipHorizontal: false 
-                    });
-                    
-                    if (faces.length > 0) {
-                        const keypoints = faces[0].keypoints;
-                        
-                        // Get key facial landmarks
-                        const leftEye = keypoints[33];  // Left eye center
-                        const rightEye = keypoints[263]; // Right eye center
-                        const nose = keypoints[1];       // Nose tip
-                        
-                        if (leftEye && rightEye && nose) {
-                            // Calculate eye center
-                            const eyeCenterX = (leftEye.x + rightEye.x) / 2;
-                            const eyeCenterY = (leftEye.y + rightEye.y) / 2;
-                            
-                            // Calculate gaze direction relative to screen center
-                            const screenCenterX = window.innerWidth / 2;
-                            const screenCenterY = window.innerHeight / 2;
-                            
-                            const gazeOffsetX = Math.abs(eyeCenterX - screenCenterX);
-                            const gazeOffsetY = Math.abs(eyeCenterY - screenCenterY);
-                            
-                            // Check if looking away (threshold can be adjusted)
-                            if (gazeOffsetX > 100 || gazeOffsetY > 100) {
-                                if (lookAwayStartTime === null) {
-                                    lookAwayStartTime = Date.now();
-                                } else if (Date.now() - lookAwayStartTime > LOOK_AWAY_THRESHOLD) {
-                                    handleWarning("You are looking away from the screen for too long");
-                                    lookAwayStartTime = null;
-                                }
-                            } else {
-                                lookAwayStartTime = null;
-                            }
-                        }
-                    } else {
-                        // No face detected
-                        if (lookAwayStartTime === null) {
-                            lookAwayStartTime = Date.now();
-                        } else if (Date.now() - lookAwayStartTime > LOOK_AWAY_THRESHOLD) {
-                            handleWarning("No face detected - please return to camera view");
-                            lookAwayStartTime = null;
-                        }
-                    }
-                } catch (error) {
-                    console.error("Gaze detection error:", error);
-                }
-                
-                // Continue detection loop
-                if (isProctoringActive) {
-                    requestAnimationFrame(detectGaze);
-                }
-            }
-            
-            detectGaze();
-        }
+  document.addEventListener('fullscreenchange', ()=>{
+    if (!document.fullscreenElement && quizInProgress) {
+      // exited fullscreen
+      handleWarning('You exited fullscreen.');
+      blurCamera();
+      showToast('You exited fullscreen — click return to fullscreen to continue', 'warning');
+      showFullscreenReturn();
+    } else {
+      // entered fullscreen
+      unblurCamera();
+      hideFullscreenReturn();
+    }
+  });
+}
 
-        // Handle warnings
-        function handleWarning(message) {
-            warningCount++;
-            const warningMessage = `Warning ${warningCount}/${maxWarnings}: ${message}`;
-            showWarning(warningMessage);
-            
-            if (warningCount >= maxWarnings) {
-                showWarning("Maximum warnings exceeded. Exam will be submitted automatically.");
-                setTimeout(() => {
-                    stopProctoring();
-                    alert("Exam terminated due to multiple violations.");
-                }, 2000);
-            }
-        }
+/* --------------------------
+   Quiz initialization
+   -------------------------- */
+function prepareQuiz(){
+  // show instructions then start
+  const screen = document.getElementById('student-details-screen');
+  screen.innerHTML = `
+    <div class="center-card" style="max-width:700px">
+      <h2 style="text-align:center">Exam Instructions</h2>
+      <ul style="text-align:left">
+        <li>Do not switch tabs or exit fullscreen.</li>
+        <li>Camera must remain visible. Minimizing will blur and generate warnings.</li>
+        <li>After ${MAX_WARNINGS} warnings, test auto-submits.</li>
+      </ul>
+      <button id="start-test-btn" style="width:100%;margin-top:8px">Start Camera & Fullscreen</button>
+    </div>
+  `;
+  document.getElementById('start-test-btn').onclick = async ()=>{
+    try {
+      await startCamera();
+      await startFullScreen();
+      showToast('Permissions granted', 'success');
+      setTimeout(()=>{
+        document.getElementById('student-details-screen').style.display='none';
+        document.getElementById('quiz-screen').style.display='flex';
+        initializeQuiz();
+      },600);
+    } catch(e){
+      showToast('Could not start camera/fullscreen — allow permissions and retry','warning');
+    }
+  };
+}
 
-        // Tab switch detection
-        function setupTabSwitchDetection() {
-            document.addEventListener('visibilitychange', () => {
-                if (document.hidden && isProctoringActive) {
-                    handleWarning("Tab switching detected");
-                }
-            });
-        }
+/* --------------------------
+   Initialize quiz UI & behavior
+   -------------------------- */
+function initializeQuiz(){
+  quizInProgress = true;
+  document.getElementById('quiz-title-main').textContent = currentQuiz.title || 'Quiz';
+  // subject tabs
+  const tabs = document.getElementById('subject-tabs');
+  tabs.innerHTML = '';
+  Object.keys(currentQuiz.subjects).forEach(subj=>{
+    // shuffle questions for exam session
+    shuffleArray(currentQuiz.subjects[subj]);
+    userResponses[subj] = {};
+    questionTimes[subj] = {};
+    const btn = document.createElement('button');
+    btn.className = 'subject-tab';
+    btn.textContent = subj;
+    btn.onclick = (e)=> switchSubject(subj, e.currentTarget);
+    tabs.appendChild(btn);
+  });
 
-        // Fullscreen monitoring
-        function setupFullscreenMonitoring() {
-            document.addEventListener('fullscreenchange', () => {
-                if (!document.fullscreenElement && isProctoringActive) {
-                    handleWarning("Fullscreen exited");
-                }
-            });
-        }
+  // default subject
+  currentSubject = Object.keys(currentQuiz.subjects)[0];
+  // ensure first tab active
+  const firstTab = tabs.children[0];
+  if (firstTab) firstTab.classList.add('active');
 
-        // Go fullscreen
-        async function goFullscreen() {
-            try {
-                if (document.documentElement.requestFullscreen) {
-                    await document.documentElement.requestFullscreen();
-                    showSuccess("Fullscreen mode activated");
-                }
-            } catch (error) {
-                showWarning("Fullscreen request failed: " + error.message);
-            }
-        }
+  setupProctoringListeners();
+  switchSubject(currentSubject, firstTab);
+  startTimer((currentQuiz.timeLimit||30) * 60);
+  updateWarningsIndicator();
+  tryRestoreForCurrent();
+}
 
-        // Utility functions
-        function updateStatus(message) {
-            document.getElementById('status-text').textContent = message;
-            console.log("Status:", message);
-        }
+/* --------------------------
+   Question navigation & tracking
+   -------------------------- */
+function accumulateTimeForCurrent(){
+  if (!quizInProgress || lastQuestionStart === null) return;
+  const now = Date.now();
+  const elapsed = now - lastQuestionStart;
+  if (!questionTimes[currentSubject]) questionTimes[currentSubject] = {};
+  questionTimes[currentSubject][currentQuestionIndex] = (questionTimes[currentSubject][currentQuestionIndex] || 0) + elapsed;
+  lastQuestionStart = now;
+}
 
-        function showWarning(message) {
-            document.getElementById('warning-text').textContent = message;
-            document.getElementById('warning').style.display = 'block';
-            document.getElementById('success').style.display = 'none';
-            console.warn("Warning:", message);
-        }
+function switchSubject(subj, clickedTab){
+  // accumulate time for old question
+  accumulateTimeForCurrent();
+  currentSubject = subj;
+  currentQuestionIndex = 0;
+  document.querySelectorAll('.subject-tab').forEach(t=>t.classList.remove('active'));
+  if (clickedTab) clickedTab.classList.add('active');
+  loadQuestion();
+  updatePalette();
+}
 
-        function showSuccess(message) {
-            document.getElementById('success-text').textContent = message;
-            document.getElementById('success').style.display = 'block';
-            document.getElementById('warning').style.display = 'none';
-            console.log("Success:", message);
-        }
+function loadQuestion(){
+  const qs = currentQuiz.subjects[currentSubject] || [];
+  const q = qs[currentQuestionIndex];
+  if (!q) {
+    document.getElementById('question-number').textContent = '';
+    document.getElementById('question-text').textContent = 'No question.';
+    document.getElementById('options-container').innerHTML = '';
+    return;
+  }
+  // shuffle options & compute shuffledCorrectAnswerIndex (store on question)
+  if (!Array.isArray(q.shuffledOptions)) {
+    const originalCorrectText = q.options[q.correctAnswer];
+    const opts = q.options.slice();
+    shuffleArray(opts);
+    q.shuffledOptions = opts.slice();
+    q.shuffledCorrectAnswerIndex = opts.indexOf(originalCorrectText);
+  }
 
-        // Event listeners
-        document.getElementById('start-camera').addEventListener('click', startCamera);
-        document.getElementById('start-proctoring').addEventListener('click', startProctoring);
-        document.getElementById('stop-proctoring').addEventListener('click', stopProctoring);
-        document.getElementById('fullscreen').addEventListener('click', goFullscreen);
-        
-        document.getElementById('minimize-camera').addEventListener('click', () => {
-            const wrapper = document.getElementById('camera-wrapper');
-            if (wrapper.style.width === '60px') {
-                wrapper.style.width = '200px';
-                wrapper.style.height = '150px';
-            } else {
-                wrapper.style.width = '60px';
-                wrapper.style.height = '45px';
-            }
-        });
+  document.getElementById('question-number').textContent = `Question ${currentQuestionIndex+1}`;
+  document.getElementById('question-text').textContent = q.text || '';
+  const img = document.getElementById('question-image');
+  if (q.imageUrl) { img.src = q.imageUrl; img.style.display='block'; } else img.style.display='none';
 
-        // Initialize on page load
-        window.addEventListener('load', async () => {
-            updateStatus("Page loaded, initializing...");
-            
-            // Initialize TensorFlow first
-            const tfReady = await initializeTensorFlow();
-            if (tfReady) {
-                // Load face model
-                await loadFaceModel();
-                updateStatus("System ready - you can start the camera and proctoring");
-            }
-        });
+  const resp = userResponses[currentSubject][currentQuestionIndex] || {};
+  const container = document.getElementById('options-container');
+  container.innerHTML = '';
+  q.shuffledOptions.forEach((opt, idx)=>{
+    const d = document.createElement('div');
+    d.className = 'option';
+    d.textContent = opt;
+    if (resp.answer === idx) d.classList.add('selected');
+    d.onclick = ()=> selectOption(idx);
+    container.appendChild(d);
+  });
 
-        // Prevent right-click and other shortcuts
-        document.addEventListener('contextmenu', e => e.preventDefault());
-        document.addEventListener('keydown', e => {
-            if (e.ctrlKey && (e.key === 'u' || e.key === 'U')) {
-                e.preventDefault();
-                handleWarning("View source attempt detected");
-            }
-            if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) {
-                e.preventDefault();
-                handleWarning("Developer tools access attempt detected");
-            }
-        });
-    </script>
+  // start timing this question
+  lastQuestionStart = Date.now();
+}
+
+function selectOption(index){
+  const resp = userResponses[currentSubject][currentQuestionIndex] || {};
+  resp.answer = index;
+  resp.status = 'answered';
+  userResponses[currentSubject][currentQuestionIndex] = resp;
+  document.querySelectorAll('.option').forEach((o,i)=> o.classList.toggle('selected', i===index));
+  scheduleAutosave();
+  updatePalette();
+}
+
+function goNextIfPossible(){
+  if (currentQuestionIndex < currentQuiz.subjects[currentSubject].length - 1) {
+    accumulateTimeForCurrent();
+    currentQuestionIndex++;
+    loadQuestion();
+    scheduleAutosave();
+    updatePalette();
+  }
+}
+
+function saveAndNext(){ goNextIfPossible(); }
+function markForReview(){ const r = userResponses[currentSubject][currentQuestionIndex] || {}; r.status='review'; userResponses[currentSubject][currentQuestionIndex]=r; goNextIfPossible(); }
+function clearResponse(){ if (userResponses[currentSubject][currentQuestionIndex]) { delete userResponses[currentSubject][currentQuestionIndex].answer; delete userResponses[currentSubject][currentQuestionIndex].status; } scheduleAutosave(); loadQuestion(); updatePalette(); }
+
+function updatePalette(){
+  const pal = document.getElementById('question-palette');
+  pal.innerHTML = '';
+  const qs = currentQuiz.subjects[currentSubject] || [];
+  qs.forEach((_,i)=>{
+    const r = userResponses[currentSubject][i] || {};
+    const it = document.createElement('div');
+    it.className = 'palette-item';
+    it.textContent = i+1;
+    if (r.status === 'answered') it.classList.add('status-answered');
+    else if (r.status === 'review') it.classList.add('status-review');
+    else it.classList.add('status-not-answered');
+    it.onclick = ()=> { accumulateTimeForCurrent(); currentQuestionIndex = i; loadQuestion(); };
+    pal.appendChild(it);
+  });
+}
+
+/* --------------------------
+   Timer & 5-min warning
+   -------------------------- */
+function startTimer(durationSeconds){
+  let timeLeft = durationSeconds;
+  if (timerInterval) clearInterval(timerInterval);
+  fiveMinWarned = false;
+  timerInterval = setInterval(()=>{
+    if (timeLeft <= 0) {
+      clearInterval(timerInterval);
+      showToast(\"Time's up! Submitting your test.\", 'warning');
+      submitTest();
+      return;
+    }
+    if (!fiveMinWarned && timeLeft === 300) {
+      fiveMinWarned = true;
+      showToast('Only 5 minutes left! Please review and submit.', 'warning');
+    }
+    timeLeft--;
+    const hrs = Math.floor(timeLeft/3600);
+    const mins = Math.floor((timeLeft%3600)/60);
+    const secs = timeLeft % 60;
+    document.getElementById('timer').textContent = `${String(hrs).padStart(2,'0')}:${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
+  },1000);
+}
+
+/* --------------------------
+   Warnings & submit
+   -------------------------- */
+function handleWarning(message){
+  warningCount++;
+  updateWarningsIndicator();
+  showToast(`Warning ${warningCount}/${MAX_WARNINGS}: ${message}`, 'warning');
+  scheduleAutosave();
+  if (warningCount >= MAX_WARNINGS) {
+    setTimeout(()=> { showToast('Maximum warnings exceeded. Auto-submitting.', 'warning'); submitTest(); }, 800);
+  }
+}
+
+/* --------------------------
+   Autosave & restore
+   -------------------------- */
+let autosaveTimeout = null;
+function scheduleAutosave(){ if (autosaveTimeout) clearTimeout(autosaveTimeout); autosaveTimeout = setTimeout(saveAutosave, 800); }
+function saveAutosave(){
+  try {
+    const key = AUTOSAVE_PREFIX + (currentQuiz.id || 'noquiz') + '_' + (studentDetails.mobile || 'nomobile');
+    const payload = { userResponses, warningCount, questionTimes, timestamp:Date.now(), currentSubject, currentQuestionIndex };
+    localStorage.setItem(key, JSON.stringify(payload));
+    const t = document.createElement('div'); t.className='toast success'; t.textContent='Autosaved locally'; document.body.appendChild(t);
+    requestAnimationFrame(()=> t.classList.add('show')); setTimeout(()=>{ t.classList.remove('show'); setTimeout(()=>t.remove(),400); },1200);
+  } catch(e){}
+}
+
+function restoreAutosaveAny(){
+  try {
+    const keys = Object.keys(localStorage).filter(k=>k.startsWith(AUTOSAVE_PREFIX));
+    if (!keys.length) return;
+    let latestKey=null, latestTime=0;
+    keys.forEach(k=>{
+      try { const p = JSON.parse(localStorage.getItem(k)); if (p && p.timestamp && p.timestamp > latestTime) { latestTime = p.timestamp; latestKey = k; } } catch(e){}
+    });
+    if (!latestKey) return;
+    const payload = JSON.parse(localStorage.getItem(latestKey));
+    if (!payload) return;
+    if (confirm('Found a saved in-progress attempt. Restore answers?')) {
+      userResponses = payload.userResponses || {};
+      warningCount = payload.warningCount || 0;
+      questionTimes = payload.questionTimes || {};
+      updateWarningsIndicator();
+    }
+  } catch(e){}
+}
+
+function tryRestoreForCurrent(){
+  try {
+    const key = AUTOSAVE_PREFIX + (currentQuiz.id || 'noquiz') + '_' + (studentDetails.mobile || 'nomobile');
+    const payloadStr = localStorage.getItem(key);
+    if (!payloadStr) return;
+    const payload = JSON.parse(payloadStr);
+    if (!payload) return;
+    if (confirm('Found a saved attempt for this quiz & number. Restore?')) {
+      userResponses = payload.userResponses || {};
+      warningCount = payload.warningCount || 0;
+      questionTimes = payload.questionTimes || {};
+      currentSubject = payload.currentSubject || currentSubject;
+      currentQuestionIndex = payload.currentQuestionIndex || currentQuestionIndex;
+      updateWarningsIndicator();
+      // set active tab
+      document.querySelectorAll('.subject-tab').forEach(tab=>{
+        if (tab.textContent === currentSubject) tab.classList.add('active'); else tab.classList.remove('active');
+      });
+      loadQuestion();
+    }
+  } catch(e){}
+}
+
+/* --------------------------
+   Submission
+   -------------------------- */
+function confirmSubmit(){ if (confirm('Are you sure you want to submit the test?')) submitTest(); }
+
+function submitTest(){
+  accumulateTimeForCurrent();
+  if (!quizInProgress) return;
+  quizInProgress = false;
+  clearInterval(timerInterval);
+
+  // Score calculation (example)
+  let totalScore=0;
+  const subjectScores = {};
+  Object.keys(currentQuiz.subjects).forEach(subj=>{
+    let s=0;
+    currentQuiz.subjects[subj].forEach((q,i)=>{
+      const r = userResponses[subj][i];
+      if (r && r.answer !== undefined && q.shuffledCorrectAnswerIndex !== undefined) {
+        if (r.answer === q.shuffledCorrectAnswerIndex) s+=4; else s-=1;
+      }
+    });
+    subjectScores[subj]=s; totalScore += s;
+  });
+
+  // convert questionTimes ms->seconds
+  const qTimesSec = {};
+  Object.keys(questionTimes).forEach(sub=>{
+    qTimesSec[sub] = {};
+    Object.keys(questionTimes[sub]).forEach(i=> qTimesSec[sub][i] = Math.round(questionTimes[sub][i]/1000));
+  });
+
+  const result = {
+    date: new Date().toISOString(),
+    studentName: studentDetails.name,
+    mobile: studentDetails.mobile,
+    class: currentQuiz.class,
+    quizId: currentQuiz.id,
+    quizTitle: currentQuiz.title,
+    totalScore,
+    subjectScores,
+    warnings: warningCount,
+    questionTimes: qTimesSec,
+    userResponses
+  };
+
+  // clear autosave
+  try { localStorage.removeItem(AUTOSAVE_PREFIX + (currentQuiz.id || 'noquiz') + '_' + (studentDetails.mobile || 'nomobile')); } catch(e){}
+
+  // POST to server
+  fetch('/submit-result', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(result) })
+    .then(r=> { if (!r.ok) throw new Error('submit failed'); return r.json(); })
+    .then(data=>{
+      showToast('Test submitted successfully', 'success');
+      document.getElementById('quiz-screen').innerHTML = `<div style="max-width:700px;margin:40px auto;text-align:center"><h1>Test Submitted</h1><p>Total Score: ${totalScore}</p></div>`;
+    })
+    .catch(err=>{
+      console.error('submit error', err);
+      alert('There was an error submitting your test. Check connection.');
+    });
+}
+
+/* --------------------------
+   Security: disable right-click / devtools keys
+   -------------------------- */
+document.addEventListener('keydown', function(e){
+  if (e.ctrlKey && (e.key === 'u' || e.key === 'U')) { e.preventDefault(); alert('View source is disabled during exam!'); }
+  if (e.key === 'F12') { e.preventDefault(); alert('Developer tools are disabled!'); }
+  if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) { e.preventDefault(); alert('Developer tools are disabled!'); }
+});
+document.addEventListener('contextmenu', e=>{ e.preventDefault(); alert('Right-click disabled during exam!'); });
+
+
+function shuffleArray(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } }
+
+
+document.addEventListener('DOMContentLoaded', loadInitialData);
+
+/* Export some functions to global so buttons inline can call them */
+window.saveAndNext = saveAndNext;
+window.markForReview = markForReview;
+window.clearResponse = clearResponse;
+window.confirmSubmit = confirmSubmit;
+
+</script>
 </body>
 </html>
