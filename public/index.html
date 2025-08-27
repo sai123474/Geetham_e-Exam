@@ -6,6 +6,13 @@
     <title>Geetham e-Exam</title>
     <link rel="icon" type="image/jpeg" href="/geetham.jpg">
     <link rel="manifest" href="/manifest.json">
+    <!-- TensorFlow.js Core and Backend -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl"></script>
+
+<!-- Face Landmarker Model -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/face-landmarks-detection"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter"></script>
     <meta name="theme-color" content="#0056b3"/>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f0f2f5; color: #333; margin: 0; padding: 10px; }
@@ -115,6 +122,11 @@
     const maxWarnings = 2;
     const AUTOSAVE_KEY_PREFIX = 'geetham_autosave_v1_';
     let autosaveTimeout;
+    // --- GAZE DETECTION VARIABLES ---
+let gazeModel;
+let isGazeDetectionRunning = false;
+let lookAwayStartTime = null;
+const LOOK_AWAY_THRESHOLD = 3000; // 3 seconds
 
     function showToast(message, type = 'warning') {
         const toast = document.createElement('div');
@@ -165,7 +177,68 @@
             document.body.innerHTML = "<h1>Error: Could not load quiz data.</h1>";
         }
     }
+// --- NEW GAZE DETECTION FUNCTIONS ---
 
+// Loads the TensorFlow.js model
+async function loadGazeModel() {
+    try {
+        const model = faceLandmarksDetection.SupportedModels.MediaPipeFaceMesh;
+        const detectorConfig = {
+            runtime: 'mediapipe',
+            solutionPath: 'https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh',
+        };
+        gazeModel = await faceLandmarksDetection.createDetector(model, detectorConfig);
+        console.log("Gaze detection model loaded.");
+    } catch (error) {
+        console.error("Failed to load gaze model:", error);
+        showToast("Could not load proctoring AI.", "warning");
+    }
+}
+
+// Starts the continuous analysis of the webcam
+function startGazeDetection() {
+    if (!gazeModel) return;
+    isGazeDetectionRunning = true;
+    const videoElement = document.getElementById('camera-view');
+    
+    async function detectGaze() {
+        if (!quizInProgress || !isGazeDetectionRunning) return;
+
+        const faces = await gazeModel.estimateFaces(videoElement, { flipHorizontal: false });
+
+        if (faces.length > 0) {
+            const keypoints = faces[0].keypoints;
+            const leftEye = keypoints[33]; // A point on the left side of the left eye
+            const rightEye = keypoints[263]; // A point on the right side of the right eye
+            const nose = keypoints[1]; // A point on the nose
+
+            // Simple logic: if the nose is too far left or right of the eye centers,
+            // the person is likely looking away.
+            const eyeCenterX = (leftEye.x + rightEye.x) / 2;
+            const horizontalGaze = nose.x - eyeCenterX;
+
+            if (Math.abs(horizontalGaze) > 10) { // Threshold for looking away
+                if (lookAwayStartTime === null) {
+                    lookAwayStartTime = Date.now();
+                } else if (Date.now() - lookAwayStartTime > LOOK_AWAY_THRESHOLD) {
+                    handleWarning("You are looking away from the screen.");
+                    lookAwayStartTime = null; // Reset after warning
+                }
+            } else {
+                lookAwayStartTime = null; // Reset when looking at the screen
+            }
+        }
+        
+        // Loop the detection
+        requestAnimationFrame(detectGaze);
+    }
+    detectGaze();
+}
+
+// Stops the gaze detection
+function stopGazeDetection() {
+    isGazeDetectionRunning = false;
+}
     function displayInitialScreen() {
         document.getElementById('student-details-screen').style.display = 'block';
         const quizSelectionContainer = document.getElementById('quiz-selection-container');
@@ -215,6 +288,7 @@
     }
 
     function prepareQuiz() {
+        loadGazeModel();
         const detailsScreen = document.getElementById('student-details-screen');
         detailsScreen.innerHTML = `
             <div style="max-width: 500px; margin: 50px auto; background: #fff; padding: 30px; border-radius: 8px;">
@@ -284,6 +358,8 @@
 
         // Start the timer last, after everything is initialized
         startTimer((currentQuiz.timeLimit || 0) * 60);
+        // Start gaze detection after a short delay
+      setTimeout(startGazeDetection, 2000);
         updateWarningsIndicator();
     }
 
@@ -449,6 +525,8 @@
     }
 
     function submitTest() {
+         // Stop the gaze detection when the test is submitted
+    stopGazeDetection();
         const submitBtn = document.querySelector('.submit');
         if (submitBtn) submitBtn.disabled = true;
         if (!quizInProgress) return;
