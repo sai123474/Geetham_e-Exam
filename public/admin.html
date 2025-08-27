@@ -31,7 +31,7 @@
     <div class="container">
         <div class="header">
             <img src="/geetham.jpg" alt="Geetham Institute Logo" class="logo">
-            <h1>Quiz Admin Panel</h1>
+            <h1>Exam Admin Panel</h1>
         </div>
         <div id="password-prompt">
             <input type="password" id="admin-password" placeholder="Enter Admin Password">
@@ -46,7 +46,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <script>
-    const ADMIN_PASSWORD = "admin123";
+    const ADMIN_PASSWORD = "geetham";
     let quizzesData = [];
     let selectedQuizIndex = 0;
     let autosaveTimeout;
@@ -101,7 +101,6 @@
             editorPanel.innerHTML = '<h3>Select a quiz to edit or add a new one.</h3>';
             return;
         }
-        // 2. Add the "Download as PDF" button to the layout
         editorPanel.innerHTML = `
             <h3>Editing: ${quiz.title}</h3>
             <div id="autosave-status"></div>
@@ -144,7 +143,15 @@
         container.innerHTML = '';
         Object.keys(subjects).forEach(subjectName => {
             const subjectDiv = document.createElement('div');
-            subjectDiv.innerHTML = `<h4>${subjectName}</h4>`;
+            subjectDiv.innerHTML = `
+                <h4>${subjectName}</h4>
+                <div class="question-container">
+                    <h5>Generate Questions for ${subjectName} with AI</h5>
+                    <input type="text" id="topic-${subjectName}" placeholder="Enter topic (e.g., Laws of Motion)">
+                    <input type="number" id="num-${subjectName}" value="3" style="width: 80px;">
+                    <button class="btn-add" onclick="generateWithAI('${subjectName}')">Generate from Topic</button>
+                </div>
+            `;
             subjects[subjectName].forEach((q, qIndex) => {
                 subjectDiv.appendChild(createQuestionElement(subjectName, qIndex, q));
             });
@@ -223,9 +230,29 @@
         }
     }
 
+    async function generateWithAI(subjectName) {
+        const topic = document.getElementById(`topic-${subjectName}`).value;
+        const numQuestions = document.getElementById(`num-${subjectName}`).value;
+        if (!topic) return alert("Please enter a topic.");
+        try {
+            const response = await fetch('/generate-questions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ topic, numQuestions })
+            });
+            if (!response.ok) throw new Error('AI generation failed.');
+            const newQuestions = await response.json();
+            quizzesData[selectedQuizIndex].subjects[subjectName].push(...newQuestions);
+            renderQuizEditor();
+            alert(`${newQuestions.length} questions generated for ${subjectName}!`);
+        } catch (error) {
+            alert("Could not generate questions from topic.");
+        }
+    }
+
     async function generateFromText() {
         const textInput = document.getElementById('ai-text-input').value;
-        if (!textInput.trim()) return alert("Please paste text to generate questions.");
+        if (!textInput.trim()) return alert("Please paste text.");
         try {
             const response = await fetch('/generate-from-text', {
                 method: 'POST',
@@ -305,7 +332,6 @@
         }
     }
 
-    // 3. Add the new generatePDF function
     function generatePDF() {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
@@ -337,7 +363,7 @@
                 doc.setFont("helvetica", "bold");
                 const splitText = doc.splitTextToSize(`${questionCounter}. ${question.text}`, 180);
                 doc.text(splitText, 14, y);
-                y += (splitText.length * 5); // Adjust space based on text lines
+                y += (splitText.length * 5);
                 
                 doc.setFont("helvetica", "normal");
                 question.options.forEach((option, index) => {
@@ -353,6 +379,9 @@
         doc.save(`${quiz.title.replace(/\s+/g, '_')}.pdf`);
     }
 
+    document.addEventListener('DOMContentLoaded', () => {
+        // Initial load logic if needed
+    });
 </script>
 </body>
 </html>
