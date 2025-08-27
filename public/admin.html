@@ -9,7 +9,7 @@
         .container { max-width: 1200px; margin: auto; }
         .header { text-align: center; margin-bottom: 30px; }
         .logo { max-height: 80px; }
-        h1 { color: #0056b3; }
+        h1, h3, h4, h5 { color: #0056b3; }
         .admin-panel { display: flex; gap: 30px; }
         .quiz-list { width: 300px; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); align-self: flex-start; }
         .quiz-editor { flex-grow: 1; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
@@ -23,15 +23,14 @@
         .btn-remove { background-color: #dc3545; padding: 5px 10px; font-size: 12px; }
         .btn-delete-quiz { background-color: #dc3545; }
         .btn-pdf { background-color: #ffc107; color: #212529; }
-        .question-container { border: 1px solid #e9ecef; padding: 15px; margin-top: 15px; border-radius: 5px; background-color: #fdfdff; }
-        #autosave-status { text-align: right; color: #6c757d; font-style: italic; height: 20px; }
+        .question-container, .subject-container { border: 1px solid #e9ecef; padding: 15px; margin-top: 15px; border-radius: 5px; background-color: #fdfdff; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
             <img src="/geetham.jpg" alt="Geetham Institute Logo" class="logo">
-            <h1>Exam Admin Panel</h1>
+            <h1>Quiz Admin Panel</h1>
         </div>
         <div id="password-prompt">
             <input type="password" id="admin-password" placeholder="Enter Admin Password">
@@ -46,10 +45,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <script>
-    const ADMIN_PASSWORD = "geetham";
+    const ADMIN_PASSWORD = "admin123";
     let quizzesData = [];
     let selectedQuizIndex = 0;
-    let autosaveTimeout;
 
     function login() {
         if (document.getElementById('admin-password').value === ADMIN_PASSWORD) {
@@ -103,18 +101,11 @@
         }
         editorPanel.innerHTML = `
             <h3>Editing: ${quiz.title}</h3>
-            <div id="autosave-status"></div>
             <div id="quiz-details"></div>
             <div id="subjects-details"></div>
-            <div class="question-container" style="margin-top: 30px;">
-                <h4>Generate Questions from Text using AI</h4>
-                <p>Paste your questions and options below, then click generate.</p>
-                <textarea id="ai-text-input" rows="10" placeholder="Paste question paper text here..."></textarea>
-                <button class="btn-add" onclick="generateFromText()">Generate from Text</button>
-            </div>
             <div style="margin-top: 20px; display:flex; justify-content:space-between; flex-wrap: wrap;">
                 <div>
-                    <button class="btn-save" onclick="saveQuiz(true)">Save Manually</button>
+                    <button class="btn-save" onclick="saveQuiz()">Save This Quiz</button>
                     <button class="btn-delete-quiz" onclick="deleteQuiz()">Delete This Quiz</button>
                 </div>
                 <button class="btn-pdf" onclick="generatePDF()">Download as PDF</button>
@@ -122,7 +113,6 @@
         `;
         renderQuizDetails(quiz);
         renderSubjects(quiz.subjects);
-        attachAutosaveListeners();
     }
 
     function renderQuizDetails(quiz) {
@@ -143,15 +133,8 @@
         container.innerHTML = '';
         Object.keys(subjects).forEach(subjectName => {
             const subjectDiv = document.createElement('div');
-            subjectDiv.innerHTML = `
-                <h4>${subjectName}</h4>
-                <div class="question-container">
-                    <h5>Generate Questions for ${subjectName} with AI</h5>
-                    <input type="text" id="topic-${subjectName}" placeholder="Enter topic (e.g., Laws of Motion)">
-                    <input type="number" id="num-${subjectName}" value="3" style="width: 80px;">
-                    <button class="btn-add" onclick="generateWithAI('${subjectName}')">Generate from Topic</button>
-                </div>
-            `;
+            subjectDiv.className = 'subject-container';
+            subjectDiv.innerHTML = `<h4>${subjectName}</h4>`;
             subjects[subjectName].forEach((q, qIndex) => {
                 subjectDiv.appendChild(createQuestionElement(subjectName, qIndex, q));
             });
@@ -168,26 +151,34 @@
         const qDiv = document.createElement('div');
         qDiv.className = 'question-container';
         qDiv.dataset.subject = subjectName;
-
-        // Create a dropdown for question type
-        const typeSelector = `
+        qDiv.innerHTML = `
+            <h5>Question ${qIndex + 1} <button class="btn-remove" onclick="removeQuestion(this, '${subjectName}', ${qIndex})">Remove</button></h5>
             <label>Question Type:</label>
             <select class="question-type" onchange="toggleAnswerType(this)">
-                <option value="multiple-choice" ${question.type === 'multiple-choice' ? 'selected' : ''}>Multiple Choice</option>
+                <option value="multiple-choice" ${!question.type || question.type === 'multiple-choice' ? 'selected' : ''}>Multiple Choice</option>
                 <option value="fill-in-the-blank" ${question.type === 'fill-in-the-blank' ? 'selected' : ''}>Fill in the Blank</option>
                 <option value="subjective" ${question.type === 'subjective' ? 'selected' : ''}>Subjective</option>
             </select>
+            <label>Question Text:</label><textarea rows="2">${question.text}</textarea>
+            <div class="answer-fields"></div>
         `;
-
-        let answerFields = '';
-        if (question.type === 'fill-in-the-blank' || question.type === 'subjective') {
-            answerFields = `<label>Correct Answer / Keywords:</label><input type="text" class="correct-answer-text" value="${question.correctAnswer || ''}">`;
-        } else { // Multiple Choice
+        toggleAnswerType(qDiv.querySelector('.question-type'), qDiv.querySelector('.answer-fields'), question);
+        return qDiv;
+    }
+    
+    function toggleAnswerType(selectElement, answerFieldsDiv, question = {}) {
+        if (!answerFieldsDiv) {
+            answerFieldsDiv = selectElement.closest('.question-container').querySelector('.answer-fields');
+        }
+        const type = selectElement.value;
+        if (type === 'fill-in-the-blank' || type === 'subjective') {
+            answerFieldsDiv.innerHTML = `<label>Correct Answer / Keywords:</label><input type="text" class="correct-answer-text" value="${question.correctAnswer || ''}">`;
+        } else {
             let optionsHTML = '';
-            question.options.forEach((opt, optIndex) => {
-                optionsHTML += `<label>Option ${optIndex + 1}:</label><input type="text" value="${opt}">`;
-            });
-            answerFields = `
+            for (let i = 0; i < 4; i++) {
+                optionsHTML += `<label>Option ${i + 1}:</label><input type="text" value="${question.options?.[i] || ''}">`;
+            }
+            answerFieldsDiv.innerHTML = `
                 ${optionsHTML}
                 <label>Correct Answer:</label>
                 <select class="correct-answer-mc">
@@ -198,50 +189,6 @@
                 </select>
             `;
         }
-
-        qDiv.innerHTML = `
-            <h5>Question ${qIndex + 1} <button class="btn-remove" onclick="removeQuestion('${subjectName}', ${qIndex})">Remove</button></h5>
-            ${typeSelector}
-            <label>Question Text:</label><textarea rows="2">${question.text}</textarea>
-            <div class="answer-fields">${answerFields}</div>
-        `;
-        return qDiv;
-    }
-    function toggleAnswerType(selectElement) {
-        // This function dynamically changes the input fields based on question type
-        const answerFieldsDiv = selectElement.closest('.question-container').querySelector('.answer-fields');
-        const type = selectElement.value;
-        if (type === 'fill-in-the-blank' || type === 'subjective') {
-            answerFieldsDiv.innerHTML = `<label>Correct Answer / Keywords:</label><input type="text" class="correct-answer-text" value="">`;
-        } else {
-            answerFieldsDiv.innerHTML = `
-                <label>Option 1:</label><input type="text" value="">
-                <label>Option 2:</label><input type="text" value="">
-                <label>Option 3:</label><input type="text" value="">
-                <label>Option 4:</label><input type="text" value="">
-                <label>Correct Answer:</label>
-                <select class="correct-answer-mc">
-                    <option value="0">Option 1</option>
-                    <option value="1">Option 2</option>
-                    <option value="2">Option 3</option>
-                    <option value="3">Option 4</option>
-                </select>
-            `;
-        }
-    }
-
-    function attachAutosaveListeners() {
-        const inputs = document.querySelectorAll('#quiz-editor-panel input, #quiz-editor-panel select, #quiz-editor-panel textarea');
-        inputs.forEach(input => {
-            input.addEventListener('input', () => {
-                const status = document.getElementById('autosave-status');
-                status.textContent = 'Saving...';
-                clearTimeout(autosaveTimeout);
-                autosaveTimeout = setTimeout(() => {
-                    saveQuiz(false);
-                }, 2000);
-            });
-        });
     }
 
     function addQuiz() {
@@ -260,58 +207,18 @@
 
     function addQuestion(subjectName) {
         quizzesData[selectedQuizIndex].subjects[subjectName].push({
-            text: "New Question", options: ["", "", "", ""], correctAnswer: 0
+            text: "New Question",
+            type: "multiple-choice",
+            options: ["", "", "", ""],
+            correctAnswer: 0
         });
         renderQuizEditor();
     }
 
-    function removeQuestion(subjectName, qIndex) {
+    function removeQuestion(button, subjectName, qIndex) {
         if (confirm('Are you sure?')) {
             quizzesData[selectedQuizIndex].subjects[subjectName].splice(qIndex, 1);
-            renderQuizEditor();
-        }
-    }
-
-    async function generateWithAI(subjectName) {
-        const topic = document.getElementById(`topic-${subjectName}`).value;
-        const numQuestions = document.getElementById(`num-${subjectName}`).value;
-        if (!topic) return alert("Please enter a topic.");
-        try {
-            const response = await fetch('/generate-questions', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ topic, numQuestions })
-            });
-            if (!response.ok) throw new Error('AI generation failed.');
-            const newQuestions = await response.json();
-            quizzesData[selectedQuizIndex].subjects[subjectName].push(...newQuestions);
-            renderQuizEditor();
-            alert(`${newQuestions.length} questions generated for ${subjectName}!`);
-        } catch (error) {
-            alert("Could not generate questions from topic.");
-        }
-    }
-
-    async function generateFromText() {
-        const textInput = document.getElementById('ai-text-input').value;
-        if (!textInput.trim()) return alert("Please paste text.");
-        try {
-            const response = await fetch('/generate-from-text', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ text: textInput })
-            });
-            if (!response.ok) throw new Error('AI generation failed.');
-            const newQuestions = await response.json();
-            newQuestions.forEach(q => {
-                if (quizzesData[selectedQuizIndex].subjects[q.subject]) {
-                    quizzesData[selectedQuizIndex].subjects[q.subject].push(q);
-                }
-            });
-            renderQuizEditor();
-            alert(`${newQuestions.length} questions generated and added!`);
-        } catch (error) {
-            alert("Could not generate questions from text.");
+            button.closest('.question-container').remove();
         }
     }
 
@@ -335,149 +242,83 @@
         }
     }
 
-  async function saveQuiz(isManualSave = false) {
-  const status = document.getElementById('autosave-status');
-  const quizToSave = quizzesData[selectedQuizIndex];
-  if (!quizToSave) return;
-
-  // Update main quiz details from the form (guard each element)
-  const titleEl = document.getElementById('quiz-title');
-  const timeEl = document.getElementById('quiz-time');
-  const passEl = document.getElementById('quiz-password');
-  const classEl = document.getElementById('quiz-class');
-
-  quizToSave.title = titleEl ? titleEl.value : quizToSave.title;
-  quizToSave.timeLimit = timeEl ? parseInt(timeEl.value) || quizToSave.timeLimit : quizToSave.timeLimit;
-  quizToSave.password = passEl ? passEl.value : quizToSave.password;
-  quizToSave.class = classEl ? classEl.value : quizToSave.class;
-
-  // Rebuild the subjects object from the form elements
-  const newSubjects = {};
-  const subjectDivs = document.querySelectorAll('#subjects-details > div');
-
-  subjectDivs.forEach((subjectDiv, subjIdx) => {
-    const header = subjectDiv.querySelector('h4');
-    const subjectName = header ? header.textContent.trim() : `Subject_${subjIdx}`;
-    newSubjects[subjectName] = [];
-
-    const questionContainers = subjectDiv.querySelectorAll('.question-container');
-
-    questionContainers.forEach((qDiv, qIdx) => {
-      try {
-        const textarea = qDiv.querySelector('textarea');
-        // collect only inputs that are actually present and expected types (helps avoid indexing gaps)
-        const inputs = Array.from(qDiv.querySelectorAll('input'));
-        const select = qDiv.querySelector('select');
-
-        // If textarea missing, skip this question and log
-        if (!textarea) {
-          console.warn(`Skipping question ${qIdx} under ${subjectName}: missing textarea`, qDiv);
-          return;
-        }
-
-        // imageUrl is optional — look for a specific class or first input if that's how you structure it
-        // Prefer input with class "image-url" if you have it else fallback to inputs[0]
-        const imageInput = qDiv.querySelector('input.image-url') || inputs[0];
-        const imageUrl = imageInput ? (imageInput.value || undefined) : undefined;
-
-        // Options — try to find inputs with class "option" or fallback to the next 4 inputs
-        let optionEls = qDiv.querySelectorAll('input.option');
-        if (!optionEls || optionEls.length < 4) {
-          // fallback: use subsequent inputs (skip image input if it was used)
-          const fallback = inputs.filter(inp => inp !== imageInput);
-          optionEls = fallback.slice(0, 4);
-        }
-
-        // Normalize options to 4 strings (fill missing with empty string)
-        const options = [0,1,2,3].map(i => {
-          const el = optionEls[i];
-          return el ? (el.value ?? '') : '';
+    async function saveQuiz() {
+        const quizToSave = quizzesData[selectedQuizIndex];
+        if (!quizToSave) return;
+        quizToSave.title = document.getElementById('quiz-title').value;
+        quizToSave.timeLimit = parseInt(document.getElementById('quiz-time').value);
+        quizToSave.password = document.getElementById('quiz-password').value;
+        quizToSave.class = document.getElementById('quiz-class').value;
+        const newSubjects = {};
+        document.querySelectorAll('.subject-container').forEach(subjectDiv => {
+            const subjectName = subjectDiv.querySelector('h4').textContent;
+            newSubjects[subjectName] = [];
+            subjectDiv.querySelectorAll('.question-container').forEach(qDiv => {
+                const type = qDiv.querySelector('.question-type').value;
+                const questionData = {
+                    text: qDiv.querySelector('textarea').value,
+                    type: type,
+                };
+                if (type === 'multiple-choice') {
+                    questionData.options = Array.from(qDiv.querySelectorAll('.answer-fields input')).map(input => input.value);
+                    questionData.correctAnswer = parseInt(qDiv.querySelector('.correct-answer-mc').value, 10);
+                } else {
+                    questionData.correctAnswer = qDiv.querySelector('.correct-answer-text').value;
+                }
+                newSubjects[subjectName].push(questionData);
+            });
         });
-
-        // correctAnswer from select; fallback to 0
-        const correctAnswer = select ? parseInt(select.value) || 0 : 0;
-
-        newSubjects[subjectName].push({
-          text: textarea.value || '',
-          imageUrl,
-          options,
-          correctAnswer
-        });
-      } catch (qqErr) {
-        console.error(`Error processing question ${qIdx} for subject ${subjectName}:`, qqErr, qDiv);
-        // skip this question on error
-      }
-    });
-  });
-
-  quizToSave.subjects = newSubjects;
-
-  try {
-    const response = await fetch('/update-quizzes', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(quizzesData)
-    });
-    if (!response.ok) throw new Error('Server error');
-    if (status) status.textContent = `Saved at ${new Date().toLocaleTimeString()}`;
-    if (isManualSave) alert('Quiz saved successfully!');
-    renderQuizList();
-  } catch (error) {
-    console.error('Save failed:', error);
-    if (status) status.textContent = 'Save failed.';
-    if (isManualSave) alert('Failed to save quiz.');
-  }
-}
-
+        quizToSave.subjects = newSubjects;
+        try {
+            const response = await fetch('/update-quizzes', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(quizzesData)
+            });
+            if (!response.ok) throw new Error('Server error');
+            alert('Quiz saved successfully!');
+            renderQuizList();
+        } catch (error) {
+            alert('Failed to save quiz.');
+        }
+    }
+    
     function generatePDF() {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
         const quiz = quizzesData[selectedQuizIndex];
         let y = 20;
-
-        doc.setFontSize(22);
-        doc.setFont("helvetica", "bold");
-        doc.text("Geetham e-Exam", 105, y, { align: 'center' });
-        y += 10;
-        doc.setFontSize(16);
-        doc.setFont("helvetica", "normal");
+        doc.setFontSize(18);
         doc.text(quiz.title, 105, y, { align: 'center' });
         y += 10;
-        doc.text(`Time: ${quiz.timeLimit} minutes`, 105, y, { align: 'center' });
-        y += 15;
-
         let questionCounter = 1;
         Object.keys(quiz.subjects).forEach(subjectName => {
             if (y > 260) { doc.addPage(); y = 20; }
             doc.setFontSize(14);
-            doc.setFont("helvetica", "bold");
             doc.text(`Section: ${subjectName}`, 14, y);
             y += 10;
-
-            quiz.subjects[subjectName].forEach(question => {
+            quiz.subjects[subjectName].forEach(q => {
                 if (y > 260) { doc.addPage(); y = 20; }
                 doc.setFontSize(12);
-                doc.setFont("helvetica", "bold");
-                const splitText = doc.splitTextToSize(`${questionCounter}. ${question.text}`, 180);
-                doc.text(splitText, 14, y);
-                y += (splitText.length * 5);
-                
-                doc.setFont("helvetica", "normal");
-                question.options.forEach((option, index) => {
-                    if (y > 270) { doc.addPage(); y = 20; }
-                    doc.text(`   (${String.fromCharCode(97 + index)}) ${option}`, 20, y);
-                    y += 7;
-                });
-                y += 5;
+                const textLines = doc.splitTextToSize(`${questionCounter}. ${q.text}`, 180);
+                doc.text(textLines, 14, y);
+                y += (textLines.length * 5) + 5;
+                if (q.type === 'multiple-choice') {
+                    q.options.forEach((opt, index) => {
+                        doc.text(`   (${String.fromCharCode(97 + index)}) ${opt}`, 20, y);
+                        y += 7;
+                    });
+                } else {
+                    y += 10; // Space for answer line
+                }
                 questionCounter++;
             });
         });
-
         doc.save(`${quiz.title.replace(/\s+/g, '_')}.pdf`);
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-        // Initial load logic if needed
+        // Initial load
     });
 </script>
 </body>
