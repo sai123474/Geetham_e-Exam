@@ -293,44 +293,50 @@
         }
     }
 
-    async function saveQuiz(isManualSave = false) {
-        const status = document.getElementById('autosave-status');
-        const quizToSave = quizzesData[selectedQuizIndex];
-        if (!quizToSave) return;
-        quizToSave.title = document.getElementById('quiz-title').value;
-        quizToSave.timeLimit = parseInt(document.getElementById('quiz-time').value);
-        quizToSave.password = document.getElementById('quiz-password').value;
-        quizToSave.class = document.getElementById('quiz-class').value;
-        const newSubjects = {};
-        document.querySelectorAll('#subjects-details > div').forEach(subjectDiv => {
-            const subjectName = subjectDiv.querySelector('h4').textContent;
-            newSubjects[subjectName] = [];
-            subjectDiv.querySelectorAll('.question-container').forEach(qDiv => {
-                const inputs = qDiv.querySelectorAll('input');
-                newSubjects[subjectName].push({
-                    text: qDiv.querySelector('textarea').value,
-                    imageUrl: inputs[0].value || undefined,
-                    options: [inputs[1].value, inputs[2].value, inputs[3].value, inputs[4].value],
-                    correctAnswer: parseInt(qDiv.querySelector('select').value)
-                });
+   async function saveQuiz(isManualSave = false) {
+    const status = document.getElementById('autosave-status');
+    const quizToSave = quizzesData[selectedQuizIndex];
+    if (!quizToSave) return; // Do nothing if no quiz is selected
+
+    // Update main quiz details from the form
+    quizToSave.title = document.getElementById('quiz-title').value;
+    quizToSave.timeLimit = parseInt(document.getElementById('quiz-time').value);
+    quizToSave.password = document.getElementById('quiz-password').value;
+    quizToSave.class = document.getElementById('quiz-class').value;
+    
+    // Rebuild the subjects object from the form elements
+    const newSubjects = {};
+    document.querySelectorAll('#subjects-details > div').forEach(subjectDiv => {
+        const subjectName = subjectDiv.querySelector('h4').textContent;
+        newSubjects[subjectName] = [];
+        subjectDiv.querySelectorAll('.question-container').forEach(qDiv => {
+            const inputs = qDiv.querySelectorAll('input');
+            newSubjects[subjectName].push({
+                text: qDiv.querySelector('textarea').value,
+                imageUrl: inputs[0].value || undefined,
+                options: [inputs[1].value, inputs[2].value, inputs[3].value, inputs[4].value],
+                correctAnswer: parseInt(qDiv.querySelector('select').value)
             });
         });
-        quizToSave.subjects = newSubjects;
-        try {
-            const response = await fetch('/update-quizzes', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(quizzesData)
-            });
-            if (!response.ok) throw new Error('Server error');
-            if (status) status.textContent = `Saved at ${new Date().toLocaleTimeString()}`;
-            if (isManualSave) alert('Quiz saved successfully!');
-            renderQuizList();
-        } catch (error) {
-            if (status) status.textContent = 'Save failed.';
-            if (isManualSave) alert('Failed to save quiz.');
-        }
+    });
+    quizToSave.subjects = newSubjects;
+
+    try {
+        const response = await fetch('/update-quizzes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(quizzesData)
+        });
+        if (!response.ok) throw new Error('Server error');
+        if (status) status.textContent = `Saved at ${new Date().toLocaleTimeString()}`;
+        if (isManualSave) alert('Quiz saved successfully!');
+        // Re-render the list in case the title was changed
+        renderQuizList();
+    } catch (error) {
+        if (status) status.textContent = 'Save failed.';
+        if (isManualSave) alert('Failed to save quiz.');
     }
+}
 
     function generatePDF() {
         const { jsPDF } = window.jspdf;
