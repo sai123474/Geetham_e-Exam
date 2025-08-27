@@ -10,11 +10,10 @@
     <!-- TensorFlow.js Core and Backend -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter"></script>
 
     <!-- Face Landmarker Model -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/face-landmarks-detection"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter"></script>
-   
 
     <meta name="theme-color" content="#0056b3"/>
     <style>
@@ -190,22 +189,21 @@
     }
 
     // --- NEW GAZE DETECTION FUNCTIONS ---
-async function loadGazeModel() {
-  try {
-    const model = faceLandmarksDetection.SupportedModels.MediaPipeFaceMesh;
-    const detectorConfig = {
-      runtime: 'mediapipe',
-      solutionPath: 'https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh', //  corrected
-      refineLandmarks: true
-    };
-    gazeModel = await faceLandmarksDetection.createDetector(model, detectorConfig);
-    console.log("Gaze detection model loaded successfully.");
-  } catch (error) {
-    console.error("Failed to load gaze model:", error);
-    showToast("Proctoring AI could not start. Please check camera & internet.", "warning");
-  }
-}
-
+    async function loadGazeModel() {
+        try {
+            const model = faceLandmarksDetection.SupportedModels.MediaPipeFaceMesh;
+            const detectorConfig = {
+                runtime: 'mediapipe',
+                solutionPath: 'https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh',
+                refineLandmarks: true
+            };
+            gazeModel = await faceLandmarksDetection.createDetector(model, detectorConfig);
+            console.log("Gaze detection model loaded successfully.");
+        } catch (error) {
+            console.error("Failed to load gaze model:", error);
+            showToast("Proctoring AI could not start. Please check camera & internet.", "warning");
+        }
+    }
 
     function startGazeDetection() {
         if (!gazeModel) return;
@@ -215,28 +213,33 @@ async function loadGazeModel() {
         async function detectGaze() {
             if (!quizInProgress || !isGazeDetectionRunning) return;
 
-            const faces = await gazeModel.estimateFaces(videoElement, { flipHorizontal: false });
+            try {
+                const faces = await gazeModel.estimateFaces(videoElement, { flipHorizontal: false });
 
-            if (faces.length > 0) {
-                const keypoints = faces[0].keypoints;
-                const leftEye = keypoints[33];
-                const rightEye = keypoints[263];
-                const nose = keypoints[1];
+                if (faces.length > 0) {
+                    const keypoints = faces[0].keypoints;
+                    const leftEye = keypoints[33];
+                    const rightEye = keypoints[263];
+                    const nose = keypoints[1];
 
-                const eyeCenterX = (leftEye.x + rightEye.x) / 2;
-                const horizontalGaze = nose.x - eyeCenterX;
+                    const eyeCenterX = (leftEye.x + rightEye.x) / 2;
+                    const horizontalGaze = nose.x - eyeCenterX;
 
-                if (Math.abs(horizontalGaze) > 10) {
-                    if (lookAwayStartTime === null) {
-                        lookAwayStartTime = Date.now();
-                    } else if (Date.now() - lookAwayStartTime > LOOK_AWAY_THRESHOLD) {
-                        handleWarning("You are looking away from the screen.");
+                    if (Math.abs(horizontalGaze) > 10) {
+                        if (lookAwayStartTime === null) {
+                            lookAwayStartTime = Date.now();
+                        } else if (Date.now() - lookAwayStartTime > LOOK_AWAY_THRESHOLD) {
+                            handleWarning("You are looking away from the screen.");
+                            lookAwayStartTime = null;
+                        }
+                    } else {
                         lookAwayStartTime = null;
                     }
-                } else {
-                    lookAwayStartTime = null;
                 }
+            } catch (error) {
+                console.error("Gaze detection error:", error);
             }
+            
             requestAnimationFrame(detectGaze);
         }
         detectGaze();
@@ -752,21 +755,22 @@ async function loadGazeModel() {
     }
 
     document.addEventListener('DOMContentLoaded', loadInitialData);
-     document.addEventListener('keydown', function(e) {
-    if (e.ctrlKey && (e.key === 'u' || e.key === 'U')) {
-      e.preventDefault();
-      alert("View source is disabled during exam!");
-    }
-    if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) {
-      e.preventDefault();
-      alert("Developer tools are disabled!");
-    }
-  });
+    
+    document.addEventListener('keydown', function(e) {
+        if (e.ctrlKey && (e.key === 'u' || e.key === 'U')) {
+            e.preventDefault();
+            alert("View source is disabled during exam!");
+        }
+        if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) {
+            e.preventDefault();
+            alert("Developer tools are disabled!");
+        }
+    });
 
-  document.addEventListener('contextmenu', function(e) {
-    e.preventDefault();
-    alert("Right-click disabled during exam!");
-  });
+    document.addEventListener('contextmenu', function(e) {
+        e.preventDefault();
+        alert("Right-click disabled during exam!");
+    });
 </script>
 </body>
 </html>
