@@ -164,7 +164,7 @@
         }
     }
     
-    async function loadGazeModel() {
+    async function loadGazeModel(retries = 2) {
         updateAIStatus('loading', 'Loading AI Proctor...');
         try {
             const filesetResolver = await FilesetResolver.forVisionTasks(
@@ -181,8 +181,12 @@
             updateAIStatus('ready', 'AI Proctor Ready');
         } catch (error) {
             console.error("Failed to load gaze model:", error);
-            updateAIStatus('error', 'AI Proctor Failed');
-            faceLandmarker = null;
+            if (retries > 0) {
+                setTimeout(() => loadGazeModel(retries - 1), 2000);
+            } else {
+                updateAIStatus('error', 'AI Proctor Failed');
+                faceLandmarker = null;
+            }
         }
     }
 
@@ -464,57 +468,52 @@
         if (confirm("Are you sure you want to submit the test?")) submitTest();
     }
 
-   function submitTest() {
-    const submitBtn = document.querySelector('.submit');
-    if (submitBtn) submitBtn.disabled = true;
-
-    if (!quizInProgress) return;
-    quizInProgress = false;
-    clearInterval(timerInterval);
-    
-    let totalScore = 0;
-    let subjectScores = {};
-
-    Object.keys(currentQuiz.subjects).forEach(subject => {
-        let subjectScore = 0;
-        currentQuiz.subjects[subject].forEach((question, index) => {
-            const response = userResponses[subject][index];
-            if (response && response.answer !== undefined) {
-                if (response.answer === question.shuffledCorrectAnswerIndex) subjectScore += 4;
-                else subjectScore -= 1;
-            }
+    function submitTest() {
+        const submitBtn = document.querySelector('.submit');
+        if (submitBtn) submitBtn.disabled = true;
+        if (!quizInProgress) return;
+        quizInProgress = false;
+        clearInterval(timerInterval);
+        let totalScore = 0;
+        let subjectScores = {};
+        Object.keys(currentQuiz.subjects).forEach(subject => {
+            let subjectScore = 0;
+            currentQuiz.subjects[subject].forEach((question, index) => {
+                const response = userResponses[subject][index];
+                if (response && response.answer !== undefined) {
+                    if (response.answer === question.shuffledCorrectAnswerIndex) subjectScore += 4;
+                    else subjectScore -= 1;
+                }
+            });
+            subjectScores[subject] = subjectScore;
+            totalScore += subjectScore;
         });
-        subjectScores[subject] = subjectScore;
-        totalScore += subjectScore;
-    });
-
-    const resultData = {
-        date: new Date().toISOString(),
-        studentName: studentDetails.name,
-        mobile: studentDetails.mobile,
-        class: currentQuiz.class,
-        quizId: currentQuiz.id,
-        quizTitle: currentQuiz.title,
-        totalScore: totalScore,
-        subjectScores: subjectScores,
-        warnings: warningCount
-    };
-
-    fetch('/submit-result', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(resultData),
-    })
-    .then(response => {
-        if (!response.ok) throw new Error('Submission failed');
-        alert(`Test Submitted Successfully!`);
-        document.getElementById('quiz-screen').innerHTML = `<div style="text-align:center;"><h1>Test Submitted Successfully</h1><h2>Your Final Score: ${totalScore}</h2></div>`;
-    })
-    .catch(error => {
-        alert('There was an error submitting your test.');
-        if (submitBtn) submitBtn.disabled = false; // Re-enable button on error
-    });
-}
+        const resultData = {
+            date: new Date().toISOString(),
+            studentName: studentDetails.name,
+            mobile: studentDetails.mobile,
+            class: currentQuiz.class,
+            quizId: currentQuiz.id,
+            quizTitle: currentQuiz.title,
+            totalScore: totalScore,
+            subjectScores: subjectScores,
+            warnings: warningCount
+        };
+        fetch('/submit-result', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(resultData),
+        })
+        .then(response => {
+            if (!response.ok) throw new Error('Submission failed');
+            alert(`Test Submitted Successfully!`);
+            document.getElementById('quiz-screen').innerHTML = `<div style="max-width: 600px; margin: 50px auto; text-align:center;"><h1>Test Submitted Successfully</h1><h2>Your Final Score: ${totalScore}</h2></div>`;
+        })
+        .catch(error => {
+            alert('There was an error submitting your test.');
+            if (submitBtn) submitBtn.disabled = false;
+        });
+    }
 
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
