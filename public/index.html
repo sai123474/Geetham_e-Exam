@@ -6,13 +6,15 @@
     <title>Geetham e-Exam</title>
     <link rel="icon" type="image/jpeg" href="/geetham.jpg">
     <link rel="manifest" href="/manifest.json">
-    <!-- TensorFlow.js Core and Backend -->
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl"></script>
 
-<!-- Face Landmarker Model -->
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/face-landmarks-detection"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter"></script>
+    <!-- TensorFlow.js Core and Backend -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl"></script>
+
+    <!-- Face Landmarker Model -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/face-landmarks-detection"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter"></script>
+
     <meta name="theme-color" content="#0056b3"/>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f0f2f5; color: #333; margin: 0; padding: 10px; }
@@ -39,10 +41,14 @@
         .status-not-answered { background-color: #f0f0f0; }
         .status-answered { background-color: #28a745; color: white; }
         .status-review { background-color: #ffc107; }
+
         /* Camera wrapper (draggable + resizable) */
-        #camera-wrapper { position: fixed; bottom: 10px; left: 10px; width: 160px; height: 120px; border: 2px solid #0056b3; border-radius: 6px; background: #000; overflow: hidden; display: none; resize: both; z-index: 9998; }
+        #camera-wrapper { position: fixed; bottom: 10px; left: 10px; width: 160px; height: 120px; border: 2px solid #0056b3; border-radius: 6px; background: #000; overflow: hidden; display: none; resize: both; z-index: 9998; min-width: 140px; min-height: 110px; }
         #camera-header { height: 22px; background: rgba(0,86,179,0.9); color: #fff; display:flex; align-items:center; justify-content:space-between; padding: 0 6px; cursor: move; font-size: 12px; }
         #camera-view { width:100%; height: calc(100% - 22px); object-fit: cover; display:block; }
+        #camera-wrapper.minimized #camera-view { filter: blur(4px); }
+        #camera-wrapper.minimized #camera-header { background: rgba(220,53,69,0.9); }
+
         .toast { position: fixed; top: -100px; left: 50%; transform: translateX(-50%); padding: 15px 25px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); font-size: 16px; font-weight: bold; z-index: 9999; opacity: 0; transition: opacity 0.5s, top 0.5s; }
         .toast.show { top: 40px; opacity: 1; }
         .toast.warning { background-color: #dc3545; color: white; }
@@ -54,7 +60,7 @@
 <body>
     <div id="warnings-indicator" title="Remaining warnings" style="display:none;">Warnings left: <span id="warnings-left">2</span></div>
     <div id="camera-wrapper">
-        <div id="camera-header"><span>Camera</span><button id="camera-hide-btn" style="background:transparent;border:none;color:#fff;cursor:pointer;">✕</button></div>
+        <div id="camera-header"><span id="camera-title">Camera</span><button id="camera-hide-btn" style="background:transparent;border:none;color:#fff;cursor:pointer;">✕</button></div>
         <video id="camera-view" autoplay playsinline muted></video>
     </div>
 
@@ -122,11 +128,23 @@
     const maxWarnings = 2;
     const AUTOSAVE_KEY_PREFIX = 'geetham_autosave_v1_';
     let autosaveTimeout;
+
+    // Remaining time warning
+    let fiveMinWarned = false;
+
+    // Per-question time tracking
+    let questionTimes = {}; // {subject: {qIndex: ms}}
+    let lastQuestionStart = null;
+
     // --- GAZE DETECTION VARIABLES ---
-let gazeModel;
-let isGazeDetectionRunning = false;
-let lookAwayStartTime = null;
-const LOOK_AWAY_THRESHOLD = 3000; // 3 seconds
+    let gazeModel;
+    let isGazeDetectionRunning = false;
+    let lookAwayStartTime = null;
+    const LOOK_AWAY_THRESHOLD = 3000; // 3 seconds
+
+    // Camera visibility detection
+    let camHiddenSince = null;
+    const CAM_HIDDEN_THRESHOLD = 2000; // 2s
 
     function showToast(message, type = 'warning') {
         const toast = document.createElement('div');
@@ -134,17 +152,10 @@ const LOOK_AWAY_THRESHOLD = 3000; // 3 seconds
         toast.textContent = message;
         document.body.appendChild(toast);
 
-        setTimeout(() => {
-            toast.classList.add('show');
-        }, 100);
-
+        setTimeout(() => { toast.classList.add('show'); }, 100);
         setTimeout(() => {
             toast.classList.remove('show');
-            setTimeout(() => {
-                if (toast.parentNode) {
-                    toast.parentNode.removeChild(toast);
-                }
-            }, 500);
+            setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 500);
         }, 4000);
 
         updateWarningsIndicator();
@@ -156,7 +167,6 @@ const LOOK_AWAY_THRESHOLD = 3000; // 3 seconds
         const span = document.getElementById('warnings-left');
         span.textContent = left;
         el.style.display = (quizInProgress || warningCount>0) ? 'block' : 'none';
-        // change color if low
         el.style.background = left === 0 ? '#dc3545' : '#ffc107';
     }
 
@@ -177,75 +187,65 @@ const LOOK_AWAY_THRESHOLD = 3000; // 3 seconds
             document.body.innerHTML = "<h1>Error: Could not load quiz data.</h1>";
         }
     }
-// --- NEW GAZE DETECTION FUNCTIONS ---
 
-// Loads the TensorFlow.js model
-async function loadGazeModel() {
-    try {
-        const model = faceLandmarksDetection.SupportedModels.MediaPipeFaceMesh;
-        const detectorConfig = {
-            runtime: 'mediapipe',
-            solutionPath: 'https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh',
-        };
-        gazeModel = await faceLandmarksDetection.createDetector(model, detectorConfig);
-        console.log("Gaze detection model loaded.");
-    } catch (error) {
-        console.error("Failed to load gaze model:", error);
-        showToast("Could not load proctoring AI.", "warning");
-    }
-}
-
-// Starts the continuous analysis of the webcam
-function startGazeDetection() {
-    if (!gazeModel) return;
-    isGazeDetectionRunning = true;
-    const videoElement = document.getElementById('camera-view');
-    
-    async function detectGaze() {
-        if (!quizInProgress || !isGazeDetectionRunning) return;
-
-        const faces = await gazeModel.estimateFaces(videoElement, { flipHorizontal: false });
-
-        if (faces.length > 0) {
-            const keypoints = faces[0].keypoints;
-            const leftEye = keypoints[33]; // A point on the left side of the left eye
-            const rightEye = keypoints[263]; // A point on the right side of the right eye
-            const nose = keypoints[1]; // A point on the nose
-
-            // Simple logic: if the nose is too far left or right of the eye centers,
-            // the person is likely looking away.
-            const eyeCenterX = (leftEye.x + rightEye.x) / 2;
-            const horizontalGaze = nose.x - eyeCenterX;
-
-            if (Math.abs(horizontalGaze) > 10) { // Threshold for looking away
-                if (lookAwayStartTime === null) {
-                    lookAwayStartTime = Date.now();
-                } else if (Date.now() - lookAwayStartTime > LOOK_AWAY_THRESHOLD) {
-                    handleWarning("You are looking away from the screen.");
-                    lookAwayStartTime = null; // Reset after warning
-                }
-            } else {
-                lookAwayStartTime = null; // Reset when looking at the screen
-            }
+    // --- NEW GAZE DETECTION FUNCTIONS ---
+    async function loadGazeModel() {
+        try {
+            const model = faceLandmarksDetection.SupportedModels.MediaPipeFaceMesh;
+            const detectorConfig = {
+                runtime: 'mediapipe',
+                solutionPath: 'https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/', // trailing slash safer
+            };
+            gazeModel = await faceLandmarksDetection.createDetector(model, detectorConfig);
+            console.log("Gaze detection model loaded.");
+        } catch (error) {
+            console.error("Failed to load gaze model:", error);
+            showToast("Could not load proctoring AI.", "warning");
         }
-        
-        // Loop the detection
-        requestAnimationFrame(detectGaze);
     }
-    detectGaze();
-}
 
-// Stops the gaze detection
-function stopGazeDetection() {
-    isGazeDetectionRunning = false;
-}
+    function startGazeDetection() {
+        if (!gazeModel) return;
+        isGazeDetectionRunning = true;
+        const videoElement = document.getElementById('camera-view');
+        
+        async function detectGaze() {
+            if (!quizInProgress || !isGazeDetectionRunning) return;
+
+            const faces = await gazeModel.estimateFaces(videoElement, { flipHorizontal: false });
+
+            if (faces.length > 0) {
+                const keypoints = faces[0].keypoints;
+                const leftEye = keypoints[33];
+                const rightEye = keypoints[263];
+                const nose = keypoints[1];
+
+                const eyeCenterX = (leftEye.x + rightEye.x) / 2;
+                const horizontalGaze = nose.x - eyeCenterX;
+
+                if (Math.abs(horizontalGaze) > 10) {
+                    if (lookAwayStartTime === null) {
+                        lookAwayStartTime = Date.now();
+                    } else if (Date.now() - lookAwayStartTime > LOOK_AWAY_THRESHOLD) {
+                        handleWarning("You are looking away from the screen.");
+                        lookAwayStartTime = null;
+                    }
+                } else {
+                    lookAwayStartTime = null;
+                }
+            }
+            requestAnimationFrame(detectGaze);
+        }
+        detectGaze();
+    }
+
+    function stopGazeDetection() { isGazeDetectionRunning = false; }
+
     function displayInitialScreen() {
         document.getElementById('student-details-screen').style.display = 'block';
         const quizSelectionContainer = document.getElementById('quiz-selection-container');
         let selectHTML = '<label for="quiz-select">Select a Test:</label><select id="quiz-select">';
-        allQuizzes.forEach((quiz, index) => {
-            selectHTML += `<option value="${index}">${quiz.title}</option>`;
-        });
+        allQuizzes.forEach((quiz, index) => { selectHTML += `<option value="${index}">${quiz.title}</option>`; });
         selectHTML += '</select>';
         quizSelectionContainer.innerHTML = selectHTML;
         document.getElementById('proceed-btn').onclick = handleProceed;
@@ -257,19 +257,14 @@ function stopGazeDetection() {
         const quizSelect = document.getElementById('quiz-select');
         const selectedQuizIndex = quizSelect ? quizSelect.value : 0;
         currentQuiz = allQuizzes[selectedQuizIndex];
-        if (!name || !mobile) {
-            alert("Please fill in all details.");
-            return;
-        }
+        if (!name || !mobile) { alert("Please fill in all details."); return; }
         studentDetails = { name, mobile };
         const response = await fetch('/check-attempt', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ mobile: studentDetails.mobile, quizId: currentQuiz.id })
         });
         const data = await response.json();
-        if (data.canAttempt) showPasswordScreen();
-        else alert(data.message);
+        if (data.canAttempt) showPasswordScreen(); else alert(data.message);
     }
 
     function showPasswordScreen() {
@@ -306,7 +301,6 @@ function stopGazeDetection() {
                 setTimeout(() => {
                     document.getElementById('student-details-screen').style.display = 'none';
                     document.getElementById('quiz-screen').style.display = 'flex';
-                    // show camera wrapper
                     document.getElementById('camera-wrapper').style.display = 'block';
                     initializeQuiz();
                 }, 800);
@@ -321,9 +315,9 @@ function stopGazeDetection() {
         if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
             const stream = await navigator.mediaDevices.getUserMedia({ video: true });
             videoElement.srcObject = stream;
-            // unmute or keep muted based on preference
             videoElement.muted = true;
             document.getElementById('camera-wrapper').style.display = 'block';
+            setupCameraVisibilityDetection();
         } else { throw new Error("Camera not supported."); }
     }
 
@@ -337,10 +331,11 @@ function stopGazeDetection() {
         const subjectTabsContainer = document.querySelector('.subject-tabs');
         subjectTabsContainer.innerHTML = '';
 
-        // reset userResponses for all subjects
+        // reset userResponses & times for all subjects
         Object.keys(currentQuiz.subjects).forEach(subject => {
             shuffleArray(currentQuiz.subjects[subject]);
             userResponses[subject] = {};
+            questionTimes[subject] = {};
             const tab = document.createElement('button');
             tab.className = 'subject-tab';
             tab.textContent = subject;
@@ -351,16 +346,12 @@ function stopGazeDetection() {
         currentSubject = Object.keys(currentQuiz.subjects)[0] || "";
         setupProctoringListeners();
 
-        // Ensure we switch to first subject tab (if any)
-        if (currentSubject) {
-            switchSubject(currentSubject, subjectTabsContainer.firstChild);
-        }
+        if (currentSubject) { switchSubject(currentSubject, subjectTabsContainer.firstChild); }
 
-        // Start the timer last, after everything is initialized
         startTimer((currentQuiz.timeLimit || 0) * 60);
-        // Start gaze detection after a short delay
-      setTimeout(startGazeDetection, 2000);
+        setTimeout(startGazeDetection, 2000);
         updateWarningsIndicator();
+        tryRestoreForCurrent(); // restore saved answers if available for this quiz+mobile
     }
 
     function setupProctoringListeners() {
@@ -385,7 +376,17 @@ function stopGazeDetection() {
         }
     }
 
+    function accumulateTimeForCurrent() {
+        if (!quizInProgress || lastQuestionStart === null) return;
+        const now = Date.now();
+        const elapsed = now - lastQuestionStart; // ms
+        if (!questionTimes[currentSubject]) questionTimes[currentSubject] = {};
+        questionTimes[currentSubject][currentQuestionIndex] = (questionTimes[currentSubject][currentQuestionIndex] || 0) + elapsed;
+        lastQuestionStart = now; // reset start for the next period
+    }
+
     function switchSubject(subject, clickedTab) {
+        accumulateTimeForCurrent();
         currentSubject = subject;
         currentQuestionIndex = 0;
         document.querySelectorAll('.subject-tab').forEach(tab => tab.classList.remove('active'));
@@ -398,7 +399,6 @@ function stopGazeDetection() {
         const questionsForSubject = currentQuiz.subjects[currentSubject] || [];
         const question = questionsForSubject[currentQuestionIndex];
         if (!question) {
-            // no question (safety)
             document.getElementById('question-number').textContent = '';
             document.getElementById('question-text').textContent = 'No question available.';
             document.getElementById('options-container').innerHTML = '';
@@ -407,7 +407,7 @@ function stopGazeDetection() {
         const response = userResponses[currentSubject][currentQuestionIndex] || {};
         let shuffledOptions;
         if (question.shuffledOptions && Array.isArray(question.shuffledOptions)) {
-            shuffledOptions = question.shuffledOptions.slice(); // use existing copy
+            shuffledOptions = question.shuffledOptions.slice();
         } else {
             const originalCorrectAnswerText = question.options[question.correctAnswer];
             shuffledOptions = [...question.options];
@@ -415,7 +415,6 @@ function stopGazeDetection() {
             question.shuffledOptions = shuffledOptions.slice();
             question.shuffledCorrectAnswerIndex = shuffledOptions.indexOf(originalCorrectAnswerText);
         }
-
         if (question.shuffledOptions && (question.shuffledCorrectAnswerIndex === undefined || question.shuffledCorrectAnswerIndex === null)) {
             const originalCorrectAnswerText = question.options[question.correctAnswer];
             question.shuffledCorrectAnswerIndex = question.shuffledOptions.indexOf(originalCorrectAnswerText);
@@ -436,6 +435,7 @@ function stopGazeDetection() {
             div.onclick = () => { selectOption(index); };
             optionsContainer.appendChild(div);
         });
+        lastQuestionStart = Date.now(); // start timing this question
         updatePalette();
     }
 
@@ -446,31 +446,33 @@ function stopGazeDetection() {
         document.querySelectorAll('.option').forEach((opt, optIndex) => {
             opt.classList.toggle('selected', optIndex === index);
         });
-        // mark answered automatically
         response.status = 'answered';
         scheduleAutosave();
         updatePalette();
     }
 
-    function saveAndNext() {
-        const response = userResponses[currentSubject][currentQuestionIndex];
-        if (response && response.answer !== undefined) response.status = 'answered';
+    function goNextIfPossible() {
         if (currentQuestionIndex < (currentQuiz.subjects[currentSubject].length - 1)) {
             currentQuestionIndex++;
             loadQuestion();
         }
+    }
+
+    function saveAndNext() {
+        accumulateTimeForCurrent();
+        const response = userResponses[currentSubject][currentQuestionIndex];
+        if (response && response.answer !== undefined) response.status = 'answered';
+        goNextIfPossible();
         scheduleAutosave();
         updatePalette();
     }
 
     function markForReview() {
+        accumulateTimeForCurrent();
         const response = userResponses[currentSubject][currentQuestionIndex] || {};
         response.status = 'review';
         userResponses[currentSubject][currentQuestionIndex] = response;
-        if (currentQuestionIndex < (currentQuiz.subjects[currentQuestionIndex] ? currentQuiz.subjects[currentSubject].length - 1 : 0)) {
-            currentQuestionIndex++;
-            loadQuestion();
-        }
+        goNextIfPossible();
         scheduleAutosave();
         updatePalette();
     }
@@ -496,13 +498,13 @@ function stopGazeDetection() {
             else if (response.status === 'review') item.classList.add('status-review');
             else item.classList.add('status-not-answered');
             item.textContent = index + 1;
-            item.onclick = () => { currentQuestionIndex = index; loadQuestion(); };
+            item.onclick = () => { accumulateTimeForCurrent(); currentQuestionIndex = index; loadQuestion(); };
             palette.appendChild(item);
         });
     }
 
     function startTimer(duration) {
-        let timeLeft = duration;
+        let timeLeft = duration; // seconds
         if (timerInterval) clearInterval(timerInterval);
         timerInterval = setInterval(() => {
             if (timeLeft <= 0) {
@@ -511,22 +513,25 @@ function stopGazeDetection() {
                 submitTest();
                 return;
             }
-            timeLeft--;
+            // 5 minute remaining warning (only once)
+            if (!fiveMinWarned && timeLeft === 300) {
+                fiveMinWarned = true;
+                showToast("Only 5 minutes left! Please review and submit.", 'warning');
+            }
+
             const hours = Math.floor(timeLeft / 3600);
             const minutes = Math.floor((timeLeft % 3600) / 60);
             const seconds = timeLeft % 60;
-            document.getElementById('timer').textContent =
-                `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            document.getElementById('timer').textContent = `${hours.toString().padStart(2,'0')}:${minutes.toString().padStart(2,'0')}:${seconds.toString().padStart(2,'0')}`;
+            timeLeft--;
         }, 1000);
     }
 
-    function confirmSubmit() {
-        if (confirm("Are you sure you want to submit the test?")) submitTest();
-    }
+    function confirmSubmit() { if (confirm("Are you sure you want to submit the test?")) submitTest(); }
 
     function submitTest() {
-         // Stop the gaze detection when the test is submitted
-    stopGazeDetection();
+        stopGazeDetection();
+        accumulateTimeForCurrent(); // final capture
         const submitBtn = document.querySelector('.submit');
         if (submitBtn) submitBtn.disabled = true;
         if (!quizInProgress) return;
@@ -539,13 +544,22 @@ function stopGazeDetection() {
             currentQuiz.subjects[subject].forEach((question, index) => {
                 const response = userResponses[subject][index];
                 if (response && response.answer !== undefined) {
-                    if (response.answer === question.shuffledCorrectAnswerIndex) subjectScore += 4;
-                    else subjectScore -= 1;
+                    if (response.answer === question.shuffledCorrectAnswerIndex) subjectScore += 4; else subjectScore -= 1;
                 }
             });
             subjectScores[subject] = subjectScore;
             totalScore += subjectScore;
         });
+
+        // Convert ms -> seconds (rounded) for sending
+        const questionTimesSeconds = {};
+        Object.keys(questionTimes).forEach(sub => {
+            questionTimesSeconds[sub] = {};
+            Object.keys(questionTimes[sub]).forEach(qi => {
+                questionTimesSeconds[sub][qi] = Math.round(questionTimes[sub][qi] / 1000);
+            });
+        });
+
         const resultData = {
             date: new Date().toISOString(),
             studentName: studentDetails.name,
@@ -555,9 +569,10 @@ function stopGazeDetection() {
             quizTitle: currentQuiz.title,
             totalScore: totalScore,
             subjectScores: subjectScores,
-            warnings: warningCount
+            warnings: warningCount,
+            questionTimes: questionTimesSeconds
         };
-        // clear autosave on successful submit
+
         try { localStorage.removeItem(AUTOSAVE_KEY_PREFIX + (currentQuiz.id || 'noquiz') + '_' + (studentDetails.mobile || 'nomobile')); } catch(e){}
 
         fetch('/submit-result', {
@@ -576,20 +591,14 @@ function stopGazeDetection() {
         });
     }
 
-    // -----------------------
-    // Autosave to localStorage
-    // -----------------------
-    function scheduleAutosave() {
-        if (autosaveTimeout) clearTimeout(autosaveTimeout);
-        autosaveTimeout = setTimeout(saveAutosave, 800);
-    }
+    // ----------------------- Autosave to localStorage -----------------------
+    function scheduleAutosave() { if (autosaveTimeout) clearTimeout(autosaveTimeout); autosaveTimeout = setTimeout(saveAutosave, 800); }
 
     function saveAutosave() {
         try {
             const key = AUTOSAVE_KEY_PREFIX + (currentQuiz.id || 'noquiz') + '_' + (studentDetails.mobile || 'nomobile');
-            const payload = { userResponses, warningCount, timestamp: Date.now() };
+            const payload = { userResponses, warningCount, questionTimes, timestamp: Date.now(), currentSubject, currentQuestionIndex };
             localStorage.setItem(key, JSON.stringify(payload));
-            // small non-intrusive toast
             const t = document.createElement('div');
             t.className = 'toast success';
             t.textContent = 'Autosaved locally';
@@ -601,35 +610,52 @@ function stopGazeDetection() {
 
     function restoreAutosaveIfAny() {
         try {
-            // if user already selected quiz and mobile, we can't know yet. So just check all quizzes keys and restore last if present
             const keys = Object.keys(localStorage).filter(k => k.startsWith(AUTOSAVE_KEY_PREFIX));
             if (!keys.length) return;
-            // choose the most recent autosave
             let latestKey = null; let latestTime = 0;
             keys.forEach(k => {
-                try {
-                    const p = JSON.parse(localStorage.getItem(k));
-                    if (p && p.timestamp && p.timestamp > latestTime) { latestTime = p.timestamp; latestKey = k; }
-                } catch(e){}
+                try { const p = JSON.parse(localStorage.getItem(k)); if (p && p.timestamp && p.timestamp > latestTime) { latestTime = p.timestamp; latestKey = k; } } catch(e){}
             });
             if (!latestKey) return;
             const payload = JSON.parse(localStorage.getItem(latestKey));
             if (!payload) return;
-            // ask user if they'd like to restore
             if (confirm('Found a locally saved in-progress attempt. Restore answers?')) {
                 userResponses = payload.userResponses || {};
                 warningCount = payload.warningCount || 0;
+                questionTimes = payload.questionTimes || {};
                 updateWarningsIndicator();
             }
         } catch(e){}
     }
 
-    // -----------------------
-    // Draggable camera logic
-    // -----------------------
+    function tryRestoreForCurrent() {
+        try {
+            const key = AUTOSAVE_KEY_PREFIX + (currentQuiz.id || 'noquiz') + '_' + (studentDetails.mobile || 'nomobile');
+            const payloadStr = localStorage.getItem(key);
+            if (!payloadStr) return;
+            const payload = JSON.parse(payloadStr);
+            if (!payload) return;
+            if (confirm('Found a saved attempt for this quiz & number. Restore?')) {
+                userResponses = payload.userResponses || {};
+                warningCount = payload.warningCount || 0;
+                questionTimes = payload.questionTimes || {};
+                currentSubject = payload.currentSubject || currentSubject;
+                currentQuestionIndex = payload.currentQuestionIndex || 0;
+                updateWarningsIndicator();
+                // ensure tab selection reflects restored subject
+                document.querySelectorAll('.subject-tab').forEach(tab => {
+                    if (tab.textContent === currentSubject) tab.classList.add('active'); else tab.classList.remove('active');
+                });
+                loadQuestion();
+            }
+        } catch(e){}
+    }
+
+    // ----------------------- Draggable & minimize camera logic -----------------------
     (function makeCameraDraggable(){
         const wrapper = document.getElementById('camera-wrapper');
         const header = document.getElementById('camera-header');
+        const title = document.getElementById('camera-title');
         const hideBtn = document.getElementById('camera-hide-btn');
         let isDown = false; let startX=0, startY=0, startLeft=0, startTop=0;
         header.addEventListener('pointerdown', (e)=>{
@@ -649,39 +675,79 @@ function stopGazeDetection() {
         });
         header.addEventListener('pointerup', (e)=>{ isDown = false; try{ header.releasePointerCapture(e.pointerId);}catch(e){} });
         header.addEventListener('pointercancel', ()=>{ isDown = false; });
-        hideBtn.addEventListener('click', ()=>{ wrapper.style.display='none'; });
+
+        // Instead of hiding, toggle minimized (blur + enforce min size)
+        hideBtn.addEventListener('click', ()=>{
+            if (!wrapper.classList.contains('minimized')) {
+                wrapper.classList.add('minimized');
+                title.textContent = 'Camera (minimized)';
+                wrapper.style.width = '140px';
+                wrapper.style.height = '110px';
+                showToast('Camera minimized – video blurred, proctor can still see you.', 'warning');
+            } else {
+                wrapper.classList.remove('minimized');
+                title.textContent = 'Camera';
+                wrapper.style.width = '160px';
+                wrapper.style.height = '120px';
+            }
+        });
     })();
 
-    // -----------------------
-    // Restore autosave on quiz load if mobile+quiz known
-    // -----------------------
-    function tryRestoreForCurrent() {
-        try {
-            const key = AUTOSAVE_KEY_PREFIX + (currentQuiz.id || 'noquiz') + '_' + (studentDetails.mobile || 'nomobile');
-            const payloadStr = localStorage.getItem(key);
-            if (!payloadStr) return;
-            const payload = JSON.parse(payloadStr);
-            if (!payload) return;
-            if (confirm('Found a saved attempt for this quiz & number. Restore?')) {
-                userResponses = payload.userResponses || {};
-                warningCount = payload.warningCount || 0;
-                updateWarningsIndicator();
-                // reload current question UI
-                loadQuestion();
+    function setupCameraVisibilityDetection() {
+        const wrapper = document.getElementById('camera-wrapper');
+
+        // Observe size: if below min, keep minimized class and warn once
+        const ro = new ResizeObserver(entries => {
+            for (const entry of entries) {
+                const { width, height } = entry.contentRect;
+                if (width < 140 || height < 110) {
+                    if (!wrapper.classList.contains('minimized')) {
+                        wrapper.classList.add('minimized');
+                        showToast('Camera too small. Video blurred and warning applied.', 'warning');
+                        handleWarning('Camera window minimized below allowed size.');
+                    }
+                }
             }
-        } catch(e){}
+        });
+        ro.observe(wrapper);
+
+        // Observe visibility within viewport
+        const io = new IntersectionObserver((entries)=>{
+            entries.forEach(entry => {
+                if (entry.intersectionRatio < 0.6) {
+                    if (camHiddenSince === null) camHiddenSince = Date.now();
+                    else if (Date.now() - camHiddenSince > CAM_HIDDEN_THRESHOLD) {
+                        handleWarning('Camera window is mostly hidden/off-screen.');
+                        camHiddenSince = null; // reset after warning
+                    }
+                } else { camHiddenSince = null; }
+            });
+        }, { threshold: [0,0.25,0.5,0.6,0.75,1] });
+        io.observe(wrapper);
+
+        // Guard against style tampering to hide camera
+        const mo = new MutationObserver(() => {
+            const style = getComputedStyle(wrapper);
+            if (style.display === 'none' || parseFloat(style.opacity) < 0.2) {
+                wrapper.style.display = 'block';
+                wrapper.style.opacity = '1';
+                handleWarning('Attempt to hide camera detected.');
+            }
+        });
+        mo.observe(wrapper, { attributes: true, attributeFilter: ['style', 'class'] });
     }
 
-    // -----------------------
-    // Misc helpers
-    // -----------------------
+    // ----------------------- Misc helpers -----------------------
     document.addEventListener('visibilitychange', ()=>{ if (!document.hidden) updateWarningsIndicator(); });
 
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-            navigator.serviceWorker.register('/service-worker.js');
+            navigator.serviceWorker.register('/service-worker.js')
+                .then(reg => console.log('Service Worker registered:', reg))
+                .catch(err => console.error('Service Worker registration failed:', err));
         });
     }
+
     document.addEventListener('DOMContentLoaded', loadInitialData);
 </script>
 </body>
