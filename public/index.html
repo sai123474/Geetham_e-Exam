@@ -189,20 +189,22 @@
     }
 
     // --- NEW GAZE DETECTION FUNCTIONS ---
-    async function loadGazeModel() {
-        try {
-            const model = faceLandmarksDetection.SupportedModels.MediaPipeFaceMesh;
-            const detectorConfig = {
-                runtime: 'mediapipe',
-                solutionPath: 'https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/', // trailing slash safer
-            };
-            gazeModel = await faceLandmarksDetection.createDetector(model, detectorConfig);
-            console.log("Gaze detection model loaded.");
-        } catch (error) {
-            console.error("Failed to load gaze model:", error);
-            showToast("Could not load proctoring AI.", "warning");
-        }
+async function loadGazeModel() {
+    try {
+        const model = faceLandmarksDetection.SupportedModels.MediaPipeFaceMesh;
+        const detectorConfig = {
+            runtime: 'mediapipe',
+            // Corrected and more reliable path
+            solutionPath: 'https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4',
+            refineLandmarks: true
+        };
+        gazeModel = await faceLandmarksDetection.createDetector(model, detectorConfig);
+        console.log("Gaze detection model loaded successfully.");
+    } catch (error) {
+        console.error("Failed to load gaze model:", error);
+        showToast("Could not load proctoring AI.", "warning");
     }
+}
 
     function startGazeDetection() {
         if (!gazeModel) return;
