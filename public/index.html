@@ -797,6 +797,12 @@ document.addEventListener("fullscreenchange", () => {
         }, 500);
     }
 });
+    window.onload = function() {
+  if (confirm("Exam requires fullscreen. Do you want to go fullscreen now?")) {
+    document.documentElement.requestFullscreen();
+  }
+};
+
 
 </script>
 </body>
