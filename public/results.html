@@ -6,41 +6,53 @@
     <link rel="icon" type="image/jpeg" href="/geetham.jpg">
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f8f9fa; padding: 20px; }
-        .container { max-width: 1200px; margin: auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .container { max-width: 1400px; margin: auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
         .header { text-align: center; margin-bottom: 30px; }
         .logo { max-height: 80px; }
-        h1 { color: #0056b3; }
-        .controls { margin-bottom: 20px; display: flex; align-items: center; flex-wrap: wrap; }
-        label { font-weight: bold; margin-right: 10px; }
-        select { padding: 8px; font-size: 16px; margin-right: 20px; border-radius: 5px; border: 1px solid #ccc; }
+        h1, h3 { color: #0056b3; }
+        .controls { margin-bottom: 20px; display: flex; align-items: center; flex-wrap: wrap; gap: 15px; }
+        label { font-weight: bold; margin-right: 5px; }
+        select { padding: 8px; font-size: 16px; border-radius: 5px; border: 1px solid #ccc; }
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         th, td { padding: 12px; border: 1px solid #ddd; text-align: left; }
         th { background-color: #007bff; color: white; }
         tr:nth-child(even) { background-color: #f2f2f2; }
-        button { padding: 10px 15px; font-size: 16px; cursor: pointer; border: none; border-radius: 5px; color: white; margin-right: 10px; transition: background-color 0.2s; }
+        button { padding: 10px 15px; font-size: 16px; cursor: pointer; border: none; border-radius: 5px; color: white; transition: opacity 0.2s; }
+        .btn-details { background-color: #6c757d; font-size: 14px; padding: 6px 12px; }
         .refresh-btn { background-color: #28a745; }
         .clear-btn { background-color: #dc3545; }
         .export-btn { background-color: #17a2b8; }
         button:hover { opacity: 0.9; }
+        
+        /* Modal Styles */
+        .modal-backdrop { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 100; display: none; align-items: center; justify-content: center; }
+        .modal-content { background: #fff; padding: 25px; border-radius: 8px; width: 90%; max-width: 600px; z-index: 101; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ccc; padding-bottom: 10px; }
+        .modal-close { font-size: 24px; font-weight: bold; cursor: pointer; border: none; background: none; padding: 0; }
+        .modal-body { padding-top: 15px; max-height: 400px; overflow-y: auto; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
             <img src="/geetham.jpg" alt="Geetham Institute Logo" class="logo">
-            <h1>Student Results Dashboard</h1>
+            <h1> Student Results Dashboard</h1>
         </div>
 
         <div class="controls">
-            <label for="class-filter">Filter by Class:</label>
-            <select id="class-filter" onchange="renderResults()">
-                <option value="all">All Classes</option>
-                <option value="11">11th</option>
-                <option value="12">12th</option>
-            </select>
-            <button class="refresh-btn" onclick="fetchResults()">Refresh Results</button>
-            <button class="export-btn" onclick="exportToCSV()">Export to Excel (CSV)</button>
-            <button class="clear-btn" onclick="clearResults()">Clear All Results</button>
+            <div>
+                <label for="class-filter">Filter by Class:</label>
+                <select id="class-filter" onchange="renderResults()">
+                    <option value="all">All Classes</option>
+                    <option value="11">11th</option>
+                    <option value="12">12th</option>
+                </select>
+            </div>
+            <div>
+                <button class="refresh-btn" onclick="fetchResults()">Refresh</button>
+                <button class="export-btn" onclick="exportToCSV()">Export CSV</button>
+                <button class="clear-btn" onclick="clearResults()">Clear All</button>
+            </div>
         </div>
 
         <table id="results-table">
@@ -51,14 +63,22 @@
                     <th>Mobile</th>
                     <th>Class</th>
                     <th>Total Score</th>
-                    <th>Physics</th>
-                    <th>Chemistry</th>
-                    <th>Mathematics</th>
                     <th>Warnings</th>
+                    <th>Details</th>
                 </tr>
             </thead>
             <tbody></tbody>
         </table>
+    </div>
+
+    <div id="details-modal" class="modal-backdrop" onclick="closeDetailsModal()">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h3 id="modal-title">Detailed Report</h3>
+                <button class="modal-close" onclick="closeDetailsModal()">&times;</button>
+            </div>
+            <div id="modal-body" class="modal-body"></div>
+        </div>
     </div>
 
 <script>
@@ -78,24 +98,62 @@
         const classFilter = document.getElementById('class-filter').value;
         const tbody = document.getElementById('results-table').querySelector('tbody');
         tbody.innerHTML = '';
+
         const filteredResults = classFilter === 'all'
             ? allResults
             : allResults.filter(res => res.class === classFilter);
+
         filteredResults.sort((a, b) => (b.totalScore || 0) - (a.totalScore || 0));
+        
         filteredResults.forEach((res, index) => {
             const row = tbody.insertRow();
+            // Use encodeURIComponent to handle special characters in the result object
+            const resultString = encodeURIComponent(JSON.stringify(res));
             row.innerHTML = `
                 <td><b>${index + 1}</b></td>
                 <td>${res.studentName || 'N/A'}</td>
                 <td>${res.mobile || 'N/A'}</td>
                 <td>${res.class || 'N/A'}</td>
                 <td><b>${res.totalScore || 0}</b></td>
-                <td>${res.subjectScores?.Physics ?? 0}</td>
-                <td>${res.subjectScores?.Chemistry ?? 0}</td>
-                <td>${res.subjectScores?.Mathematics ?? 0}</td>
                 <td>${res.warnings || 0}</td>
+                <td><button class="btn-details" onclick='showDetailsModal(JSON.parse(decodeURIComponent("${resultString}")))'>View</button></td>
             `;
         });
+    }
+
+    function showDetailsModal(result) {
+        const modal = document.getElementById('details-modal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalBody = document.getElementById('modal-body');
+
+        modalTitle.textContent = `Detailed Report for ${result.studentName}`;
+        
+        let detailsHTML = '<h4>Subject Scores:</h4><ul>';
+        Object.keys(result.subjectScores).forEach(subject => {
+            detailsHTML += `<li><strong>${subject}:</strong> ${result.subjectScores[subject]}</li>`;
+        });
+        detailsHTML += '</ul><hr>';
+
+        if (result.questionTimes) {
+            detailsHTML += '<h4>Time Spent Per Question (seconds):</h4>';
+            Object.keys(result.questionTimes).forEach(subject => {
+                detailsHTML += `<strong>${subject}:</strong><ul>`;
+                const times = result.questionTimes[subject];
+                Object.keys(times).forEach(qIndex => {
+                    detailsHTML += `<li>Question ${parseInt(qIndex) + 1}: ${times[qIndex]}s</li>`;
+                });
+                detailsHTML += '</ul>';
+            });
+        } else {
+            detailsHTML += '<p>No detailed time-per-question data available.</p>';
+        }
+
+        modalBody.innerHTML = detailsHTML;
+        modal.style.display = 'flex';
+    }
+
+    function closeDetailsModal() {
+        document.getElementById('details-modal').style.display = 'none';
     }
 
     function exportToCSV() {
@@ -112,6 +170,9 @@
         }
         const headers = ["Rank", "Student Name", "Mobile", "Class", "Total Score", "Physics", "Chemistry", "Mathematics", "Warnings"];
         let csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n";
+        
+        filteredResults.sort((a, b) => (b.totalScore || 0) - (a.totalScore || 0));
+
         filteredResults.forEach((res, index) => {
             const row = [
                 index + 1,
@@ -126,6 +187,7 @@
             ].join(",");
             csvContent += row + "\n";
         });
+
         const encodedUri = encodeURI(csvContent);
         const link = document.createElement("a");
         link.setAttribute("href", encodedUri);
@@ -148,6 +210,7 @@
                 });
         }
     }
+    
     window.onload = fetchResults;
 </script>
 </body>
