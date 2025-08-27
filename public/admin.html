@@ -168,24 +168,66 @@
         const qDiv = document.createElement('div');
         qDiv.className = 'question-container';
         qDiv.dataset.subject = subjectName;
-        let optionsHTML = '';
-        question.options.forEach((opt, optIndex) => {
-            optionsHTML += `<label>Option ${optIndex + 1}:</label><input type="text" value="${opt}">`;
-        });
-        qDiv.innerHTML = `
-            <h5>Question ${qIndex + 1} <button class="btn-remove" onclick="removeQuestion('${subjectName}', ${qIndex})">Remove</button></h5>
-            <label>Question Text:</label><textarea rows="2">${question.text}</textarea>
-            <label>Image URL (Optional):</label><input type="text" value="${question.imageUrl || ''}">
-            ${optionsHTML}
-            <label>Correct Answer:</label>
-            <select>
-                <option value="0" ${question.correctAnswer === 0 ? 'selected' : ''}>Option 1</option>
-                <option value="1" ${question.correctAnswer === 1 ? 'selected' : ''}>Option 2</option>
-                <option value="2" ${question.correctAnswer === 2 ? 'selected' : ''}>Option 3</option>
-                <option value="3" ${question.correctAnswer === 3 ? 'selected' : ''}>Option 4</option>
+
+        // Create a dropdown for question type
+        const typeSelector = `
+            <label>Question Type:</label>
+            <select class="question-type" onchange="toggleAnswerType(this)">
+                <option value="multiple-choice" ${question.type === 'multiple-choice' ? 'selected' : ''}>Multiple Choice</option>
+                <option value="fill-in-the-blank" ${question.type === 'fill-in-the-blank' ? 'selected' : ''}>Fill in the Blank</option>
+                <option value="subjective" ${question.type === 'subjective' ? 'selected' : ''}>Subjective</option>
             </select>
         `;
+
+        let answerFields = '';
+        if (question.type === 'fill-in-the-blank' || question.type === 'subjective') {
+            answerFields = `<label>Correct Answer / Keywords:</label><input type="text" class="correct-answer-text" value="${question.correctAnswer || ''}">`;
+        } else { // Multiple Choice
+            let optionsHTML = '';
+            question.options.forEach((opt, optIndex) => {
+                optionsHTML += `<label>Option ${optIndex + 1}:</label><input type="text" value="${opt}">`;
+            });
+            answerFields = `
+                ${optionsHTML}
+                <label>Correct Answer:</label>
+                <select class="correct-answer-mc">
+                    <option value="0" ${question.correctAnswer === 0 ? 'selected' : ''}>Option 1</option>
+                    <option value="1" ${question.correctAnswer === 1 ? 'selected' : ''}>Option 2</option>
+                    <option value="2" ${question.correctAnswer === 2 ? 'selected' : ''}>Option 3</option>
+                    <option value="3" ${question.correctAnswer === 3 ? 'selected' : ''}>Option 4</option>
+                </select>
+            `;
+        }
+
+        qDiv.innerHTML = `
+            <h5>Question ${qIndex + 1} <button class="btn-remove" onclick="removeQuestion('${subjectName}', ${qIndex})">Remove</button></h5>
+            ${typeSelector}
+            <label>Question Text:</label><textarea rows="2">${question.text}</textarea>
+            <div class="answer-fields">${answerFields}</div>
+        `;
         return qDiv;
+    }
+    function toggleAnswerType(selectElement) {
+        // This function dynamically changes the input fields based on question type
+        const answerFieldsDiv = selectElement.closest('.question-container').querySelector('.answer-fields');
+        const type = selectElement.value;
+        if (type === 'fill-in-the-blank' || type === 'subjective') {
+            answerFieldsDiv.innerHTML = `<label>Correct Answer / Keywords:</label><input type="text" class="correct-answer-text" value="">`;
+        } else {
+            answerFieldsDiv.innerHTML = `
+                <label>Option 1:</label><input type="text" value="">
+                <label>Option 2:</label><input type="text" value="">
+                <label>Option 3:</label><input type="text" value="">
+                <label>Option 4:</label><input type="text" value="">
+                <label>Correct Answer:</label>
+                <select class="correct-answer-mc">
+                    <option value="0">Option 1</option>
+                    <option value="1">Option 2</option>
+                    <option value="2">Option 3</option>
+                    <option value="3">Option 4</option>
+                </select>
+            `;
+        }
     }
 
     function attachAutosaveListeners() {
