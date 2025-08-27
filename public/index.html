@@ -14,6 +14,7 @@
     <!-- Face Landmarker Model -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/face-landmarks-detection"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter"></script>
+   
 
     <meta name="theme-color" content="#0056b3"/>
     <style>
@@ -190,21 +191,21 @@
 
     // --- NEW GAZE DETECTION FUNCTIONS ---
 async function loadGazeModel() {
-    try {
-        const model = faceLandmarksDetection.SupportedModels.MediaPipeFaceMesh;
-        const detectorConfig = {
-            runtime: 'mediapipe',
-            // Corrected and more reliable path
-            solutionPath: 'https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4',
-            refineLandmarks: true
-        };
-        gazeModel = await faceLandmarksDetection.createDetector(model, detectorConfig);
-        console.log("Gaze detection model loaded successfully.");
-    } catch (error) {
-        console.error("Failed to load gaze model:", error);
-        showToast("Could not load proctoring AI.", "warning");
-    }
+  try {
+    const model = faceLandmarksDetection.SupportedModels.MediaPipeFaceMesh;
+    const detectorConfig = {
+      runtime: 'mediapipe',
+      solutionPath: 'https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh', //  corrected
+      refineLandmarks: true
+    };
+    gazeModel = await faceLandmarksDetection.createDetector(model, detectorConfig);
+    console.log("Gaze detection model loaded successfully.");
+  } catch (error) {
+    console.error("Failed to load gaze model:", error);
+    showToast("Proctoring AI could not start. Please check camera & internet.", "warning");
+  }
 }
+
 
     function startGazeDetection() {
         if (!gazeModel) return;
