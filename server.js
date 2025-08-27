@@ -65,7 +65,25 @@ app.post('/update-quizzes', async (req, res) => {
     res.status(500).send('Error saving quizzes.');
   }
 });
+// Add this new endpoint to your server.js file
 
+app.post('/grade-subjective', async (req, res) => {
+    try {
+        const { studentAnswer, correctAnswer } = req.body;
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+
+        const prompt = `Evaluate the following student's answer based on the provided correct answer/keywords. The total marks for the question is 4. Provide a score between 0 and 4 based on relevance and correctness.
+        Correct Answer/Keywords: "${correctAnswer}"
+        Student's Answer: "${studentAnswer}"
+        Return your response as a single valid JSON object with two keys: "score" (a number) and "feedback" (a brief explanation for the score).`;
+
+        const result = await model.generateContent(prompt);
+        const text = result.response.text().replace(/```json|```/g, '').trim();
+        res.json(JSON.parse(text));
+    } catch (error) {
+        res.status(500).send("Failed to grade answer with AI.");
+    }
+});
 // --- STUDENT RESULTS ---
 // Check if student already attempted quiz
 app.post('/check-attempt', async (req, res) => {
