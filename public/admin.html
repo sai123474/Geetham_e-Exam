@@ -294,48 +294,97 @@
     }
 
   async function saveQuiz(isManualSave = false) {
-    const status = document.getElementById('autosave-status');
-    const quizToSave = quizzesData[selectedQuizIndex];
-    if (!quizToSave) return;
+  const status = document.getElementById('autosave-status');
+  const quizToSave = quizzesData[selectedQuizIndex];
+  if (!quizToSave) return;
 
-    // Update main quiz details from the form
-    quizToSave.title = document.getElementById('quiz-title').value;
-    quizToSave.timeLimit = parseInt(document.getElementById('quiz-time').value);
-    quizToSave.password = document.getElementById('quiz-password').value;
-    quizToSave.class = document.getElementById('quiz-class').value;
-    
-    // Rebuild the subjects object from the form elements
-    const newSubjects = {};
-    document.querySelectorAll('#subjects-details > div').forEach(subjectDiv => {
-        const subjectName = subjectDiv.querySelector('h4').textContent;
-        newSubjects[subjectName] = [];
-        subjectDiv.querySelectorAll('.question-container').forEach(qDiv => {
-            const inputs = qDiv.querySelectorAll('input');
-            newSubjects[subjectName].push({
-                text: qDiv.querySelector('textarea').value,
-                imageUrl: inputs[0].value || undefined,
-                options: [inputs[1].value, inputs[2].value, inputs[3].value, inputs[4].value],
-                correctAnswer: parseInt(qDiv.querySelector('select').value)
-            });
+  // Update main quiz details from the form (guard each element)
+  const titleEl = document.getElementById('quiz-title');
+  const timeEl = document.getElementById('quiz-time');
+  const passEl = document.getElementById('quiz-password');
+  const classEl = document.getElementById('quiz-class');
+
+  quizToSave.title = titleEl ? titleEl.value : quizToSave.title;
+  quizToSave.timeLimit = timeEl ? parseInt(timeEl.value) || quizToSave.timeLimit : quizToSave.timeLimit;
+  quizToSave.password = passEl ? passEl.value : quizToSave.password;
+  quizToSave.class = classEl ? classEl.value : quizToSave.class;
+
+  // Rebuild the subjects object from the form elements
+  const newSubjects = {};
+  const subjectDivs = document.querySelectorAll('#subjects-details > div');
+
+  subjectDivs.forEach((subjectDiv, subjIdx) => {
+    const header = subjectDiv.querySelector('h4');
+    const subjectName = header ? header.textContent.trim() : `Subject_${subjIdx}`;
+    newSubjects[subjectName] = [];
+
+    const questionContainers = subjectDiv.querySelectorAll('.question-container');
+
+    questionContainers.forEach((qDiv, qIdx) => {
+      try {
+        const textarea = qDiv.querySelector('textarea');
+        // collect only inputs that are actually present and expected types (helps avoid indexing gaps)
+        const inputs = Array.from(qDiv.querySelectorAll('input'));
+        const select = qDiv.querySelector('select');
+
+        // If textarea missing, skip this question and log
+        if (!textarea) {
+          console.warn(`Skipping question ${qIdx} under ${subjectName}: missing textarea`, qDiv);
+          return;
+        }
+
+        // imageUrl is optional — look for a specific class or first input if that's how you structure it
+        // Prefer input with class "image-url" if you have it else fallback to inputs[0]
+        const imageInput = qDiv.querySelector('input.image-url') || inputs[0];
+        const imageUrl = imageInput ? (imageInput.value || undefined) : undefined;
+
+        // Options — try to find inputs with class "option" or fallback to the next 4 inputs
+        let optionEls = qDiv.querySelectorAll('input.option');
+        if (!optionEls || optionEls.length < 4) {
+          // fallback: use subsequent inputs (skip image input if it was used)
+          const fallback = inputs.filter(inp => inp !== imageInput);
+          optionEls = fallback.slice(0, 4);
+        }
+
+        // Normalize options to 4 strings (fill missing with empty string)
+        const options = [0,1,2,3].map(i => {
+          const el = optionEls[i];
+          return el ? (el.value ?? '') : '';
         });
+
+        // correctAnswer from select; fallback to 0
+        const correctAnswer = select ? parseInt(select.value) || 0 : 0;
+
+        newSubjects[subjectName].push({
+          text: textarea.value || '',
+          imageUrl,
+          options,
+          correctAnswer
+        });
+      } catch (qqErr) {
+        console.error(`Error processing question ${qIdx} for subject ${subjectName}:`, qqErr, qDiv);
+        // skip this question on error
+      }
     });
-    quizToSave.subjects = newSubjects;
+  });
 
-    try {
-        const response = await fetch('/update-quizzes', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(quizzesData)
-        });
-        if (!response.ok) throw new Error('Server error');
-        if (status) status.textContent = `Saved at ${new Date().toLocaleTimeString()}`;
-        if (isManualSave) alert('Quiz saved successfully!');
-        // Re-render the list in case the title was changed
-        renderQuizList();
-    } catch (error) {
-        if (status) status.textContent = 'Save failed.';
-        if (isManualSave) alert('Failed to save quiz.');
-    }
+  quizToSave.subjects = newSubjects;
+
+  try {
+    const response = await fetch('/update-quizzes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(quizzesData)
+    });
+    if (!response.ok) throw new Error('Server error');
+    if (status) status.textContent = `Saved at ${new Date().toLocaleTimeString()}`;
+    if (isManualSave) alert('Quiz saved successfully!');
+    renderQuizList();
+  } catch (error) {
+    console.error('Save failed:', error);
+    if (status) status.textContent = 'Save failed.';
+    if (isManualSave) alert('Failed to save quiz.');
+  }
 }
 
     function generatePDF() {
