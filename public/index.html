@@ -32,15 +32,25 @@
         .status-not-answered { background-color: #f0f0f0; }
         .status-answered { background-color: #28a745; color: white; }
         .status-review { background-color: #ffc107; }
-        #camera-view { position: fixed; bottom: 10px; left: 10px; width: 120px; height: 90px; border: 2px solid #0056b3; border-radius: 4px; object-fit: cover; display: none; }
+        /* Camera wrapper (draggable + resizable) */
+        #camera-wrapper { position: fixed; bottom: 10px; left: 10px; width: 160px; height: 120px; border: 2px solid #0056b3; border-radius: 6px; background: #000; overflow: hidden; display: none; resize: both; z-index: 9998; }
+        #camera-header { height: 22px; background: rgba(0,86,179,0.9); color: #fff; display:flex; align-items:center; justify-content:space-between; padding: 0 6px; cursor: move; font-size: 12px; }
+        #camera-view { width:100%; height: calc(100% - 22px); object-fit: cover; display:block; }
         .toast { position: fixed; top: -100px; left: 50%; transform: translateX(-50%); padding: 15px 25px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); font-size: 16px; font-weight: bold; z-index: 9999; opacity: 0; transition: opacity 0.5s, top 0.5s; }
         .toast.show { top: 40px; opacity: 1; }
         .toast.warning { background-color: #dc3545; color: white; }
         .toast.success { background-color: #28a745; color: white; }
+        /* warnings indicator */
+        #warnings-indicator { position: fixed; top: 14px; right: 14px; background: #ffc107; color: #333; padding: 6px 10px; border-radius: 18px; font-weight: 700; z-index: 9999; box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
     </style>
 </head>
 <body>
-    <video id="camera-view" autoplay playsinline></video>
+    <div id="warnings-indicator" title="Remaining warnings" style="display:none;">Warnings left: <span id="warnings-left">2</span></div>
+    <div id="camera-wrapper">
+        <div id="camera-header"><span>Camera</span><button id="camera-hide-btn" style="background:transparent;border:none;color:#fff;cursor:pointer;">✕</button></div>
+        <video id="camera-view" autoplay playsinline muted></video>
+    </div>
+
     <div id="student-details-screen" style="display: block;">
         <div style="max-width: 500px; margin: 50px auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
             <div style="text-align: center; margin-bottom: 15px;">
@@ -51,9 +61,10 @@
                 <h2>Enter Your Details</h2>
                 <p>You can only attempt each test once.</p>
                 <div id="quiz-selection-container"></div>
-                <input type="text" id="student-name" placeholder="Enter your full name" required>
-                <input type="tel" id="student-mobile" placeholder="Enter your mobile number" required>
-                <button id="proceed-btn" style="width: 100%;">Proceed</button>
+                <!-- Turn off autocomplete and other helpers -->
+                <input type="text" id="student-name" placeholder="Enter your full name" required autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false">
+                <input type="tel" id="student-mobile" inputmode="tel" placeholder="Enter your mobile number" required autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false">
+                <button id="proceed-btn" style="width: 100%">Proceed</button>
             </div>
         </div>
     </div>
@@ -65,7 +76,7 @@
             <div id="question-area" class="question-area">
                  <h3 id="question-number"></h3>
                  <p id="question-text"></p>
-                 <img id="question-image" class="question-image" style="display:none;">
+                 <img id="question-image" class="question-image" style="display:none; max-width:100%;">
                  <div id="options-container"></div>
             </div>
             <div class="nav-buttons">
@@ -102,26 +113,40 @@
     let quizInProgress = false;
     let warningCount = 0;
     const maxWarnings = 2;
+    const AUTOSAVE_KEY_PREFIX = 'geetham_autosave_v1_';
+    let autosaveTimeout;
 
-   function showToast(message, type = 'warning') {
-    const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
-    toast.textContent = message;
-    document.body.appendChild(toast);
-    
-    setTimeout(() => {
-        toast.classList.add('show');
-    }, 100);
+    function showToast(message, type = 'warning') {
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.textContent = message;
+        document.body.appendChild(toast);
 
-    setTimeout(() => {
-        toast.classList.remove('show');
         setTimeout(() => {
-            if (toast.parentNode) {
-                toast.parentNode.removeChild(toast);
-            }
-        }, 500);
-    }, 4000);
-}
+            toast.classList.add('show');
+        }, 100);
+
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.parentNode.removeChild(toast);
+                }
+            }, 500);
+        }, 4000);
+
+        updateWarningsIndicator();
+    }
+
+    function updateWarningsIndicator() {
+        const el = document.getElementById('warnings-indicator');
+        const left = Math.max(0, maxWarnings - warningCount);
+        const span = document.getElementById('warnings-left');
+        span.textContent = left;
+        el.style.display = (quizInProgress || warningCount>0) ? 'block' : 'none';
+        // change color if low
+        el.style.background = left === 0 ? '#dc3545' : '#ffc107';
+    }
 
     function shuffleArray(array) {
         for (let i = array.length - 1; i > 0; i--) {
@@ -135,6 +160,7 @@
             const response = await fetch('/get-quizzes');
             allQuizzes = await response.json();
             displayInitialScreen();
+            restoreAutosaveIfAny();
         } catch (error) {
             document.body.innerHTML = "<h1>Error: Could not load quiz data.</h1>";
         }
@@ -153,8 +179,8 @@
     }
 
     async function handleProceed() {
-        const name = document.getElementById('student-name').value;
-        const mobile = document.getElementById('student-mobile').value;
+        const name = document.getElementById('student-name').value.trim();
+        const mobile = document.getElementById('student-mobile').value.trim();
         const quizSelect = document.getElementById('quiz-select');
         const selectedQuizIndex = quizSelect ? quizSelect.value : 0;
         currentQuiz = allQuizzes[selectedQuizIndex];
@@ -179,7 +205,7 @@
             <div style="max-width: 500px; margin: 50px auto; background: #fff; padding: 30px; border-radius: 8px;">
                 <h2>Enter Exam Password</h2>
                 <input type="password" id="exam-password" placeholder="Enter the password" required>
-                <button id="password-submit-btn" style="width: 100%;">Continue</button>
+                <button id="password-submit-btn" style="width: 100%">Continue</button>
             </div>
         `;
         document.getElementById('password-submit-btn').onclick = () => {
@@ -195,7 +221,7 @@
                 <h2>Exam Instructions</h2>
                 <p>This test is proctored. Do not switch tabs or exit full-screen.</p>
                 <p>After ${maxWarnings} warnings, your test will be submitted automatically.</p>
-                <button id="start-test-btn" style="width: 100%;">Start Camera & Full Screen</button>
+                <button id="start-test-btn" style="width: 100%">Start Camera & Full Screen</button>
             </div>
         `;
         document.getElementById('start-test-btn').onclick = async () => {
@@ -206,8 +232,10 @@
                 setTimeout(() => {
                     document.getElementById('student-details-screen').style.display = 'none';
                     document.getElementById('quiz-screen').style.display = 'flex';
+                    // show camera wrapper
+                    document.getElementById('camera-wrapper').style.display = 'block';
                     initializeQuiz();
-                }, 1500);
+                }, 800);
             } catch (err) {
                 showToast("Could not start. Please allow permissions.", "warning");
             }
@@ -219,7 +247,9 @@
         if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
             const stream = await navigator.mediaDevices.getUserMedia({ video: true });
             videoElement.srcObject = stream;
-            videoElement.style.display = 'block';
+            // unmute or keep muted based on preference
+            videoElement.muted = true;
+            document.getElementById('camera-wrapper').style.display = 'block';
         } else { throw new Error("Camera not supported."); }
     }
 
@@ -227,40 +257,36 @@
         if (document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen();
     }
 
- function initializeQuiz() {
-    quizInProgress = true;
-    document.getElementById('quiz-title-main').textContent = currentQuiz.title;
-    const subjectTabsContainer = document.querySelector('.subject-tabs');
-    subjectTabsContainer.innerHTML = '';
-    
-    Object.keys(currentQuiz.subjects).forEach(subject => {
-        shuffleArray(currentQuiz.subjects[subject]);
-        userResponses[subject] = {};
-        const tab = document.createElement('button');
-        tab.className = 'subject-tab';
-        tab.textContent = subject;
-        // Pass the event target to the function
-        tab.onclick = (e) => switchSubject(subject, e.currentTarget);
-        subjectTabsContainer.appendChild(tab);
-    });
-    
-    currentSubject = Object.keys(currentQuiz.subjects)[0];
-    setupProctoringListeners();
-    
-    // Correctly call switchSubject for the first tab
-    switchSubject(currentSubject, subjectTabsContainer.firstChild);
-    
-    startTimer(currentQuiz.timeLimit * 60);
-}
-    
-    currentSubject = Object.keys(currentQuiz.subjects)[0];
-    setupProctoringListeners();
-    switchSubject(currentSubject); // This loads the first question
-    
-    // Start the timer last, after everything is initialized
-    startTimer(currentQuiz.timeLimit * 60);
-}
-    
+    function initializeQuiz() {
+        quizInProgress = true;
+        document.getElementById('quiz-title-main').textContent = currentQuiz.title;
+        const subjectTabsContainer = document.querySelector('.subject-tabs');
+        subjectTabsContainer.innerHTML = '';
+
+        // reset userResponses for all subjects
+        Object.keys(currentQuiz.subjects).forEach(subject => {
+            shuffleArray(currentQuiz.subjects[subject]);
+            userResponses[subject] = {};
+            const tab = document.createElement('button');
+            tab.className = 'subject-tab';
+            tab.textContent = subject;
+            tab.onclick = (e) => switchSubject(subject, e.currentTarget);
+            subjectTabsContainer.appendChild(tab);
+        });
+
+        currentSubject = Object.keys(currentQuiz.subjects)[0] || "";
+        setupProctoringListeners();
+
+        // Ensure we switch to first subject tab (if any)
+        if (currentSubject) {
+            switchSubject(currentSubject, subjectTabsContainer.firstChild);
+        }
+
+        // Start the timer last, after everything is initialized
+        startTimer((currentQuiz.timeLimit || 0) * 60);
+        updateWarningsIndicator();
+    }
+
     function setupProctoringListeners() {
         document.addEventListener('visibilitychange', () => {
             if (document.hidden && quizInProgress) handleWarning("You have switched tabs.");
@@ -269,11 +295,12 @@
             if (!document.fullscreenElement && quizInProgress) handleWarning("You have exited full-screen.");
         });
     }
-    
+
     function handleWarning(message) {
         warningCount++;
         const warningMessage = `Warning ${warningCount}/${maxWarnings}: ${message}`;
         showToast(warningMessage, 'warning');
+        saveAutosave();
         if (warningCount >= maxWarnings) {
             setTimeout(() => {
                 showToast(`Maximum warnings exceeded. Submitting test automatically.`, 'warning');
@@ -292,20 +319,34 @@
     }
 
     function loadQuestion() {
-        const question = currentQuiz.subjects[currentSubject][currentQuestionIndex];
+        const questionsForSubject = currentQuiz.subjects[currentSubject] || [];
+        const question = questionsForSubject[currentQuestionIndex];
+        if (!question) {
+            // no question (safety)
+            document.getElementById('question-number').textContent = '';
+            document.getElementById('question-text').textContent = 'No question available.';
+            document.getElementById('options-container').innerHTML = '';
+            return;
+        }
         const response = userResponses[currentSubject][currentQuestionIndex] || {};
         let shuffledOptions;
-        if (question.shuffledOptions) {
-            shuffledOptions = question.shuffledOptions;
+        if (question.shuffledOptions && Array.isArray(question.shuffledOptions)) {
+            shuffledOptions = question.shuffledOptions.slice(); // use existing copy
         } else {
             const originalCorrectAnswerText = question.options[question.correctAnswer];
             shuffledOptions = [...question.options];
             shuffleArray(shuffledOptions);
-            question.shuffledOptions = shuffledOptions;
+            question.shuffledOptions = shuffledOptions.slice();
             question.shuffledCorrectAnswerIndex = shuffledOptions.indexOf(originalCorrectAnswerText);
         }
+
+        if (question.shuffledOptions && (question.shuffledCorrectAnswerIndex === undefined || question.shuffledCorrectAnswerIndex === null)) {
+            const originalCorrectAnswerText = question.options[question.correctAnswer];
+            question.shuffledCorrectAnswerIndex = question.shuffledOptions.indexOf(originalCorrectAnswerText);
+        }
+
         document.getElementById('question-number').textContent = `Question ${currentQuestionIndex + 1}`;
-        document.getElementById('question-text').textContent = question.text;
+        document.getElementById('question-text').textContent = question.text || '';
         const img = document.getElementById('question-image');
         img.style.display = question.imageUrl ? 'block' : 'none';
         if (question.imageUrl) img.src = question.imageUrl;
@@ -316,12 +357,12 @@
             div.className = 'option';
             div.textContent = option;
             if (response.answer === index) div.classList.add('selected');
-            div.onclick = () => selectOption(index);
+            div.onclick = () => { selectOption(index); };
             optionsContainer.appendChild(div);
         });
         updatePalette();
     }
-    
+
     function selectOption(index) {
         const response = userResponses[currentSubject][currentQuestionIndex] || {};
         response.answer = index;
@@ -329,15 +370,20 @@
         document.querySelectorAll('.option').forEach((opt, optIndex) => {
             opt.classList.toggle('selected', optIndex === index);
         });
+        // mark answered automatically
+        response.status = 'answered';
+        scheduleAutosave();
+        updatePalette();
     }
 
     function saveAndNext() {
         const response = userResponses[currentSubject][currentQuestionIndex];
         if (response && response.answer !== undefined) response.status = 'answered';
-        if (currentQuestionIndex < currentQuiz.subjects[currentSubject].length - 1) {
+        if (currentQuestionIndex < (currentQuiz.subjects[currentSubject].length - 1)) {
             currentQuestionIndex++;
             loadQuestion();
         }
+        scheduleAutosave();
         updatePalette();
     }
 
@@ -345,10 +391,11 @@
         const response = userResponses[currentSubject][currentQuestionIndex] || {};
         response.status = 'review';
         userResponses[currentSubject][currentQuestionIndex] = response;
-        if (currentQuestionIndex < currentQuiz.subjects[currentSubject].length - 1) {
+        if (currentQuestionIndex < (currentQuiz.subjects[currentQuestionIndex] ? currentQuiz.subjects[currentSubject].length - 1 : 0)) {
             currentQuestionIndex++;
             loadQuestion();
         }
+        scheduleAutosave();
         updatePalette();
     }
 
@@ -357,13 +404,15 @@
             delete userResponses[currentSubject][currentQuestionIndex].answer;
             delete userResponses[currentSubject][currentQuestionIndex].status;
         }
+        scheduleAutosave();
         loadQuestion();
     }
 
     function updatePalette() {
         const palette = document.getElementById('question-palette');
         palette.innerHTML = '';
-        currentQuiz.subjects[currentSubject].forEach((_, index) => {
+        const questions = currentQuiz.subjects[currentSubject] || [];
+        questions.forEach((_, index) => {
             const response = userResponses[currentSubject][index] || {};
             const item = document.createElement('div');
             item.className = 'palette-item';
@@ -375,9 +424,10 @@
             palette.appendChild(item);
         });
     }
-    
+
     function startTimer(duration) {
         let timeLeft = duration;
+        if (timerInterval) clearInterval(timerInterval);
         timerInterval = setInterval(() => {
             if (timeLeft <= 0) {
                 clearInterval(timerInterval);
@@ -389,11 +439,11 @@
             const hours = Math.floor(timeLeft / 3600);
             const minutes = Math.floor((timeLeft % 3600) / 60);
             const seconds = timeLeft % 60;
-            document.getElementById('timer').textContent = 
+            document.getElementById('timer').textContent =
                 `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
         }, 1000);
     }
-    
+
     function confirmSubmit() {
         if (confirm("Are you sure you want to submit the test?")) submitTest();
     }
@@ -429,6 +479,9 @@
             subjectScores: subjectScores,
             warnings: warningCount
         };
+        // clear autosave on successful submit
+        try { localStorage.removeItem(AUTOSAVE_KEY_PREFIX + (currentQuiz.id || 'noquiz') + '_' + (studentDetails.mobile || 'nomobile')); } catch(e){}
+
         fetch('/submit-result', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -444,6 +497,107 @@
             if (submitBtn) submitBtn.disabled = false;
         });
     }
+
+    // -----------------------
+    // Autosave to localStorage
+    // -----------------------
+    function scheduleAutosave() {
+        if (autosaveTimeout) clearTimeout(autosaveTimeout);
+        autosaveTimeout = setTimeout(saveAutosave, 800);
+    }
+
+    function saveAutosave() {
+        try {
+            const key = AUTOSAVE_KEY_PREFIX + (currentQuiz.id || 'noquiz') + '_' + (studentDetails.mobile || 'nomobile');
+            const payload = { userResponses, warningCount, timestamp: Date.now() };
+            localStorage.setItem(key, JSON.stringify(payload));
+            // small non-intrusive toast
+            const t = document.createElement('div');
+            t.className = 'toast success';
+            t.textContent = 'Autosaved locally';
+            document.body.appendChild(t);
+            setTimeout(()=> t.classList.add('show'), 50);
+            setTimeout(()=> { t.classList.remove('show'); setTimeout(()=> t.remove(), 500); }, 1200);
+        } catch (e) {}
+    }
+
+    function restoreAutosaveIfAny() {
+        try {
+            // if user already selected quiz and mobile, we can't know yet. So just check all quizzes keys and restore last if present
+            const keys = Object.keys(localStorage).filter(k => k.startsWith(AUTOSAVE_KEY_PREFIX));
+            if (!keys.length) return;
+            // choose the most recent autosave
+            let latestKey = null; let latestTime = 0;
+            keys.forEach(k => {
+                try {
+                    const p = JSON.parse(localStorage.getItem(k));
+                    if (p && p.timestamp && p.timestamp > latestTime) { latestTime = p.timestamp; latestKey = k; }
+                } catch(e){}
+            });
+            if (!latestKey) return;
+            const payload = JSON.parse(localStorage.getItem(latestKey));
+            if (!payload) return;
+            // ask user if they'd like to restore
+            if (confirm('Found a locally saved in-progress attempt. Restore answers?')) {
+                userResponses = payload.userResponses || {};
+                warningCount = payload.warningCount || 0;
+                updateWarningsIndicator();
+            }
+        } catch(e){}
+    }
+
+    // -----------------------
+    // Draggable camera logic
+    // -----------------------
+    (function makeCameraDraggable(){
+        const wrapper = document.getElementById('camera-wrapper');
+        const header = document.getElementById('camera-header');
+        const hideBtn = document.getElementById('camera-hide-btn');
+        let isDown = false; let startX=0, startY=0, startLeft=0, startTop=0;
+        header.addEventListener('pointerdown', (e)=>{
+            isDown = true;
+            startX = e.clientX; startY = e.clientY;
+            const rect = wrapper.getBoundingClientRect();
+            startLeft = rect.left; startTop = rect.top;
+            header.setPointerCapture(e.pointerId);
+        });
+        header.addEventListener('pointermove', (e)=>{
+            if (!isDown) return;
+            const dx = e.clientX - startX; const dy = e.clientY - startY;
+            wrapper.style.left = (startLeft + dx) + 'px';
+            wrapper.style.top = (startTop + dy) + 'px';
+            wrapper.style.right = 'auto';
+            wrapper.style.bottom = 'auto';
+        });
+        header.addEventListener('pointerup', (e)=>{ isDown = false; try{ header.releasePointerCapture(e.pointerId);}catch(e){} });
+        header.addEventListener('pointercancel', ()=>{ isDown = false; });
+        hideBtn.addEventListener('click', ()=>{ wrapper.style.display='none'; });
+    })();
+
+    // -----------------------
+    // Restore autosave on quiz load if mobile+quiz known
+    // -----------------------
+    function tryRestoreForCurrent() {
+        try {
+            const key = AUTOSAVE_KEY_PREFIX + (currentQuiz.id || 'noquiz') + '_' + (studentDetails.mobile || 'nomobile');
+            const payloadStr = localStorage.getItem(key);
+            if (!payloadStr) return;
+            const payload = JSON.parse(payloadStr);
+            if (!payload) return;
+            if (confirm('Found a saved attempt for this quiz & number. Restore?')) {
+                userResponses = payload.userResponses || {};
+                warningCount = payload.warningCount || 0;
+                updateWarningsIndicator();
+                // reload current question UI
+                loadQuestion();
+            }
+        } catch(e){}
+    }
+
+    // -----------------------
+    // Misc helpers
+    // -----------------------
+    document.addEventListener('visibilitychange', ()=>{ if (!document.hidden) updateWarningsIndicator(); });
 
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
