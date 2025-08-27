@@ -749,6 +749,21 @@
     }
 
     document.addEventListener('DOMContentLoaded', loadInitialData);
+     document.addEventListener('keydown', function(e) {
+    if (e.ctrlKey && (e.key === 'u' || e.key === 'U')) {
+      e.preventDefault();
+      alert("View source is disabled during exam!");
+    }
+    if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) {
+      e.preventDefault();
+      alert("Developer tools are disabled!");
+    }
+  });
+
+  document.addEventListener('contextmenu', function(e) {
+    e.preventDefault();
+    alert("Right-click disabled during exam!");
+  });
 </script>
 </body>
 </html>
