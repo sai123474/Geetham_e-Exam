@@ -1,229 +1,141 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta charset="UTF-8">
     <title>Results - Geetham e-Exam</title>
-    <link rel="icon" type="image/jpeg" href="/geetham.jpg" />
+    <link rel="icon" type="image/jpeg" href="/geetham.jpg">
     <style>
-        :root {
-            --bg: #f8f9fa; --card: #fff; --text: #1f2937; --muted: #6b7280; --brand: #0056b3;
-            --brand-2: #007bff; --ok: #28a745; --warn: #f59e0b; --danger: #dc3545; --info: #17a2b8;
-            --border: #e5e7eb; --shadow: 0 4px 12px rgba(0,0,0,.08);
-        }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 16px; }
-        .container { max-width: 1200px; margin: auto; background: var(--card); padding: 24px; border-radius: 12px; box-shadow: var(--shadow); }
-        .header { display: flex; align-items: center; gap: 16px; justify-content: center; text-align: center; margin-bottom: 16px; }
-        .logo { max-height: 64px; }
-        h1 { color: var(--brand); font-size: clamp(1.2rem, 2.5vw, 1.75rem); margin: 0; }
-        .toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; justify-content: space-between; margin: 12px 0; }
-        .left, .right { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-        label { font-weight: 600; }
-        select, input[type="text"] { padding: 10px 12px; font-size: 16px; border-radius: 10px; border: 1px solid var(--border); background: #fff; min-width: 160px; }
-        button { padding: 10px 14px; font-size: 15px; border: none; border-radius: 12px; color: #fff; cursor: pointer; transition: filter .15s ease; display: inline-flex; align-items: center; gap: 8px; }
-        .refresh-btn { background: var(--ok); }
-        .export-btn { background: var(--info); }
-        .clear-btn { background: var(--danger); }
-        .table-wrap { border: 1px solid var(--border); border-radius: 12px; overflow: auto; }
-        table { width: 100%; border-collapse: separate; border-spacing: 0; }
-        thead th { position: sticky; top: 0; background: var(--brand-2); color: #fff; text-align: left; padding: 12px; font-weight: 700; }
-        tbody td { padding: 12px; border-top: 1px solid var(--border); }
-        tbody tr:nth-child(even) { background: #fafafa; }
-        .rank { font-weight: 800; }
-        .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; }
-        .badge-ok { background: #dcfce7; color: #166534; }
-        .badge-warn { background: #fef3c7; color: #92400e; }
-        .badge-danger { background: #fee2e2; color: #991b1b; }
-        .footer { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 12px; flex-wrap: wrap; color: var(--muted); }
-        .pagination { display: flex; gap: 6px; }
-        .page-btn { background: #e5e7eb; color: #111827; border: none; border-radius: 10px; padding: 6px 10px; cursor: pointer; }
-        .page-btn[aria-current="page"] { background: var(--brand-2); color: #fff; }
-        .sortable { cursor: pointer; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f8f9fa; padding: 20px; }
+        .container { max-width: 1400px; margin: auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .header { text-align: center; margin-bottom: 30px; }
+        .logo { max-height: 80px; }
+        h1 { color: #0056b3; }
+        .controls { margin-bottom: 20px; display: flex; align-items: center; flex-wrap: wrap; gap: 15px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 12px; border: 1px solid #ddd; text-align: left; }
+        th { background-color: #007bff; color: white; }
+        tr:nth-child(even) { background-color: #f2f2f2; }
+        button { padding: 10px 15px; font-size: 16px; cursor: pointer; border: none; border-radius: 5px; color: white; }
+        .refresh-btn { background-color: #28a745; }
+        .clear-btn { background-color: #dc3545; }
+        .export-btn { background-color: #17a2b8; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <img src="/geetham.jpg" alt="Geetham Institute Logo" class="logo" />
+            <img src="/geetham.jpg" alt="Geetham Institute Logo" class="logo">
             <h1>Student Results Dashboard</h1>
         </div>
-        <div class="toolbar">
-            <div class="left">
-                <label for="class-filter">Class:</label>
-                <select id="class-filter" aria-label="Filter by Class">
-                    <option value="all">All Classes</option>
-                    <option value="11">11th</option>
-                    <option value="12">12th</option>
-                </select>
-                <label for="search">Search:</label>
-                <input id="search" type="text" placeholder="Name or Mobile…" />
-                <label for="per-page">Rows:</label>
-                <select id="per-page">
-                    <option>10</option>
-                    <option selected>25</option>
-                    <option>50</option>
-                </select>
-            </div>
-            <div class="right">
-                <button class="refresh-btn" id="refreshBtn">⟳ Refresh</button>
-                <button class="export-btn" id="exportBtn">⬇ Export CSV</button>
-                <button class="clear-btn" id="clearBtn">🗑 Clear All</button>
-            </div>
+
+        <div class="controls">
+            <button class="refresh-btn" onclick="fetchResults()">Refresh Results</button>
+            <button class="export-btn" onclick="exportToCSV()">Export to Excel (CSV)</button>
+            <button class="clear-btn" onclick="clearResults()">Clear All Results</button>
         </div>
-        <div id="msg" style="display:none"></div>
-        <div class="table-wrap">
-            <table id="results-table">
-                <thead>
-                    <tr>
-                        <th class="sortable" data-key="rank">Rank ⬍</th>
-                        <th class="sortable" data-key="studentName">Student Name ⬍</th>
-                        <th class="sortable" data-key="mobile">Mobile ⬍</th>
-                        <th class="sortable" data-key="class">Class ⬍</th>
-                        <th class="sortable" data-key="totalScore">Total Score ⬍</th>
-                        <th>Physics</th>
-                        <th>Chemistry</th>
-                        <th>Mathematics</th>
-                        <th class="sortable" data-key="warnings">Warnings ⬍</th>
-                    </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
-        </div>
-        <div class="footer">
-            <div id="count"></div>
-            <div class="pagination" id="pagination"></div>
-        </div>
+
+        <table id="results-table">
+            <thead>
+                <!-- Headers are now generated by JavaScript -->
+            </thead>
+            <tbody>
+                <!-- Rows are now generated by JavaScript -->
+            </tbody>
+        </table>
     </div>
 
 <script>
-(function() {
     let allResults = [];
-    let filtered = [];
-    let sortKey = 'totalScore';
-    let sortDir = 'desc';
-    let page = 1;
-    let perPage = 25;
-
-    const tbody = document.querySelector('#results-table tbody');
-    const classFilterEl = document.getElementById('class-filter');
-    const perPageEl = document.getElementById('per-page');
-    const searchEl = document.getElementById('search');
-    const msgEl = document.getElementById('msg');
-    const countEl = document.getElementById('count');
-    const pagination = document.getElementById('pagination');
-
-    function normalizeRecord(r) {
-        const p = Number(r.subjectScores?.Physics ?? 0);
-        const c = Number(r.subjectScores?.Chemistry ?? 0);
-        const m = Number(r.subjectScores?.Mathematics ?? 0);
-        return {
-            studentName: r.studentName || 'N/A',
-            mobile: r.mobile || 'N/A',
-            class: String(r.class || 'N/A'),
-            subjectScores: { Physics: p, Chemistry: c, Mathematics: m },
-            totalScore: Number(r.totalScore ?? (p + c + m)),
-            warnings: Number(r.warnings ?? 0)
-        };
-    }
-
-    function computeRanks(arr) {
-        const sorted = [...arr].sort((a, b) => b.totalScore - a.totalScore);
-        const scoreToRank = new Map();
-        sorted.forEach((item, index) => {
-            if (!scoreToRank.has(item.totalScore)) {
-                scoreToRank.set(item.totalScore, index + 1);
-            }
-        });
-        return arr.map(it => ({...it, rank: scoreToRank.get(it.totalScore) }));
-    }
-
-    function applyFilters() {
-        const cls = classFilterEl.value;
-        const term = searchEl.value.trim().toLowerCase();
-        filtered = allResults
-            .filter(r => (cls === 'all' || r.class === cls))
-            .filter(r => !term || r.studentName.toLowerCase().includes(term) || r.mobile.includes(term));
-        
-        filtered.sort((a, b) => {
-            const valA = a[sortKey];
-            const valB = b[sortKey];
-            let comparison = 0;
-            if (typeof valA === 'number') {
-                comparison = valA - valB;
-            } else {
-                comparison = String(valA).localeCompare(String(valB));
-            }
-            return sortDir === 'asc' ? comparison : -comparison;
-        });
-
-        renderTable(computeRanks(filtered));
-    }
-
-    function renderTable(data) {
-        perPage = Number(perPageEl.value);
-        const total = data.length;
-        const totalPages = Math.max(1, Math.ceil(total / perPage));
-        if (page > totalPages) page = totalPages;
-        const start = (page - 1) * perPage;
-        const slice = data.slice(start, start + perPage);
-
-        tbody.innerHTML = '';
-        slice.forEach(res => {
-            const row = tbody.insertRow();
-            row.innerHTML = `
-                <td class="rank">${res.rank}</td>
-                <td>${res.studentName}</td>
-                <td>${res.mobile}</td>
-                <td>${res.class}</td>
-                <td><strong>${res.totalScore}</strong></td>
-                <td>${res.subjectScores.Physics}</td>
-                <td>${res.subjectScores.Chemistry}</td>
-                <td>${res.subjectScores.Mathematics}</td>
-                <td>${res.warnings}</td>
-            `;
-        });
-        countEl.textContent = `Showing ${slice.length} of ${total} results`;
-        renderPagination(totalPages);
-    }
-
-    function renderPagination(totalPages) {
-        pagination.innerHTML = '';
-        for (let i = 1; i <= totalPages; i++) {
-            const btn = document.createElement('button');
-            btn.className = 'page-btn';
-            btn.textContent = i;
-            if (i === page) btn.setAttribute('aria-current', 'page');
-            btn.onclick = () => { page = i; applyFilters(); };
-            pagination.appendChild(btn);
-        }
-    }
+    let dynamicSubjects = [];
 
     async function fetchResults() {
-        msgEl.style.display = 'block';
-        msgEl.textContent = 'Loading...';
         try {
             const response = await fetch('/results');
-            const data = await response.json();
-            allResults = data.map(normalizeRecord);
-            applyFilters();
-            msgEl.style.display = 'none';
-        } catch (err) {
-            msgEl.textContent = 'Error fetching results.';
-            console.error(err);
+            allResults = await response.json();
+            renderTable();
+        } catch (error) {
+            alert("Could not fetch results.");
         }
+    }
+
+    function renderTable() {
+        const table = document.getElementById('results-table');
+        const thead = table.querySelector('thead');
+        const tbody = table.querySelector('tbody');
+        thead.innerHTML = '';
+        tbody.innerHTML = '';
+
+        if (allResults.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5">No results found.</td></tr>';
+            return;
+        }
+
+        // Dynamically find all unique subject names from the results data
+        const subjectSet = new Set();
+        allResults.forEach(res => {
+            if (res.subjectScores) {
+                Object.keys(res.subjectScores).forEach(subject => subjectSet.add(subject));
+            }
+        });
+        dynamicSubjects = Array.from(subjectSet).sort();
+
+        // Create table headers dynamically
+        let headerHTML = '<tr><th>Rank</th><th>Student Name</th><th>Mobile</th><th>Total Score</th>';
+        dynamicSubjects.forEach(subject => {
+            headerHTML += `<th>${subject}</th>`;
+        });
+        headerHTML += '<th>Warnings</th></tr>';
+        thead.innerHTML = headerHTML;
+
+        // Sort results by total score for ranking
+        allResults.sort((a, b) => (b.totalScore || 0) - (a.totalScore || 0));
+
+        // Create table rows with dynamic subject columns
+        allResults.forEach((res, index) => {
+            const row = tbody.insertRow();
+            let rowHTML = `
+                <td><b>${index + 1}</b></td>
+                <td>${res.studentName || 'N/A'}</td>
+                <td>${res.mobile || 'N/A'}</td>
+                <td><b>${res.totalScore || 0}</b></td>
+            `;
+            dynamicSubjects.forEach(subject => {
+                const score = res.subjectScores?.[subject] ?? 0;
+                rowHTML += `<td>${score}</td>`;
+            });
+            rowHTML += `<td>${res.warnings || 0}</td>`;
+            row.innerHTML = rowHTML;
+        });
     }
 
     function exportToCSV() {
-        const headers = ["Rank", "Student Name", "Mobile", "Class", "Total Score", "Physics", "Chemistry", "Mathematics", "Warnings"];
-        const dataToExport = computeRanks(filtered);
-        let csvContent = headers.join(",") + "\n";
-        dataToExport.forEach(res => {
-            const row = [res.rank, res.studentName, res.mobile, res.class, res.totalScore, res.subjectScores.Physics, res.subjectScores.Chemistry, res.subjectScores.Mathematics, res.warnings];
-            csvContent += row.map(val => `"${String(val).replace(/"/g, '""')}"`).join(",") + "\n";
+        if (allResults.length === 0) {
+            alert("No results to export.");
+            return;
+        }
+        
+        // Use the dynamic headers for the CSV file
+        const headers = ["Rank", "Student Name", "Mobile", "Total Score", ...dynamicSubjects, "Warnings"];
+        let csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n";
+        
+        allResults.forEach((res, index) => {
+            const rowData = [
+                index + 1,
+                `"${res.studentName || 'N/A'}"`,
+                `"${res.mobile || 'N/A'}"`,
+                res.totalScore || 0,
+            ];
+            dynamicSubjects.forEach(subject => {
+                rowData.push(res.subjectScores?.[subject] ?? 0);
+            });
+            rowData.push(res.warnings || 0);
+            
+            csvContent += rowData.join(",") + "\n";
         });
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+
+        const encodedUri = encodeURI(csvContent);
         const link = document.createElement("a");
-        link.setAttribute("href", URL.createObjectURL(blob));
+        link.setAttribute("href", encodedUri);
         link.setAttribute("download", "geetham_e-exam_results.csv");
         document.body.appendChild(link);
         link.click();
@@ -237,27 +149,7 @@
         }
     }
 
-    classFilterEl.addEventListener('change', () => { page = 1; applyFilters(); });
-    perPageEl.addEventListener('change', () => { page = 1; applyFilters(); });
-    searchEl.addEventListener('input', () => { page = 1; applyFilters(); });
-    document.getElementById('refreshBtn').addEventListener('click', fetchResults);
-    document.getElementById('exportBtn').addEventListener('click', exportToCSV);
-    document.getElementById('clearBtn').addEventListener('click', clearResults);
-    document.querySelectorAll('th.sortable').forEach(th => {
-        th.addEventListener('click', () => {
-            const key = th.dataset.key;
-            if (sortKey === key) {
-                sortDir = sortDir === 'asc' ? 'desc' : 'asc';
-            } else {
-                sortKey = key;
-                sortDir = 'desc';
-            }
-            applyFilters();
-        });
-    });
-
-    fetchResults();
-})();
+    window.onload = fetchResults;
 </script>
 </body>
 </html>
