@@ -293,10 +293,10 @@
         }
     }
 
-   async function saveQuiz(isManualSave = false) {
+  async function saveQuiz(isManualSave = false) {
     const status = document.getElementById('autosave-status');
     const quizToSave = quizzesData[selectedQuizIndex];
-    if (!quizToSave) return; // Do nothing if no quiz is selected
+    if (!quizToSave) return;
 
     // Update main quiz details from the form
     quizToSave.title = document.getElementById('quiz-title').value;
