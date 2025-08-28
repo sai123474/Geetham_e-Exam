@@ -116,6 +116,7 @@
     const LOOK_AWAY_THRESHOLD = 3000;
     let questionTimes = {};
     let lastQuestionStart = null;
+    let fullscreenCountdownInterval;
 
     // --- UTILITY FUNCTIONS ---
     function showToast(message, type = 'warning') {
@@ -267,28 +268,69 @@
     }
     
     function setupProctoringListeners() {
-        document.addEventListener('visibilitychange', () => {
-            if (document.hidden && quizInProgress) handleWarning("You have switched tabs.");
-        });
-        document.addEventListener('fullscreenchange', async () => {
-            const overlay = document.getElementById('fullscreen-warning');
-            if (!document.fullscreenElement && quizInProgress) {
-                handleWarning("You have exited full-screen.");
-                overlay.style.display = 'flex';
-            } else {
-                overlay.style.display = 'none';
-            }
-        });
-        window.addEventListener("blur", () => {
-            if (quizInProgress) handleWarning("You have switched to another application.");
-        });
-        document.getElementById('resume-fullscreen-btn').onclick = async () => {
-            try {
-                await startFullScreen();
-            } catch (err) { /* silent fail */ }
-        };
-    }
+    // Detects tab switching
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden && quizInProgress) {
+            handleWarning("You have switched tabs.");
+        }
+    });
 
+    // Detects exiting full-screen and shows the countdown overlay
+    document.addEventListener('fullscreenchange', () => {
+        const overlay = document.getElementById('fullscreen-warning');
+        if (!document.fullscreenElement && quizInProgress) {
+            handleWarning("You have exited full-screen.");
+            overlay.style.display = 'flex';
+            startFullscreenCountdown();
+        } else {
+            overlay.style.display = 'none';
+            clearInterval(fullscreenCountdownInterval);
+        }
+    });
+
+    // Detects switching to another application
+    window.addEventListener("blur", () => {
+        if (quizInProgress) {
+            handleWarning("You have switched to another application.");
+        }
+    });
+
+    // Block right-click
+    document.addEventListener('contextmenu', (e) => {
+        if (quizInProgress) {
+            e.preventDefault();
+            handleWarning("Right-click is disabled.");
+        }
+    });
+
+    // Block special keys and developer tools
+    document.addEventListener('keydown', (e) => {
+        if (!quizInProgress) return;
+        if (e.ctrlKey && ['c', 'v', 'p', 'a', 'x'].includes(e.key.toLowerCase())) {
+            e.preventDefault();
+            handleWarning(`Ctrl+${e.key.toUpperCase()} is disabled.`);
+        }
+        if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && ['I', 'J', 'C'].includes(e.key.toUpperCase()))) {
+            e.preventDefault();
+            handleWarning("Developer tools are disabled.");
+        }
+    });
+}
+function startFullscreenCountdown() {
+        let seconds = 5;
+        const countdownElement = document.getElementById('fullscreen-countdown');
+        countdownElement.textContent = seconds;
+
+        clearInterval(fullscreenCountdownInterval); // Clear any existing interval
+        fullscreenCountdownInterval = setInterval(async () => {
+            seconds--;
+            countdownElement.textContent = seconds;
+            if (seconds <= 0) {
+                clearInterval(fullscreenCountdownInterval);
+                await startFullScreen();
+            }
+        }, 1000);
+    }
     function handleWarning(message) {
         warningCount++;
         const warningMessage = `Warning ${warningCount}/${maxWarnings}: ${message}`;
