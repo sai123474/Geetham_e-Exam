@@ -563,24 +563,61 @@ function restoreProgress() {
 }
     
     function downloadPDFReport() {
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF();
-        doc.text(`Student: ${studentDetails.name}`, 10, 10);
-        doc.text(`Quiz: ${currentQuiz.title}`, 10, 20);
-        let y = 30;
-        Object.keys(userResponses).forEach(subject => {
-            doc.text(`Subject: ${subject}`, 10, y); y += 8;
-            currentQuiz.subjects[subject].forEach((q, i) => {
-                if (y > 280) { doc.addPage(); y = 10; }
-                const resp = userResponses[subject]?.[i] || {};
-                doc.text(`Q${i + 1}: ${q.text}`, 10, y); y += 6;
-                doc.text(`Your Answer: ${resp.answer !== undefined ? q.shuffledOptions[resp.answer] : "Not Answered"}`, 12, y); y += 6;
-                doc.text(`Correct Answer: ${q.shuffledOptions[q.shuffledCorrectAnswerIndex]}`, 12, y); y += 8;
-            });
-        });
-        doc.save(`${studentDetails.name}_Report.pdf`);
+    // Check if jsPDF library is available
+    if (typeof window.jspdf === 'undefined') {
+        alert("Error: PDF library is not available.");
+        return;
+    }
+    if (!studentDetails.name || !currentQuiz.title) {
+        alert("Error: Student or quiz data is missing.");
+        return;
     }
 
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    let y = 20; // Y-position on the page
+
+    // --- PDF Header ---
+    doc.setFontSize(20);
+    doc.setFont("helvetica", "bold");
+    doc.text("Geetham e-Exam - Performance Report", 105, y, { align: 'center' });
+    y += 15;
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Student: ${studentDetails.name}`, 14, y);
+    doc.text(`Quiz: ${currentQuiz.title}`, 105, y, { align: 'center' });
+    y += 15;
+    doc.line(14, y, 196, y); // Horizontal line
+    y += 10;
+
+    // --- Report Body ---
+    Object.keys(userResponses).forEach(subject => {
+        if (y > 270) { doc.addPage(); y = 20; }
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.text(`Subject: ${subject}`, 14, y);
+        y += 10;
+        
+        currentQuiz.subjects[subject].forEach((q, i) => {
+            if (y > 270) { doc.addPage(); y = 20; }
+            const resp = userResponses[subject]?.[i] || {};
+            
+            doc.setFontSize(11);
+            doc.setFont("helvetica", "bold");
+            const questionText = doc.splitTextToSize(`Q${i + 1}: ${q.text}`, 180);
+            doc.text(questionText, 14, y);
+            y += (questionText.length * 5) + 2;
+
+            doc.setFont("helvetica", "normal");
+            doc.text(`Your Answer: ${resp.answer !== undefined ? q.shuffledOptions[resp.answer] : "Not Answered"}`, 18, y);
+            y += 6;
+            doc.text(`Correct Answer: ${q.shuffledOptions[q.shuffledCorrectAnswerIndex]}`, 18, y);
+            y += 10;
+        });
+    });
+
+    doc.save(`${studentDetails.name}_Report.pdf`);
+}
     // Make functions globally accessible for onclick
     window.goPrevious = goPrevious;
     window.saveAndNext = saveAndNext;
