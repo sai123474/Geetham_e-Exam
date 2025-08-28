@@ -83,6 +83,7 @@
             <div class="nav-buttons">
                 <button class="secondary" onclick="markForReview()">Mark for Review & Next</button>
                 <div>
+                    <button onclick="goPrevious()">Previous</button>
                     <button class="secondary" onclick="clearResponse()">Clear Response</button>
                     <button onclick="saveAndNext()">Save & Next</button>
                 </div>
@@ -320,6 +321,7 @@
         });
         currentSubject = Object.keys(currentQuiz.subjects)[0];
         setupProctoringListeners();
+        restoreProgress();
         switchSubject(currentSubject, subjectTabsContainer.firstChild);
         startTimer(currentQuiz.timeLimit * 60);
         setTimeout(startGazeDetection, 2000);
@@ -329,16 +331,8 @@
         document.addEventListener('visibilitychange', () => {
             if (document.hidden && quizInProgress) handleWarning("You have switched tabs.");
         });
-        
-        document.addEventListener('fullscreenchange', async () => {
-            if (!document.fullscreenElement && quizInProgress) {
-                handleWarning("You have exited full-screen. Re-entering...");
-                try {
-                    await startFullScreen();
-                } catch (err) {
-                    console.warn("Could not re-enter fullscreen automatically.");
-                }
-            }
+        document.addEventListener('fullscreenchange', () => {
+            if (!document.fullscreenElement && quizInProgress) handleWarning("You have exited full-screen.");
         });
     }
 
@@ -364,10 +358,38 @@
         loadQuestion();
         updatePalette();
     }
+    function saveProgress() {
+    try {
+        const progress = {
+            userResponses: userResponses,
+            currentSubject: currentSubject,
+            currentQuestionIndex: currentQuestionIndex
+        };
+        localStorage.setItem(`geetham_progress_${currentQuiz.id}_${studentDetails.mobile}`, JSON.stringify(progress));
+    } catch (e) {
+        console.warn("Could not save progress to local storage.");
+    }
+}
+
+function restoreProgress() {
+    try {
+        const savedProgress = localStorage.getItem(`geetham_progress_${currentQuiz.id}_${studentDetails.mobile}`);
+        if (savedProgress) {
+            if (confirm("We found your saved progress. Would you like to restore it?")) {
+                const progress = JSON.parse(savedProgress);
+                userResponses = progress.userResponses;
+                currentSubject = progress.currentSubject;
+                currentQuestionIndex = progress.currentQuestionIndex;
+            }
+        }
+    } catch (e) {
+        console.warn("Could not restore progress.");
+    }
+}
 
     function loadQuestion() {
         const question = currentQuiz.subjects[currentSubject][currentQuestionIndex];
-        const response = userResponses[currentSubject][currentQuestionIndex] || {};
+        const response = userResponses[currentSubject]?.[currentQuestionIndex] || {};
         let shuffledOptions;
         if (question.shuffledOptions) {
             shuffledOptions = question.shuffledOptions;
@@ -397,16 +419,24 @@
     }
     
     function selectOption(index) {
-        const response = userResponses[currentSubject][currentQuestionIndex] || {};
-        response.answer = index;
-        userResponses[currentSubject][currentQuestionIndex] = response;
+        if (!userResponses[currentSubject]) userResponses[currentSubject] = {};
+        userResponses[currentSubject][currentQuestionIndex] = userResponses[currentSubject][currentQuestionIndex] || {};
+        userResponses[currentSubject][currentQuestionIndex].answer = index;
         document.querySelectorAll('.option').forEach((opt, optIndex) => {
             opt.classList.toggle('selected', optIndex === index);
         });
+        saveProgress();
+    }
+
+    function goPrevious() {
+        if (currentQuestionIndex > 0) {
+            currentQuestionIndex--;
+            loadQuestion();
+        }
     }
 
     function saveAndNext() {
-        const response = userResponses[currentSubject][currentQuestionIndex];
+        const response = userResponses[currentSubject]?.[currentQuestionIndex];
         if (response && response.answer !== undefined) response.status = 'answered';
         if (currentQuestionIndex < currentQuiz.subjects[currentSubject].length - 1) {
             currentQuestionIndex++;
@@ -416,7 +446,7 @@
     }
 
     function markForReview() {
-        const response = userResponses[currentSubject][currentQuestionIndex] || {};
+        const response = userResponses[currentSubject]?.[currentQuestionIndex] || {};
         response.status = 'review';
         userResponses[currentSubject][currentQuestionIndex] = response;
         if (currentQuestionIndex < currentQuiz.subjects[currentSubject].length - 1) {
@@ -427,7 +457,7 @@
     }
 
     function clearResponse() {
-        if (userResponses[currentSubject][currentQuestionIndex]) {
+        if (userResponses[currentSubject]?.[currentQuestionIndex]) {
             delete userResponses[currentSubject][currentQuestionIndex].answer;
             delete userResponses[currentSubject][currentQuestionIndex].status;
         }
@@ -438,7 +468,7 @@
         const palette = document.getElementById('question-palette');
         palette.innerHTML = '';
         currentQuiz.subjects[currentSubject].forEach((_, index) => {
-            const response = userResponses[currentSubject][index] || {};
+            const response = userResponses[currentSubject]?.[index] || {};
             const item = document.createElement('div');
             item.className = 'palette-item';
             if (response.status === 'answered') item.classList.add('status-answered');
@@ -472,52 +502,92 @@
         if (confirm("Are you sure you want to submit the test?")) submitTest();
     }
 
-    function submitTest() {
-        const submitBtn = document.querySelector('.submit');
-        if (submitBtn) submitBtn.disabled = true;
-        if (!quizInProgress) return;
-        quizInProgress = false;
-        clearInterval(timerInterval);
-        let totalScore = 0;
-        let subjectScores = {};
-        Object.keys(currentQuiz.subjects).forEach(subject => {
-            let subjectScore = 0;
-            currentQuiz.subjects[subject].forEach((question, index) => {
-                const response = userResponses[subject][index];
-                if (response && response.answer !== undefined) {
-                    if (response.answer === question.shuffledCorrectAnswerIndex) subjectScore += 4;
-                    else subjectScore -= 1;
-                }
+   function submitTest() {
+    const submitBtn = document.querySelector('.submit');
+    if (submitBtn) submitBtn.disabled = true;
+
+    if (!quizInProgress) return;
+    quizInProgress = false;
+    clearInterval(timerInterval);
+    
+    let totalScore = 0;
+    let subjectScores = {};
+
+    Object.keys(currentQuiz.subjects).forEach(subject => {
+        let subjectScore = 0;
+        currentQuiz.subjects[subject].forEach((question, index) => {
+            const response = userResponses[subject]?.[index];
+            if (response && response.answer !== undefined) {
+                if (response.answer === question.shuffledCorrectAnswerIndex) subjectScore += 4;
+                else subjectScore -= 1;
+            }
+        });
+        subjectScores[subject] = subjectScore;
+        totalScore += subjectScore;
+    });
+
+    const resultData = {
+        date: new Date().toISOString(),
+        studentName: studentDetails.name,
+        mobile: studentDetails.mobile,
+        class: currentQuiz.class,
+        quizId: currentQuiz.id,
+        quizTitle: currentQuiz.title,
+        totalScore: totalScore,
+        subjectScores: subjectScores,
+        warnings: warningCount
+    };
+
+    fetch('/submit-result', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(resultData),
+    })
+    .then(response => {
+        if (!response.ok) throw new Error('Submission failed');
+        
+        // This is the correct place to clear local storage
+        try {
+            localStorage.removeItem(`geetham_progress_${currentQuiz.id}_${studentDetails.mobile}`);
+        } catch (e) {
+            console.warn("Could not clear saved progress.");
+        }
+
+        alert(`Test Submitted Successfully!`);
+        document.getElementById('quiz-screen').innerHTML = `<div style="max-width: 600px; margin: 50px auto; text-align:center;"><h1>Test Submitted Successfully</h1><h2>Your Final Score: ${totalScore}</h2></div>`;
+    })
+    .catch(error => {
+        alert('There was an error submitting your test. Your progress is still saved.');
+        if (submitBtn) submitBtn.disabled = false;
+    });
+}
+    
+    function downloadPDFReport() {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        doc.text(`Student: ${studentDetails.name}`, 10, 10);
+        doc.text(`Quiz: ${currentQuiz.title}`, 10, 20);
+        let y = 30;
+        Object.keys(userResponses).forEach(subject => {
+            doc.text(`Subject: ${subject}`, 10, y); y += 8;
+            currentQuiz.subjects[subject].forEach((q, i) => {
+                if (y > 280) { doc.addPage(); y = 10; }
+                const resp = userResponses[subject]?.[i] || {};
+                doc.text(`Q${i + 1}: ${q.text}`, 10, y); y += 6;
+                doc.text(`Your Answer: ${resp.answer !== undefined ? q.shuffledOptions[resp.answer] : "Not Answered"}`, 12, y); y += 6;
+                doc.text(`Correct Answer: ${q.shuffledOptions[q.shuffledCorrectAnswerIndex]}`, 12, y); y += 8;
             });
-            subjectScores[subject] = subjectScore;
-            totalScore += subjectScore;
         });
-        const resultData = {
-            date: new Date().toISOString(),
-            studentName: studentDetails.name,
-            mobile: studentDetails.mobile,
-            class: currentQuiz.class,
-            quizId: currentQuiz.id,
-            quizTitle: currentQuiz.title,
-            totalScore: totalScore,
-            subjectScores: subjectScores,
-            warnings: warningCount
-        };
-        fetch('/submit-result', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(resultData),
-        })
-        .then(response => {
-            if (!response.ok) throw new Error('Submission failed');
-            alert(`Test Submitted Successfully!`);
-            document.getElementById('quiz-screen').innerHTML = `<div style="max-width: 600px; margin: 50px auto; text-align:center;"><h1>Test Submitted Successfully</h1><h2>Your Final Score: ${totalScore}</h2></div>`;
-        })
-        .catch(error => {
-            alert('There was an error submitting your test.');
-            if (submitBtn) submitBtn.disabled = false;
-        });
+        doc.save(`${studentDetails.name}_Report.pdf`);
     }
+
+    // Make functions globally accessible for onclick
+    window.goPrevious = goPrevious;
+    window.saveAndNext = saveAndNext;
+    window.markForReview = markForReview;
+    window.clearResponse = clearResponse;
+    window.confirmSubmit = confirmSubmit;
+    window.downloadPDFReport = downloadPDFReport;
 
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
@@ -525,11 +595,6 @@
         });
     }
     document.addEventListener('DOMContentLoaded', loadInitialData);
-    // Attach functions to the window object to make them accessible from HTML
-window.saveAndNext = saveAndNext;
-window.markForReview = markForReview;
-window.clearResponse = clearResponse;
-window.confirmSubmit = confirmSubmit;
 </script>
 </body>
 </html>
