@@ -525,6 +525,11 @@
         });
     }
     document.addEventListener('DOMContentLoaded', loadInitialData);
+    // Attach functions to the window object to make them accessible from HTML
+window.saveAndNext = saveAndNext;
+window.markForReview = markForReview;
+window.clearResponse = clearResponse;
+window.confirmSubmit = confirmSubmit;
 </script>
 </body>
 </html>
