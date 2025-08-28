@@ -58,7 +58,8 @@ async function login() {
         });
         if (!response.ok) throw new Error('Login failed');
         const { accessToken } = await response.json();
-        localStorage.setItem('adminToken', accessToken); // Save the token
+        // Save the token to the browser's local storage
+        localStorage.setItem('adminToken', accessToken);
 
         document.getElementById('password-prompt').style.display = 'none';
         document.getElementById('admin-panel').style.display = 'flex';
@@ -67,9 +68,6 @@ async function login() {
         alert('Incorrect password or server error.');
     }
 }
-
-
-
 function renderQuizList() {
     const listPanel = document.getElementById('quiz-list-panel');
     listPanel.innerHTML = '<h3>All Quizzes</h3>';
@@ -422,14 +420,17 @@ async function saveQuiz() {
 
 async function saveAllQuizzesToServer() {
     const token = localStorage.getItem('adminToken');
-    if (!token) return alert("Authentication error. Please log in again.");
+    if (!token) {
+        alert("Authentication error. Please log in again.");
+        return;
+    }
 
     try {
         const response = await fetch('/update-quizzes', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}` // Add the token here
+                'Authorization': `Bearer ${token}` // Include the token in the header
             },
             body: JSON.stringify(quizzesData)
         });
