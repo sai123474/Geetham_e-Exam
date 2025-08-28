@@ -1,39 +1,40 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Pro Results Dashboard - Geetham e-Exam</title>
-<link rel="icon" type="image/jpeg" href="/geetham.jpg">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<style>
-:root {
-    --bg: #f8f9fa; --card: #fff; --text: #1f2937; --muted: #6b7280; --brand: #0056b3;
-    --border: #e5e7eb; --shadow: 0 4px 12px rgba(0,0,0,.08);
-}
-body { font-family: Arial,sans-serif; background: var(--bg); color: var(--text); margin:0; padding:16px; }
-.container { max-width:1400px; margin:auto; background:var(--card); padding:24px; border-radius:12px; box-shadow:var(--shadow);}
-.header { text-align:center; margin-bottom:16px; }
-.header img { max-height:64px; }
-.toolbar { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:12px; justify-content:space-between; }
-select,input[type="text"]{padding:8px 12px; font-size:16px; border-radius:8px; border:1px solid var(--border);}
-button{padding:8px 12px; border:none; border-radius:8px; color:#fff; cursor:pointer;}
-.table-wrap { border:1px solid var(--border); border-radius:8px; overflow:auto; }
-table { width:100%; border-collapse:collapse; }
-thead th { position:sticky; top:0; background:var(--brand); color:#fff; padding:10px; cursor:pointer;}
-tbody td { padding:10px; border-top:1px solid var(--border); text-align:center; }
-.rank { font-weight:800; }
-.color-low { background:#ffcccc; }
-.color-medium { background:#fff3cd; }
-.color-high { background:#d4edda; }
-.warn-high { color:#dc3545; font-weight:600;}
-.modal-backdrop { position:fixed; top:0; left:0;width:100%;height:100%;background:rgba(0,0,0,0.5); display:none; align-items:center; justify-content:center; z-index:100;}
-.modal-content { background:#fff; padding:20px; border-radius:8px; width:90%; max-width:600px;}
-.modal-header { display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #ccc; padding-bottom:10px;}
-.modal-close { font-size:24px; font-weight:bold; cursor:pointer; border:none; background:none; padding:0; }
-.modal-body { padding-top:15px; max-height:400px; overflow-y:auto; }
-</style>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Results - Geetham e-Exam</title>
+    <link rel="icon" type="image/jpeg" href="/geetham.jpg" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg: #f8f9fa; --card: #fff; --text: #1f2937; --muted: #6b7280; --brand: #0056b3;
+            --brand-2: #007bff; --ok: #28a745; --warn: #f59e0b; --danger: #dc3545; --info: #17a2b8;
+            --border: #e5e7eb; --shadow: 0 4px 12px rgba(0,0,0,.08);
+        }
+        body { font-family: Arial,sans-serif; background: var(--bg); color: var(--text); margin:0; padding:16px; }
+        .container { max-width:1400px; margin:auto; background:var(--card); padding:24px; border-radius:12px; box-shadow:var(--shadow);}
+        .header { text-align:center; margin-bottom:16px; }
+        .header img { max-height:64px; }
+        .toolbar { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:12px; justify-content:space-between; }
+        select,input[type="text"]{padding:8px 12px; font-size:16px; border-radius:8px; border:1px solid var(--border);}
+        button{padding:8px 12px; border:none; border-radius:8px; color:#fff; cursor:pointer;}
+        .table-wrap { border:1px solid var(--border); border-radius:8px; overflow:auto; }
+        table { width:100%; border-collapse:collapse; }
+        thead th { position:sticky; top:0; background:var(--brand); color:#fff; padding:10px; cursor:pointer;}
+        tbody td { padding:10px; border-top:1px solid var(--border); text-align:center; }
+        .rank { font-weight:800; }
+        .color-low { background:#ffcccc; }
+        .color-medium { background:#fff3cd; }
+        .color-high { background:#d4edda; }
+        .warn-high { color:#dc3545; font-weight:600;}
+        .modal-backdrop { position:fixed; top:0; left:0;width:100%;height:100%;background:rgba(0,0,0,0.5); display:none; align-items:center; justify-content:center; z-index:100;}
+        .modal-content { background:#fff; padding:20px; border-radius:8px; width:90%; max-width:600px;}
+        .modal-header { display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #ccc; padding-bottom:10px;}
+        .modal-close { font-size:24px; font-weight:bold; cursor:pointer; border:none; background:none; padding:0; }
+        .modal-body { padding-top:15px; max-height:400px; overflow-y:auto; }
+    </style>
 </head>
 <body>
 <div class="container">
@@ -43,8 +44,8 @@ tbody td { padding:10px; border-top:1px solid var(--border); text-align:center; 
     </div>
     <div class="toolbar">
         <div>
-            <label for="gradeFilter">Grade:</label>
-            <select id="gradeFilter"><option value="">All</option></select>
+            <label for="gradeFilter">Class:</label>
+            <select id="gradeFilter"><option value="all">All Classes</option></select>
             <label for="topN">Top N:</label>
             <select id="topN"><option value="">All</option><option value="5">Top 5</option><option value="10">Top 10</option><option value="20">Top 20</option></select>
             <label for="search">Search:</label>
@@ -52,6 +53,8 @@ tbody td { padding:10px; border-top:1px solid var(--border); text-align:center; 
         </div>
         <div>
             <button id="pdfBtn" style="background:#007bff;">⬇ PDF</button>
+            <button id="exportBtn" style="background:#17a2b8;">⬇ Export CSV</button>
+            <button id="clearBtn" style="background:#dc3545;">🗑 Clear All</button>
             <button id="refreshBtn" style="background:#28a745;">⟳ Refresh</button>
         </div>
     </div>
@@ -105,13 +108,14 @@ tbody td { padding:10px; border-top:1px solid var(--border); text-align:center; 
     }
 
     function applyFiltersAndRender(){
-        filtered = allResults.filter(r=>{
-            let matchGrade = !gradeFilter.value || r.class===gradeFilter.value;
-            let matchTop = !topN.value || r.rank<=Number(topN.value);
+        let rankedResults = computeRanks(allResults);
+        filtered = rankedResults.filter(r=>{
+            let matchGrade = gradeFilter.value === 'all' || r.class === gradeFilter.value;
+            let matchTop = !topN.value || r.rank <= Number(topN.value);
             let matchSearch = !searchEl.value || r.studentName.toLowerCase().includes(searchEl.value.toLowerCase()) || r.mobile.includes(searchEl.value);
             return matchGrade && matchTop && matchSearch;
         });
-        renderTable(computeRanks(filtered));
+        renderTable(filtered);
         renderChart(filtered);
     }
 
@@ -120,7 +124,7 @@ tbody td { padding:10px; border-top:1px solid var(--border); text-align:center; 
         allResults.forEach(res=>Object.keys(res.subjectScores||{}).forEach(sub=>subjectSet.add(sub)));
         dynamicSubjects = Array.from(subjectSet).sort();
 
-        let headerHTML = `<tr><th data-key="rank">Rank</th><th data-key="studentName">Name</th><th data-key="mobile">Mobile</th><th data-key="totalScore">Total</th>`;
+        let headerHTML = `<tr><th data-key="rank">Rank</th><th data-key="studentName">Name</th><th data-key="mobile">Mobile</th><th data-key="class">Class</th><th data-key="totalScore">Total</th>`;
         dynamicSubjects.forEach(sub=>headerHTML+=`<th>${sub}</th>`);
         headerHTML+='<th data-key="warnings">Warnings</th><th>Details</th><th>AI Analysis</th></tr>';
         thead.innerHTML=headerHTML;
@@ -128,7 +132,7 @@ tbody td { padding:10px; border-top:1px solid var(--border); text-align:center; 
         tbody.innerHTML='';
         data.forEach(res=>{
             const row = tbody.insertRow();
-            let rowHTML=`<td>${res.rank}</td><td>${res.studentName}</td><td>${res.mobile}</td><td>${res.totalScore}</td>`;
+            let rowHTML=`<td>${res.rank}</td><td>${res.studentName}</td><td>${res.mobile}</td><td>${res.class}</td><td>${res.totalScore}</td>`;
             dynamicSubjects.forEach(sub=>{
                 let val=res.subjectScores[sub]||0;
                 let colorClass = val>=75?'color-high': val>=50?'color-medium':'color-low';
@@ -136,8 +140,8 @@ tbody td { padding:10px; border-top:1px solid var(--border); text-align:center; 
             });
             let warnClass = res.warnings>3?'warn-high':'';
             rowHTML+=`<td class="${warnClass}">${res.warnings}</td>
-                      <td><button onclick='showDetailsModal(${JSON.stringify(res)})'>View</button></td>
-                      <td><button onclick='getAIAnalysis(${JSON.stringify(res)})'>AI</button></td>`;
+                        <td><button onclick='showDetailsModal(${JSON.stringify(res)})'>View</button></td>
+                        <td><button onclick='getAIAnalysis(${JSON.stringify(res)})'>AI</button></td>`;
             row.innerHTML=rowHTML;
         });
         addSortListeners();
@@ -160,11 +164,7 @@ tbody td { padding:10px; border-top:1px solid var(--border); text-align:center; 
                 const key=th.dataset.key;
                 sortDir=(sortKey===key && sortDir==='asc')?'desc':'asc';
                 sortKey=key;
-                filtered.sort((a,b)=>{
-                    const valA=a[key], valB=b[key];
-                    return typeof valA==='number'? (sortDir==='asc'? valA-valB : valB-valA) : (sortDir==='asc'? String(valA).localeCompare(String(valB)) : String(valB).localeCompare(String(valA)));
-                });
-                renderTable(filtered);
+                applyFiltersAndRender();
             };
         });
     }
@@ -206,6 +206,51 @@ tbody td { padding:10px; border-top:1px solid var(--border); text-align:center; 
         });
         doc.save('student_results.pdf');
     };
+    
+    document.getElementById('exportBtn').onclick = function() {
+        if (filtered.length === 0) {
+            alert("No results to export.");
+            return;
+        }
+        const headers = ["Rank", "Student Name", "Mobile", "Class", "Total Score", ...dynamicSubjects, "Warnings"];
+        let csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n";
+        
+        filtered.forEach(res => {
+            const rowData = [
+                res.rank,
+                `"${res.studentName}"`,
+                `"${res.mobile}"`,
+                `"${res.class}"`,
+                res.totalScore,
+            ];
+            dynamicSubjects.forEach(subject => {
+                rowData.push(res.subjectScores[subject] || 0);
+            });
+            rowData.push(res.warnings);
+            csvContent += rowData.join(",") + "\n";
+        });
+
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "geetham_results.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    document.getElementById('clearBtn').onclick = async function() {
+        if (confirm("Are you sure you want to delete all results? This cannot be undone.")) {
+            try {
+                const response = await fetch('/clear-results', { method: 'POST' });
+                if (!response.ok) throw new Error('Server error');
+                alert('All results have been cleared successfully.');
+                fetchResults();
+            } catch (error) {
+                alert('Failed to clear results.');
+            }
+        }
+    }
 
     document.getElementById('refreshBtn').onclick=fetchResults;
     gradeFilter.onchange=applyFiltersAndRender;
@@ -214,11 +259,11 @@ tbody td { padding:10px; border-top:1px solid var(--border); text-align:center; 
 
     async function fetchResults(){
         try{
-            const response=await fetch('/results'); // Replace with your API
+            const response=await fetch('/results');
             const data=await response.json();
             allResults=data.map(normalizeRecord);
             const grades=Array.from(new Set(allResults.map(r=>r.class))).sort();
-            gradeFilter.innerHTML='<option value="">All</option>'+grades.map(g=>`<option value="${g}">${g}</option>`).join('');
+            gradeFilter.innerHTML='<option value="all">All Classes</option>'+grades.map(g=>`<option value="${g}">${g}</option>`).join('');
             applyFiltersAndRender();
         }catch(e){ alert('Failed to fetch results.'); }
     }
