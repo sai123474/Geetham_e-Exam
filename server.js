@@ -15,7 +15,7 @@ const PORT = process.env.PORT || 3000;
 const API_KEY = "AIzaSyA3WIHFw2_5E8hYUSlG2rrLdq7J7KKwbe0";
 const MONGO_URI = "mongodb+srv://yamparalasaikrishna6:Tngy9EWjTg1akDXW@saikrishna.dced3fy.mongodb.net/?retryWrites=true&w=majority&appName=SaiKrishna";
 const JWT_SECRET ="Geetham_e_exam2025"
-const ADMIN_PASSWORD_HASH=bcrypt.hashSync(process.env.ADMIN_PASSWORD || "Geetham@2014", 12)
+const ADMIN_PASSWORD_HASH=bcrypt.hashSync(process.env.ADMIN_PASSWORD || "Geetham@2014", 10)
 
 const genAI = new GoogleGenerativeAI(API_KEY);
 const client = new MongoClient(MONGO_URI, {
