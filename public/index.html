@@ -447,53 +447,78 @@ function submitTest() {
         totalScore += subjectScore;
     });
 
-    const resultData = {
-        date: new Date().toISOString(),
-        studentName: studentDetails.name,
-        mobile: studentDetails.mobile,
-        class: currentQuiz.class,
-        quizId: currentQuiz.id,
-        quizTitle: currentQuiz.title,
-        totalScore: totalScore,
-        subjectScores: subjectScores,
-        warnings: warningCount
-    };
+    // Function to actually submit the result
+    function sendResult(location = { latitude: null, longitude: null }) {
+        const resultData = {
+            date: new Date().toISOString(),
+            studentName: studentDetails.name,
+            mobile: studentDetails.mobile,
+            class: currentQuiz.class,
+            quizId: currentQuiz.id,
+            quizTitle: currentQuiz.title,
+            totalScore: totalScore,
+            subjectScores: subjectScores,
+            warnings: warningCount,
+            location: location  // added location here
+        };
 
-    fetch('/submit-result', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(resultData),
-    })
-    .then(response => {
-        if (!response.ok) throw new Error('Submission failed');
+        fetch('/submit-result', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(resultData),
+        })
+        .then(response => {
+            if (!response.ok) throw new Error('Submission failed');
 
-        try {
-            localStorage.removeItem(`geetham_progress_${currentQuiz.id}_${studentDetails.mobile}`);
-        } catch (e) {
-            console.warn("Could not clear saved progress.");
-        }
+            try {
+                localStorage.removeItem(`geetham_progress_${currentQuiz.id}_${studentDetails.mobile}`);
+            } catch (e) {
+                console.warn("Could not clear saved progress.");
+            }
 
-        alert(`Test Submitted Successfully!`);
-        
-        // Show PDF button
-        const pdfContainer = document.getElementById('pdf-button-container');
-        if (pdfContainer) pdfContainer.style.display = 'block';
+            alert(`Test Submitted Successfully!`);
+            
+            // Show PDF button
+            const pdfContainer = document.getElementById('pdf-button-container');
+            if (pdfContainer) pdfContainer.style.display = 'block';
 
-        // Optionally, show score
-        document.getElementById('quiz-screen').innerHTML = `
-            <div style="max-width: 600px; margin: 50px auto; text-align:center;">
-                <h1>Test Submitted Successfully</h1>
-                <h2>Your Final Score: ${totalScore}</h2>
-            </div>
-        `;
+            // Optionally, show score
+            document.getElementById('quiz-screen').innerHTML = `
+                <div style="max-width: 600px; margin: 50px auto; text-align:center;">
+                    <h1>Test Submitted Successfully</h1>
+                    <h2>Your Final Score: ${totalScore}</h2>
+                </div>
+            `;
 
-        // Append PDF button below score
-        document.getElementById('quiz-screen').appendChild(pdfContainer);
-    })
-    .catch(error => {
-        alert('There was an error submitting your test. Your progress is still saved.');
-        if (submitBtn) submitBtn.disabled = false;
-    });
+            // Append PDF button below score
+            if (pdfContainer) document.getElementById('quiz-screen').appendChild(pdfContainer);
+        })
+        .catch(error => {
+            alert('There was an error submitting your test. Your progress is still saved.');
+            if (submitBtn) submitBtn.disabled = false;
+        });
+    }
+
+    // Detect location
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            position => {
+                const location = {
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude
+                };
+                sendResult(location);
+            },
+            error => {
+                console.warn("Location not available or permission denied.");
+                sendResult(); // send without location
+            },
+            { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+        );
+    } else {
+        console.warn("Geolocation not supported.");
+        sendResult(); // send without location
+    }
 }
 
 
