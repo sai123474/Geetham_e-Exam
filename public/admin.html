@@ -204,7 +204,7 @@
         }
     }
 
-   function addQuestion(subjectDiv) {
+  function addQuestion(subjectDiv) {
     const qIndex = subjectDiv.querySelectorAll('.question-container').length;
     const newQuestionElement = createQuestionElement(qIndex, { 
         type: 'multiple-choice', 
@@ -213,10 +213,10 @@
         correctAnswer: 0 
     });
     
-    // Insert the new question form before the "Add Question" button
-    subjectDiv.insertBefore(newQuestionElement, subjectDiv.querySelector('.btn-add'));
+    // Correctly finds the button within the specific subjectDiv and inserts before it
+    const addButton = subjectDiv.querySelector('.btn-add');
+    subjectDiv.insertBefore(newQuestionElement, addButton);
 }
-
     function removeQuestion(button) {
         button.closest('.question-container').remove();
     }
@@ -276,9 +276,11 @@
         }
     }
 
-    async function saveQuiz() {
+   async function saveQuiz() {
     const quizToSave = quizzesData[selectedQuizIndex];
     if (!quizToSave) return;
+
+    // Update the main quiz details from the form
     quizToSave.title = document.getElementById('quiz-title').value;
     quizToSave.timeLimit = parseInt(document.getElementById('quiz-time').value);
     quizToSave.password = document.getElementById('quiz-password').value;
@@ -289,16 +291,19 @@
         if (subjectNameInput && subjectNameInput.value) {
             const subjectName = subjectNameInput.value;
             newSubjects[subjectName] = [];
+            
             subjectDiv.querySelectorAll('.question-container').forEach(qDiv => {
                 const type = qDiv.querySelector('.question-type').value;
                 const questionData = {
                     text: qDiv.querySelector('textarea').value,
                     type: type,
                 };
+
+                // ** THIS IS THE CORRECTED LOGIC **
                 if (type === 'multiple-choice') {
                     questionData.options = Array.from(qDiv.querySelectorAll('.answer-fields input')).map(input => input.value);
                     questionData.correctAnswer = parseInt(qDiv.querySelector('.correct-answer-mc').value, 10);
-                } else {
+                } else { // For fill-in-the-blank and subjective
                     questionData.correctAnswer = qDiv.querySelector('.correct-answer-text').value;
                 }
                 newSubjects[subjectName].push(questionData);
