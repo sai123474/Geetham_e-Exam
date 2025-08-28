@@ -204,10 +204,18 @@
         }
     }
 
-    function addQuestion(subjectDiv) {
-        const newQuestion = createQuestionElement(subjectDiv.querySelectorAll('.question-container').length, { options: ["", "", "", ""], correctAnswer: 0 });
-        subjectDiv.insertBefore(newQuestion, subjectDiv.querySelector('.btn-add'));
-    }
+   function addQuestion(subjectDiv) {
+    const qIndex = subjectDiv.querySelectorAll('.question-container').length;
+    const newQuestionElement = createQuestionElement(qIndex, { 
+        type: 'multiple-choice', 
+        text: 'New Question', 
+        options: ["", "", "", ""], 
+        correctAnswer: 0 
+    });
+    
+    // Insert the new question form before the "Add Question" button
+    subjectDiv.insertBefore(newQuestionElement, subjectDiv.querySelector('.btn-add'));
+}
 
     function removeQuestion(button) {
         button.closest('.question-container').remove();
@@ -269,30 +277,37 @@
     }
 
     async function saveQuiz() {
-        const quizToSave = quizzesData[selectedQuizIndex];
-        if (!quizToSave) return;
-        quizToSave.title = document.getElementById('quiz-title').value;
-        quizToSave.timeLimit = parseInt(document.getElementById('quiz-time').value);
-        quizToSave.password = document.getElementById('quiz-password').value;
-        
-        const newSubjects = {};
-        document.querySelectorAll('.subject-container').forEach(subjectDiv => {
-            const subjectName = subjectDiv.querySelector('.subject-name').value;
-            if (subjectName) {
-                newSubjects[subjectName] = [];
-                subjectDiv.querySelectorAll('.question-container').forEach(qDiv => {
-                    const inputs = qDiv.querySelectorAll('input');
-                    newSubjects[subjectName].push({
-                        text: qDiv.querySelector('textarea').value,
-                        options: [inputs[0].value, inputs[1].value, inputs[2].value, inputs[3].value],
-                        correctAnswer: parseInt(qDiv.querySelector('select').value)
-                    });
-                });
-            }
-        });
-        quizToSave.subjects = newSubjects;
-        await saveAllQuizzesToServer();
-    }
+    const quizToSave = quizzesData[selectedQuizIndex];
+    if (!quizToSave) return;
+    quizToSave.title = document.getElementById('quiz-title').value;
+    quizToSave.timeLimit = parseInt(document.getElementById('quiz-time').value);
+    quizToSave.password = document.getElementById('quiz-password').value;
+    
+    const newSubjects = {};
+    document.querySelectorAll('.subject-container').forEach(subjectDiv => {
+        const subjectNameInput = subjectDiv.querySelector('.subject-name');
+        if (subjectNameInput && subjectNameInput.value) {
+            const subjectName = subjectNameInput.value;
+            newSubjects[subjectName] = [];
+            subjectDiv.querySelectorAll('.question-container').forEach(qDiv => {
+                const type = qDiv.querySelector('.question-type').value;
+                const questionData = {
+                    text: qDiv.querySelector('textarea').value,
+                    type: type,
+                };
+                if (type === 'multiple-choice') {
+                    questionData.options = Array.from(qDiv.querySelectorAll('.answer-fields input')).map(input => input.value);
+                    questionData.correctAnswer = parseInt(qDiv.querySelector('.correct-answer-mc').value, 10);
+                } else {
+                    questionData.correctAnswer = qDiv.querySelector('.correct-answer-text').value;
+                }
+                newSubjects[subjectName].push(questionData);
+            });
+        }
+    });
+    quizToSave.subjects = newSubjects;
+    await saveAllQuizzesToServer();
+}
 
     async function saveAllQuizzesToServer() {
         try {
