@@ -1,329 +1,227 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Results - Geetham e-Exam</title>
-    <link rel="icon" type="image/jpeg" href="/geetham.jpg" />
-    <style>
-        :root {
-            --bg: #f8f9fa; --card: #fff; --text: #1f2937; --muted: #6b7280; --brand: #0056b3;
-            --brand-2: #007bff; --ok: #28a745; --warn: #f59e0b; --danger: #dc3545; --info: #17a2b8; --ai: #6f42c1;
-            --border: #e5e7eb; --shadow: 0 4px 12px rgba(0,0,0,.08);
-        }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 16px; }
-        .container { max-width: 1400px; margin: auto; background: var(--card); padding: 24px; border-radius: 12px; box-shadow: var(--shadow); }
-        .header { display: flex; align-items: center; gap: 16px; justify-content: center; text-align: center; margin-bottom: 16px; }
-        .logo { max-height: 64px; }
-        h1, h3 { color: var(--brand); }
-        h1 { font-size: clamp(1.2rem, 2.5vw, 1.75rem); margin: 0; }
-        .toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; justify-content: space-between; margin: 12px 0; }
-        .left, .right { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-        label { font-weight: 600; }
-        select, input[type="text"] { padding: 10px 12px; font-size: 16px; border-radius: 10px; border: 1px solid var(--border); background: #fff; min-width: 160px; }
-        button { padding: 10px 14px; font-size: 15px; border: none; border-radius: 12px; color: #fff; cursor: pointer; transition: filter .15s ease; display: inline-flex; align-items: center; gap: 8px; }
-        .refresh-btn { background: var(--ok); }
-        .export-btn { background: var(--info); }
-        .clear-btn { background: var(--danger); }
-        .btn-details { background-color: var(--muted); font-size: 14px; padding: 6px 12px; }
-        .btn-ai { background-color: var(--ai); font-size: 14px; padding: 6px 12px; }
-        .table-wrap { border: 1px solid var(--border); border-radius: 12px; overflow: auto; }
-        table { width: 100%; border-collapse: separate; border-spacing: 0; }
-        thead th { position: sticky; top: 0; background: var(--brand-2); color: #fff; text-align: left; padding: 12px; font-weight: 700; }
-        tbody td { padding: 12px; border-top: 1px solid var(--border); }
-        tbody tr:nth-child(even) { background: #fafafa; }
-        .rank { font-weight: 800; }
-        .footer { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 12px; flex-wrap: wrap; color: var(--muted); }
-        .pagination { display: flex; gap: 6px; }
-        .page-btn { background: #e5e7eb; color: #111827; border: none; border-radius: 10px; padding: 6px 10px; cursor: pointer; }
-        .page-btn[aria-current="page"] { background: var(--brand-2); color: #fff; }
-        .sortable { cursor: pointer; }
-        .modal-backdrop { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 100; display: none; align-items: center; justify-content: center; }
-        .modal-content { background: #fff; padding: 25px; border-radius: 8px; width: 90%; max-width: 600px; z-index: 101; }
-        .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ccc; padding-bottom: 10px; }
-        .modal-close { font-size: 24px; font-weight: bold; cursor: pointer; border: none; background: none; padding: 0; }
-        .modal-body { padding-top: 15px; max-height: 400px; overflow-y: auto; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pro Results Dashboard - Geetham e-Exam</title>
+<link rel="icon" type="image/jpeg" href="/geetham.jpg">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+:root {
+    --bg: #f8f9fa; --card: #fff; --text: #1f2937; --muted: #6b7280; --brand: #0056b3;
+    --border: #e5e7eb; --shadow: 0 4px 12px rgba(0,0,0,.08);
+}
+body { font-family: Arial,sans-serif; background: var(--bg); color: var(--text); margin:0; padding:16px; }
+.container { max-width:1400px; margin:auto; background:var(--card); padding:24px; border-radius:12px; box-shadow:var(--shadow);}
+.header { text-align:center; margin-bottom:16px; }
+.header img { max-height:64px; }
+.toolbar { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:12px; justify-content:space-between; }
+select,input[type="text"]{padding:8px 12px; font-size:16px; border-radius:8px; border:1px solid var(--border);}
+button{padding:8px 12px; border:none; border-radius:8px; color:#fff; cursor:pointer;}
+.table-wrap { border:1px solid var(--border); border-radius:8px; overflow:auto; }
+table { width:100%; border-collapse:collapse; }
+thead th { position:sticky; top:0; background:var(--brand); color:#fff; padding:10px; cursor:pointer;}
+tbody td { padding:10px; border-top:1px solid var(--border); text-align:center; }
+.rank { font-weight:800; }
+.color-low { background:#ffcccc; }
+.color-medium { background:#fff3cd; }
+.color-high { background:#d4edda; }
+.warn-high { color:#dc3545; font-weight:600;}
+.modal-backdrop { position:fixed; top:0; left:0;width:100%;height:100%;background:rgba(0,0,0,0.5); display:none; align-items:center; justify-content:center; z-index:100;}
+.modal-content { background:#fff; padding:20px; border-radius:8px; width:90%; max-width:600px;}
+.modal-header { display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #ccc; padding-bottom:10px;}
+.modal-close { font-size:24px; font-weight:bold; cursor:pointer; border:none; background:none; padding:0; }
+.modal-body { padding-top:15px; max-height:400px; overflow-y:auto; }
+</style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <img src="/geetham.jpg" alt="Geetham Institute Logo" class="logo" />
-            <h1>Student Results Dashboard</h1>
+<div class="container">
+    <div class="header">
+        <img src="/geetham.jpg" alt="Geetham Logo">
+        <h1>Pro Student Results Dashboard</h1>
+    </div>
+    <div class="toolbar">
+        <div>
+            <label for="gradeFilter">Grade:</label>
+            <select id="gradeFilter"><option value="">All</option></select>
+            <label for="topN">Top N:</label>
+            <select id="topN"><option value="">All</option><option value="5">Top 5</option><option value="10">Top 10</option><option value="20">Top 20</option></select>
+            <label for="search">Search:</label>
+            <input id="search" type="text" placeholder="Name or Mobile…">
         </div>
-        <div class="toolbar">
-            <div class="left">
-                <label for="search">Search:</label>
-                <input id="search" type="text" placeholder="Name or Mobile…" />
-                <label for="per-page">Rows:</label>
-                <select id="per-page">
-                    <option>10</option>
-                    <option selected>25</option>
-                    <option>50</option>
-                </select>
-            </div>
-            <div class="right">
-                <button class="refresh-btn" id="refreshBtn">⟳ Refresh</button>
-                <button class="export-btn" id="exportBtn">⬇ Export CSV</button>
-                <button class="clear-btn" id="clearBtn">🗑 Clear All</button>
-            </div>
-        </div>
-        <div id="msg" style="display:none"></div>
-        <div class="table-wrap">
-            <table id="results-table">
-                <thead>
-                    </thead>
-                <tbody></tbody>
-            </table>
-        </div>
-        <div class="footer">
-            <div id="count"></div>
-            <div class="pagination" id="pagination"></div>
+        <div>
+            <button id="pdfBtn" style="background:#007bff;">⬇ PDF</button>
+            <button id="refreshBtn" style="background:#28a745;">⟳ Refresh</button>
         </div>
     </div>
+    <div class="table-wrap">
+        <table id="results-table">
+            <thead></thead>
+            <tbody></tbody>
+        </table>
+    </div>
+    <canvas id="chart" style="margin-top:20px; max-height:300px;"></canvas>
+</div>
 
-    <div id="details-modal" class="modal-backdrop">
-        <div class="modal-content" onclick="event.stopPropagation()">
-            <div class="modal-header">
-                <h3 id="modal-title">Detailed Report</h3>
-                <button class="modal-close" onclick="closeDetailsModal()">&times;</button>
-            </div>
-            <div id="modal-body" class="modal-body"></div>
+<!-- Detailed Modal -->
+<div id="details-modal" class="modal-backdrop">
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <div class="modal-header">
+            <h3 id="modal-title">Detailed Report</h3>
+            <button class="modal-close" onclick="closeDetailsModal()">&times;</button>
         </div>
+        <div id="modal-body" class="modal-body"></div>
     </div>
-    
-    <div id="ai-modal" class="modal-backdrop">
-        <div class="modal-content" onclick="event.stopPropagation()">
-            <div class="modal-header">
-                <h3 id="ai-modal-title">AI Performance Analysis</h3>
-                <button class="modal-close" onclick="closeAIModal()">&times;</button>
-            </div>
-            <div id="ai-modal-body" class="modal-body"></div>
+</div>
+
+<!-- AI Modal -->
+<div id="ai-modal" class="modal-backdrop">
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <div class="modal-header">
+            <h3 id="ai-modal-title">AI Performance</h3>
+            <button class="modal-close" onclick="closeAIModal()">&times;</button>
         </div>
+        <div id="ai-modal-body" class="modal-body"></div>
     </div>
+</div>
 
 <script>
-(function() {
-    let allResults = [];
-    let filtered = [];
-    let dynamicSubjects = [];
-    let sortKey = 'totalScore';
-    let sortDir = 'desc';
-    let page = 1;
-    let perPage = 25;
-
+(async function(){
+    let allResults=[], filtered=[], dynamicSubjects=[], sortKey='totalScore', sortDir='desc';
     const tbody = document.querySelector('#results-table tbody');
     const thead = document.querySelector('#results-table thead');
-    const perPageEl = document.getElementById('per-page');
+    const gradeFilter = document.getElementById('gradeFilter');
+    const topN = document.getElementById('topN');
     const searchEl = document.getElementById('search');
-    const msgEl = document.getElementById('msg');
-    const countEl = document.getElementById('count');
-    const pagination = document.getElementById('pagination');
 
-    function normalizeRecord(r) {
-        return {
-            studentName: r.studentName || 'N/A',
-            mobile: r.mobile || 'N/A',
-            class: String(r.class || 'N/A'),
-            subjectScores: r.subjectScores || {},
-            totalScore: Number(r.totalScore ?? 0),
-            warnings: Number(r.warnings ?? 0),
-            questionTimes: r.questionTimes || {}
-        };
-    }
+    function normalizeRecord(r){ return {...r, studentName:r.studentName||'N/A', mobile:r.mobile||'N/A', class:String(r.class||'N/A'), totalScore:Number(r.totalScore||0), subjectScores:r.subjectScores||{}, warnings:Number(r.warnings||0)}; }
 
-    function computeRanks(arr) {
-        const sorted = [...arr].sort((a, b) => b.totalScore - a.totalScore);
+    function computeRanks(arr){
+        const sorted = [...arr].sort((a,b)=>b.totalScore-a.totalScore);
         const scoreToRank = new Map();
-        sorted.forEach((item, index) => {
-            if (!scoreToRank.has(item.totalScore)) {
-                scoreToRank.set(item.totalScore, index + 1);
-            }
-        });
-        return arr.map(it => ({...it, rank: scoreToRank.get(it.totalScore) }));
+        sorted.forEach((item,index)=>{ if(!scoreToRank.has(item.totalScore)) scoreToRank.set(item.totalScore,index+1); });
+        return arr.map(it=>({...it, rank:scoreToRank.get(it.totalScore)}));
     }
 
-    function applyFiltersAndRender() {
-        const term = searchEl.value.trim().toLowerCase();
-        filtered = allResults.filter(r => !term || r.studentName.toLowerCase().includes(term) || r.mobile.includes(term));
-        
-        filtered.sort((a, b) => {
-            const valA = a[sortKey];
-            const valB = b[sortKey];
-            const comparison = typeof valA === 'number' ? valA - valB : String(valA).localeCompare(String(valB));
-            return sortDir === 'asc' ? comparison : -comparison;
+    function applyFiltersAndRender(){
+        filtered = allResults.filter(r=>{
+            let matchGrade = !gradeFilter.value || r.class===gradeFilter.value;
+            let matchTop = !topN.value || r.rank<=Number(topN.value);
+            let matchSearch = !searchEl.value || r.studentName.toLowerCase().includes(searchEl.value.toLowerCase()) || r.mobile.includes(searchEl.value);
+            return matchGrade && matchTop && matchSearch;
         });
-
         renderTable(computeRanks(filtered));
+        renderChart(filtered);
     }
 
-    function renderTable(data) {
+    function renderTable(data){
         const subjectSet = new Set();
-        allResults.forEach(res => {
-            if (res.subjectScores) {
-                Object.keys(res.subjectScores).forEach(subject => subjectSet.add(subject));
-            }
-        });
+        allResults.forEach(res=>Object.keys(res.subjectScores||{}).forEach(sub=>subjectSet.add(sub)));
         dynamicSubjects = Array.from(subjectSet).sort();
 
-        let headerHTML = '<tr><th class="sortable" data-key="rank">Rank ⬍</th><th class="sortable" data-key="studentName">Student Name ⬍</th><th class="sortable" data-key="mobile">Mobile ⬍</th><th class="sortable" data-key="totalScore">Total Score ⬍</th>';
-        dynamicSubjects.forEach(subject => {
-            headerHTML += `<th>${subject}</th>`;
-        });
-        headerHTML += '<th class="sortable" data-key="warnings">Warnings ⬍</th><th>Details</th><th>AI Analysis</th></tr>';
-        thead.innerHTML = headerHTML;
-        addSortListeners();
+        let headerHTML = `<tr><th data-key="rank">Rank</th><th data-key="studentName">Name</th><th data-key="mobile">Mobile</th><th data-key="totalScore">Total</th>`;
+        dynamicSubjects.forEach(sub=>headerHTML+=`<th>${sub}</th>`);
+        headerHTML+='<th data-key="warnings">Warnings</th><th>Details</th><th>AI Analysis</th></tr>';
+        thead.innerHTML=headerHTML;
 
-        perPage = Number(perPageEl.value);
-        const total = data.length;
-        const totalPages = Math.max(1, Math.ceil(total / perPage));
-        if (page > totalPages) page = totalPages;
-        const start = (page - 1) * perPage;
-        const slice = data.slice(start, start + perPage);
-
-        tbody.innerHTML = '';
-        slice.forEach(res => {
+        tbody.innerHTML='';
+        data.forEach(res=>{
             const row = tbody.insertRow();
-            const resultString = encodeURIComponent(JSON.stringify(res));
-            let rowHTML = `
-                <td class="rank">${res.rank}</td>
-                <td>${res.studentName}</td>
-                <td>${res.mobile}</td>
-                <td><strong>${res.totalScore}</strong></td>
-            `;
-            dynamicSubjects.forEach(subject => {
-                rowHTML += `<td>${res.subjectScores[subject] ?? 0}</td>`;
+            let rowHTML=`<td>${res.rank}</td><td>${res.studentName}</td><td>${res.mobile}</td><td>${res.totalScore}</td>`;
+            dynamicSubjects.forEach(sub=>{
+                let val=res.subjectScores[sub]||0;
+                let colorClass = val>=75?'color-high': val>=50?'color-medium':'color-low';
+                rowHTML+=`<td class="${colorClass}">${val}</td>`;
             });
-            rowHTML += `<td>${res.warnings}</td>
-                        <td><button class="btn-details" onclick='showDetailsModal(JSON.parse(decodeURIComponent("${resultString}")))'>View</button></td>
-                        <td><button class="btn-ai" onclick='getAIAnalysis(JSON.parse(decodeURIComponent("${resultString}")))'>Report</button></td>`;
-            row.innerHTML = rowHTML;
+            let warnClass = res.warnings>3?'warn-high':'';
+            rowHTML+=`<td class="${warnClass}">${res.warnings}</td>
+                      <td><button onclick='showDetailsModal(${JSON.stringify(res)})'>View</button></td>
+                      <td><button onclick='getAIAnalysis(${JSON.stringify(res)})'>AI</button></td>`;
+            row.innerHTML=rowHTML;
         });
-        countEl.textContent = `Showing ${slice.length} of ${total} results`;
-        renderPagination(totalPages);
+        addSortListeners();
     }
 
-    function renderPagination(totalPages) {
-        pagination.innerHTML = '';
-        for (let i = 1; i <= totalPages; i++) {
-            const btn = document.createElement('button');
-            btn.className = 'page-btn';
-            btn.textContent = i;
-            if (i === page) btn.setAttribute('aria-current', 'page');
-            btn.onclick = () => { page = i; applyFiltersAndRender(); };
-            pagination.appendChild(btn);
-        }
+    function renderChart(data){
+        const ctx = document.getElementById('chart').getContext('2d');
+        const avgScores = {};
+        dynamicSubjects.forEach(sub=>avgScores[sub]=0);
+        data.forEach(r=>dynamicSubjects.forEach(sub=>avgScores[sub]+=(r.subjectScores[sub]||0)));
+        const labels = Object.keys(avgScores);
+        const scores = labels.map(sub=>data.length>0?Math.round(avgScores[sub]/data.length):0);
+        if(window.chartInstance) window.chartInstance.destroy();
+        window.chartInstance=new Chart(ctx,{type:'bar', data:{labels, datasets:[{label:'Average Scores', data:scores, backgroundColor:'#007bff'}]}, options:{responsive:true, plugins:{legend:{display:false}}}});
     }
 
-    async function fetchResults() {
-        msgEl.style.display = 'block';
-        msgEl.textContent = 'Loading...';
-        try {
-            const response = await fetch('/results');
-            const data = await response.json();
-            allResults = data.map(normalizeRecord);
-            applyFiltersAndRender();
-            msgEl.style.display = 'none';
-        } catch (err) {
-            msgEl.textContent = 'Error fetching results.';
-        }
-    }
-
-    function exportToCSV() {
-        const headers = ["Rank", "Student Name", "Mobile", "Total Score", ...dynamicSubjects, "Warnings"];
-        const dataToExport = computeRanks(filtered);
-        let csvContent = headers.join(",") + "\n";
-        dataToExport.forEach(res => {
-            const rowData = [res.rank, res.studentName, res.mobile, res.totalScore];
-            dynamicSubjects.forEach(subject => rowData.push(res.subjectScores[subject] ?? 0));
-            rowData.push(res.warnings);
-            csvContent += rowData.map(val => `"${String(val).replace(/"/g, '""')}"`).join(",") + "\n";
-        });
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement("a");
-        link.setAttribute("href", URL.createObjectURL(blob));
-        link.setAttribute("download", "geetham_e-exam_results.csv");
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    }
-
-    async function clearResults() {
-        if (confirm("Are you sure you want to delete all results?")) {
-            await fetch('/clear-results', { method: 'POST' });
-            fetchResults();
-        }
-    }
-
-    function addSortListeners() {
-        document.querySelectorAll('th.sortable').forEach(th => {
-            th.onclick = () => {
-                const key = th.dataset.key;
-                if (sortKey === key) {
-                    sortDir = sortDir === 'asc' ? 'desc' : 'asc';
-                } else {
-                    sortKey = key;
-                    sortDir = 'desc';
-                }
-                applyFiltersAndRender();
+    function addSortListeners(){
+        document.querySelectorAll('th[data-key]').forEach(th=>{
+            th.onclick=()=>{
+                const key=th.dataset.key;
+                sortDir=(sortKey===key && sortDir==='asc')?'desc':'asc';
+                sortKey=key;
+                filtered.sort((a,b)=>{
+                    const valA=a[key], valB=b[key];
+                    return typeof valA==='number'? (sortDir==='asc'? valA-valB : valB-valA) : (sortDir==='asc'? String(valA).localeCompare(String(valB)) : String(valB).localeCompare(String(valA)));
+                });
+                renderTable(filtered);
             };
         });
     }
 
-    window.showDetailsModal = function(result) {
-        const modal = document.getElementById('details-modal');
-        document.getElementById('modal-title').textContent = `Report for ${result.studentName}`;
-        const modalBody = document.getElementById('modal-body');
-        let detailsHTML = '<h4>Subject Scores:</h4><ul>';
-        Object.keys(result.subjectScores).forEach(subject => {
-            detailsHTML += `<li><strong>${subject}:</strong> ${result.subjectScores[subject]}</li>`;
+    window.showDetailsModal=function(res){
+        const modal=document.getElementById('details-modal');
+        document.getElementById('modal-title').textContent=`Report: ${res.studentName}`;
+        let html='<ul>';
+        Object.keys(res.subjectScores).forEach(sub=>{ html+=`<li>${sub}: ${res.subjectScores[sub]}</li>`; });
+        html+='</ul>';
+        document.getElementById('modal-body').innerHTML=html;
+        modal.style.display='flex';
+    };
+    window.closeDetailsModal=function(){ document.getElementById('details-modal').style.display='none'; }
+
+    window.getAIAnalysis=async function(res){
+        const modal=document.getElementById('ai-modal');
+        document.getElementById('ai-modal-title').textContent=`AI Analysis: ${res.studentName}`;
+        const modalBody=document.getElementById('ai-modal-body');
+        modalBody.innerHTML='<p>Generating report...</p>';
+        modal.style.display='flex';
+        try{
+            const response=await fetch('/ai-analysis',{method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(res)});
+            const data=await response.json();
+            modalBody.innerHTML=`<p>${data.report}</p>`;
+        }catch(e){ modalBody.innerHTML='<p style="color:red;">Failed to generate AI report.</p>'; }
+    };
+    window.closeAIModal=function(){ document.getElementById('ai-modal').style.display='none'; }
+
+    document.getElementById('pdfBtn').onclick=function(){
+        const {jsPDF}=window.jspdf;
+        const doc=new jsPDF();
+        let y=20; doc.setFontSize(16); doc.text('Student Results',105,y,{align:'center'}); y+=10;
+        filtered.forEach(r=>{
+            if(y>270){ doc.addPage(); y=20; }
+            doc.text(`${r.rank}. ${r.studentName} | ${r.mobile} | Total: ${r.totalScore}`,10,y); y+=7;
+            dynamicSubjects.forEach(sub=>{ doc.text(`   ${sub}: ${r.subjectScores[sub]||0}`,15,y); y+=6; });
+            y+=3;
         });
-        detailsHTML += '</ul><hr>';
-        if (result.questionTimes) {
-            detailsHTML += '<h4>Time Per Question (seconds):</h4>';
-            Object.keys(result.questionTimes).forEach(subject => {
-                detailsHTML += `<strong>${subject}:</strong><ul>`;
-                Object.keys(result.questionTimes[subject]).forEach(qIndex => {
-                    detailsHTML += `<li>Question ${parseInt(qIndex) + 1}: ${result.questionTimes[subject][qIndex]}s</li>`;
-                });
-                detailsHTML += '</ul>';
-            });
-        }
-        modalBody.innerHTML = detailsHTML;
-        modal.style.display = 'flex';
-    }
-    window.closeDetailsModal = function() {
-        document.getElementById('details-modal').style.display = 'none';
-    }
+        doc.save('student_results.pdf');
+    };
 
-    window.getAIAnalysis = async function(result) {
-        const modal = document.getElementById('ai-modal');
-        document.getElementById('ai-modal-title').textContent = `AI Analysis for ${result.studentName}`;
-        const modalBody = document.getElementById('ai-modal-body');
-        modalBody.innerHTML = '<p>Generating report, please wait...</p>';
-        modal.style.display = 'flex';
-        try {
-            const response = await fetch('/ai-analysis', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ studentName: result.studentName, subjectScores: result.subjectScores })
-            });
-            if (!response.ok) throw new Error('Failed to get AI report.');
-            const data = await response.json();
-            modalBody.innerHTML = `<p>${data.report}</p>`;
-        } catch (error) {
-            modalBody.innerHTML = '<p style="color: red;">Could not generate the report.</p>';
-        }
-    }
-    window.closeAIModal = function() {
-        document.getElementById('ai-modal').style.display = 'none';
-    }
+    document.getElementById('refreshBtn').onclick=fetchResults;
+    gradeFilter.onchange=applyFiltersAndRender;
+    topN.onchange=applyFiltersAndRender;
+    searchEl.oninput=applyFiltersAndRender;
 
-    perPageEl.addEventListener('change', () => { page = 1; applyFiltersAndRender(); });
-    searchEl.addEventListener('input', () => { page = 1; applyFiltersAndRender(); });
-    document.getElementById('refreshBtn').addEventListener('click', fetchResults);
-    document.getElementById('exportBtn').addEventListener('click', exportToCSV);
-    document.getElementById('clearBtn').addEventListener('click', clearResults);
+    async function fetchResults(){
+        try{
+            const response=await fetch('/results'); // Replace with your API
+            const data=await response.json();
+            allResults=data.map(normalizeRecord);
+            const grades=Array.from(new Set(allResults.map(r=>r.class))).sort();
+            gradeFilter.innerHTML='<option value="">All</option>'+grades.map(g=>`<option value="${g}">${g}</option>`).join('');
+            applyFiltersAndRender();
+        }catch(e){ alert('Failed to fetch results.'); }
+    }
 
     fetchResults();
 })();
