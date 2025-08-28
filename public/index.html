@@ -6,6 +6,7 @@
     <title>Geetham e-Exam</title>
     <link rel="icon" type="image/jpeg" href="/geetham.jpg">
     <link rel="manifest" href="/manifest.json">
+    <script type="module" src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/vision_bundle.js"></script>
     <meta name="theme-color" content="#0056b3"/>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f0f2f5; color: #333; margin: 0; padding: 10px; }
@@ -15,32 +16,42 @@
         h1, h2 { color: #0056b3; text-align: center; }
         input, select { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
         #timer { font-size: 20px; font-weight: bold; color: #d9534f; text-align: center; margin-bottom: 15px; }
-        .subject-tabs { display: flex; border-bottom: 2px solid #ddd; margin-bottom: 20px; gap: 10px; }
-        .subject-tab { padding: 10px 20px; cursor: pointer; font-weight: 600; border: none; background-color: #f0f2f5; color: #333; font-size: 16px; border-radius: 8px 8px 0 0; transition: background-color 0.2s, color 0.2s; }
-        .subject-tab:hover { background-color: #e2e8f0; }
-        .subject-tab.active { background-color: #007bff; color: white; border-bottom: 3px solid #0056b3; }
+        .subject-tabs { display: flex; border-bottom: 2px solid #ddd; margin-bottom: 20px; gap: 10px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .subject-tab { padding: 10px 20px; cursor: pointer; font-weight: 600; border: none; background-color: #f0f2f5; color: #333; font-size: 16px; border-radius: 8px 8px 0 0; }
+        .subject-tab.active { background-color: #007bff; color: white; }
         .question-area { min-height: 300px; }
         .option { display: block; margin: 10px 0; padding: 12px; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; }
         .option.selected { background-color: #007bff; color: white; border-color: #007bff; }
         .nav-buttons { margin-top: 20px; display: flex; justify-content: space-between; }
         button { background-color: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 14px; }
         button:disabled { background-color: #a0a0a0; }
-        button.secondary { background-color: #6c757d; }
-        button.submit { background-color: #28a745; }
         .palette-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
         .palette-item { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 50%; cursor: pointer; font-weight: bold; }
         .status-not-answered { background-color: #f0f0f0; }
         .status-answered { background-color: #28a745; color: white; }
         .status-review { background-color: #ffc107; }
-        #camera-view { position: fixed; bottom: 10px; left: 10px; width: 120px; height: 90px; border: 2px solid #0056b3; border-radius: 4px; object-fit: cover; display: none; }
+        #camera-wrapper { position: fixed; bottom: 10px; left: 10px; width: 160px; height: 120px; border: 2px solid #0056b3; border-radius: 6px; background: #000; overflow: hidden; display: none; z-index: 9998; }
+        #camera-header { height: 22px; background: rgba(0,86,179,0.9); color: #fff; display:flex; align-items:center; justify-content:center; padding: 0 6px; cursor: move; font-size: 12px; }
+        #camera-view { width:100%; height: calc(100% - 22px); object-fit: cover; display:block; }
         .toast { position: fixed; top: -100px; left: 50%; transform: translateX(-50%); padding: 15px 25px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); font-size: 16px; font-weight: bold; z-index: 9999; opacity: 0; transition: opacity 0.5s, top 0.5s; }
         .toast.show { top: 40px; opacity: 1; }
         .toast.warning { background-color: #dc3545; color: white; }
         .toast.success { background-color: #28a745; color: white; }
+        #warnings-indicator { position: fixed; top: 14px; right: 14px; background: #ffc107; color: #333; padding: 6px 10px; border-radius: 18px; font-weight: 700; z-index: 9999; }
+        #ai-status { position: fixed; top: 14px; left: 14px; padding: 6px 10px; border-radius: 18px; font-weight: 700; z-index: 9999; font-size: 12px; }
+        #ai-status.loading { background: #ffc107; color: #333; }
+        #ai-status.ready { background: #28a745; color: white; }
+        #ai-status.error { background: #dc3545; color: white; }
     </style>
 </head>
 <body>
-    <video id="camera-view" autoplay playsinline></video>
+    <div id="ai-status" class="loading" style="display:none;">AI Proctor Loading...</div>
+    <div id="warnings-indicator" title="Warnings" style="display:none;">Warnings: <span id="warning-count">0</span></div>
+    <div id="camera-wrapper">
+        <div id="camera-header"><span>Camera</span></div>
+        <video id="camera-view" autoplay playsinline muted></video>
+    </div>
+
     <div id="student-details-screen" style="display: block;">
         <div style="max-width: 500px; margin: 50px auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
             <div style="text-align: center; margin-bottom: 15px;">
@@ -57,6 +68,7 @@
             </div>
         </div>
     </div>
+    
     <div class="main-container" id="quiz-screen">
         <div class="quiz-panel">
             <h1 style="margin-top: 0;" id="quiz-title-main"></h1>
@@ -65,7 +77,7 @@
             <div id="question-area" class="question-area">
                  <h3 id="question-number"></h3>
                  <p id="question-text"></p>
-                 <img id="question-image" class="question-image" style="display:none;">
+                 <img id="question-image" class="question-image" style="display:none; max-width:100%;">
                  <div id="options-container"></div>
             </div>
             <div class="nav-buttons">
@@ -90,8 +102,10 @@
         </div>
     </div>
 
-<script>
-    document.addEventListener('contextmenu', event => event.preventDefault());
+<script type="module">
+    import { FaceLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/vision_bundle.js";
+
+    // --- GLOBAL VARIABLES ---
     let allQuizzes = [];
     let currentQuiz = {};
     let currentSubject = "";
@@ -101,7 +115,11 @@
     let timerInterval;
     let quizInProgress = false;
     let warningCount = 0;
-    const maxWarnings = 2;
+    const maxWarnings = 3;
+    let faceLandmarker;
+    let isGazeDetectionRunning = false;
+    let lookAwayStartTime = null;
+    const LOOK_AWAY_THRESHOLD = 3000;
 
     function showToast(message, type = 'warning') {
         const toast = document.createElement('div');
@@ -111,8 +129,18 @@
         setTimeout(() => { toast.classList.add('show'); }, 100);
         setTimeout(() => {
             toast.classList.remove('show');
-            setTimeout(() => { document.body.removeChild(toast); }, 500);
+            setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 500);
         }, 4000);
+    }
+
+    function updateAIStatus(status, message) {
+        const aiStatus = document.getElementById('ai-status');
+        aiStatus.className = status;
+        aiStatus.textContent = message;
+        aiStatus.style.display = 'block';
+        if (status === 'ready') {
+            setTimeout(() => { aiStatus.style.display = 'none'; }, 3000);
+        }
     }
 
     function shuffleArray(array) {
@@ -131,7 +159,66 @@
             document.body.innerHTML = "<h1>Error: Could not load quiz data.</h1>";
         }
     }
+    
+    async function loadGazeModel(retries = 2) {
+        updateAIStatus('loading', 'Loading AI Proctor...');
+        try {
+            const filesetResolver = await FilesetResolver.forVisionTasks(
+                "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
+            );
+            faceLandmarker = await FaceLandmarker.createFromOptions(filesetResolver, {
+                baseOptions: {
+                    modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`,
+                    delegate: "GPU"
+                },
+                runningMode: "VIDEO",
+                numFaces: 1
+            });
+            updateAIStatus('ready', 'AI Proctor Ready');
+        } catch (error) {
+            console.error("Failed to load gaze model:", error);
+            if (retries > 0) {
+                setTimeout(() => loadGazeModel(retries - 1), 2000);
+            } else {
+                updateAIStatus('error', 'AI Proctor Failed');
+                faceLandmarker = null;
+            }
+        }
+    }
 
+    function startGazeDetection() {
+        if (!faceLandmarker || isGazeDetectionRunning) return;
+        isGazeDetectionRunning = true;
+        const video = document.getElementById('camera-view');
+        let lastVideoTime = -1;
+
+        async function predictWebcam() {
+            if (!quizInProgress || !isGazeDetectionRunning) return;
+            const startTimeMs = performance.now();
+            if (lastVideoTime !== video.currentTime) {
+                const results = faceLandmarker.detectForVideo(video, startTimeMs);
+                let isLookingAway = !results.faceLandmarks || results.faceLandmarks.length === 0;
+
+                if (results.faceLandmarks && results.faceLandmarks.length > 1) {
+                    handleWarning("Multiple faces detected.");
+                }
+                
+                if (isLookingAway) {
+                    if (lookAwayStartTime === null) lookAwayStartTime = Date.now();
+                    else if (Date.now() - lookAwayStartTime > LOOK_AWAY_THRESHOLD) {
+                        handleWarning("Looking away or face not detected.");
+                        lookAwayStartTime = null;
+                    }
+                } else {
+                    lookAwayStartTime = null;
+                }
+                lastVideoTime = video.currentTime;
+            }
+            window.requestAnimationFrame(predictWebcam);
+        }
+        predictWebcam();
+    }
+    
     function displayInitialScreen() {
         document.getElementById('student-details-screen').style.display = 'block';
         const quizSelectionContainer = document.getElementById('quiz-selection-container');
@@ -148,12 +235,8 @@
         const name = document.getElementById('student-name').value;
         const mobile = document.getElementById('student-mobile').value;
         const quizSelect = document.getElementById('quiz-select');
-        const selectedQuizIndex = quizSelect ? quizSelect.value : 0;
-        currentQuiz = allQuizzes[selectedQuizIndex];
-        if (!name || !mobile) {
-            alert("Please fill in all details.");
-            return;
-        }
+        currentQuiz = allQuizzes[quizSelect ? quizSelect.value : 0];
+        if (!name || !mobile) return alert("Please fill in all details.");
         studentDetails = { name, mobile };
         const response = await fetch('/check-attempt', {
             method: 'POST',
@@ -181,11 +264,12 @@
     }
 
     function prepareQuiz() {
+        loadGazeModel();
         const detailsScreen = document.getElementById('student-details-screen');
         detailsScreen.innerHTML = `
             <div style="max-width: 500px; margin: 50px auto; background: #fff; padding: 30px; border-radius: 8px;">
                 <h2>Exam Instructions</h2>
-                <p>This test is proctored. Do not switch tabs or exit full-screen.</p>
+                <p>This test is AI-proctored. Do not switch tabs, exit full-screen, or look away.</p>
                 <p>After ${maxWarnings} warnings, your test will be submitted automatically.</p>
                 <button id="start-test-btn" style="width: 100%;">Start Camera & Full Screen</button>
             </div>
@@ -211,7 +295,8 @@
         if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
             const stream = await navigator.mediaDevices.getUserMedia({ video: true });
             videoElement.srcObject = stream;
-            videoElement.style.display = 'block';
+            document.getElementById('camera-wrapper').style.display = 'block';
+            await new Promise(resolve => videoElement.onloadedmetadata = resolve);
         } else { throw new Error("Camera not supported."); }
     }
 
@@ -219,53 +304,50 @@
         if (document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen();
     }
 
- function initializeQuiz() {
-    quizInProgress = true;
-    document.getElementById('quiz-title-main').textContent = currentQuiz.title;
-    const subjectTabsContainer = document.querySelector('.subject-tabs');
-    subjectTabsContainer.innerHTML = '';
-    
-    Object.keys(currentQuiz.subjects).forEach(subject => {
-        shuffleArray(currentQuiz.subjects[subject]);
-        userResponses[subject] = {};
-        const tab = document.createElement('button');
-        tab.className = 'subject-tab';
-        tab.textContent = subject;
-        // Pass the event target to the function
-        tab.onclick = (e) => switchSubject(subject, e.currentTarget);
-        subjectTabsContainer.appendChild(tab);
-    });
-    
-    currentSubject = Object.keys(currentQuiz.subjects)[0];
-    setupProctoringListeners();
-    
-    // Correctly call switchSubject for the first tab
-    switchSubject(currentSubject, subjectTabsContainer.firstChild);
-    
-    startTimer(currentQuiz.timeLimit * 60);
-}
-    
-    currentSubject = Object.keys(currentQuiz.subjects)[0];
-    setupProctoringListeners();
-    switchSubject(currentSubject); // This loads the first question
-    
-    // Start the timer last, after everything is initialized
-    startTimer(currentQuiz.timeLimit * 60);
-}
+    function initializeQuiz() {
+        quizInProgress = true;
+        document.getElementById('quiz-title-main').textContent = currentQuiz.title;
+        const subjectTabsContainer = document.querySelector('.subject-tabs');
+        subjectTabsContainer.innerHTML = '';
+        Object.keys(currentQuiz.subjects).forEach(subject => {
+            shuffleArray(currentQuiz.subjects[subject]);
+            userResponses[subject] = {};
+            const tab = document.createElement('button');
+            tab.className = 'subject-tab';
+            tab.textContent = subject;
+            tab.onclick = (e) => switchSubject(subject, e.currentTarget);
+            subjectTabsContainer.appendChild(tab);
+        });
+        currentSubject = Object.keys(currentQuiz.subjects)[0];
+        setupProctoringListeners();
+        switchSubject(currentSubject, subjectTabsContainer.firstChild);
+        startTimer(currentQuiz.timeLimit * 60);
+        setTimeout(startGazeDetection, 2000);
+    }
     
     function setupProctoringListeners() {
         document.addEventListener('visibilitychange', () => {
             if (document.hidden && quizInProgress) handleWarning("You have switched tabs.");
         });
-        document.addEventListener('fullscreenchange', () => {
-            if (!document.fullscreenElement && quizInProgress) handleWarning("You have exited full-screen.");
+        
+        document.addEventListener('fullscreenchange', async () => {
+            if (!document.fullscreenElement && quizInProgress) {
+                handleWarning("You have exited full-screen. Re-entering...");
+                try {
+                    await startFullScreen();
+                } catch (err) {
+                    console.warn("Could not re-enter fullscreen automatically.");
+                }
+            }
         });
     }
-    
+
     function handleWarning(message) {
         warningCount++;
         const warningMessage = `Warning ${warningCount}/${maxWarnings}: ${message}`;
         showToast(warningMessage, 'warning');
+        document.getElementById('warning-count').textContent = warningCount;
+        document.getElementById('warnings-indicator').style.display = 'block';
         if (warningCount >= maxWarnings) {
             setTimeout(() => {
                 showToast(`Maximum warnings exceeded. Submitting test automatically.`, 'warning');
@@ -429,7 +511,7 @@
         .then(response => {
             if (!response.ok) throw new Error('Submission failed');
             alert(`Test Submitted Successfully!`);
-            document.getElementById('quiz-screen').innerHTML = `<div style="max-width: 600px; margin: 50px auto; text-align:center;"><h1>Test Submitted Successfully</h1></div>`;
+            document.getElementById('quiz-screen').innerHTML = `<div style="max-width: 600px; margin: 50px auto; text-align:center;"><h1>Test Submitted Successfully</h1><h2>Your Final Score: ${totalScore}</h2></div>`;
         })
         .catch(error => {
             alert('There was an error submitting your test.');
