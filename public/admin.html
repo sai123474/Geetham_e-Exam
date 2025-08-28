@@ -34,7 +34,7 @@
         <h1>Quiz Admin Panel</h1>
     </div>
     <div id="password-prompt">
-        <input type="password" id="admin-password" placeholder="Enter Admin Password">
+        <input type="password" id="admin-password" placeholder="Enter Admin Password" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
         <button onclick="login()">Login</button>
     </div>
     <div id="admin-panel" class="admin-panel" style="display:none;">
@@ -45,7 +45,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
-const ADMIN_PASSWORD = "admin123";
+const ADMIN_PASSWORD = "geetham";
 let quizzesData = [];
 let selectedQuizIndex = 0;
 const AUTOSAVE_INTERVAL = 5000;
