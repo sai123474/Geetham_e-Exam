@@ -45,28 +45,30 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
-const ADMIN_PASSWORD = "geetham";
 let quizzesData = [];
 let selectedQuizIndex = 0;
 const AUTOSAVE_INTERVAL = 5000;
-function login() {
-    if (document.getElementById('admin-password').value === ADMIN_PASSWORD) {
+async function login() {
+    const password = document.getElementById('admin-password').value;
+    try {
+        const response = await fetch('/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password })
+        });
+        if (!response.ok) throw new Error('Login failed');
+        const { accessToken } = await response.json();
+        localStorage.setItem('adminToken', accessToken); // Save the token
+
         document.getElementById('password-prompt').style.display = 'none';
         document.getElementById('admin-panel').style.display = 'flex';
         loadQuizzes();
-    } else alert('Incorrect password!');
-}
-
-async function loadQuizzes() {
-    try {
-        const response = await fetch('/get-quizzes');
-        quizzesData = await response.json();
-        renderQuizList();
-        renderQuizEditor();
     } catch (error) {
-        alert("Could not load quiz data from server.");
+        alert('Incorrect password or server error.');
     }
 }
+
+
 
 function renderQuizList() {
     const listPanel = document.getElementById('quiz-list-panel');
@@ -292,35 +294,71 @@ function addQuestion(subjectDiv) {
 
 
 function removeQuestion(btn){btn.closest('.question-container').remove();}
+async function generateWithAI(subjectName) {
+    const topic = document.getElementById(`topic-${subjectName}`).value;
+    const numQuestions = document.getElementById(`num-${subjectName}`).value;
+    if (!topic) return alert("Please enter a topic.");
 
-async function generateWithAI(subjectName){
-    const topic=document.getElementById(`topic-${subjectName}`).value;
-    const num=parseInt(document.getElementById(`num-${subjectName}`).value);
-    if(!topic) return alert("Enter topic!");
-    try{
-        const res=await fetch('/generate-questions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({topic,numQuestions:num})});
-        const newQs=await res.json();
-        quizzesData[selectedQuizIndex].subjects[subjectName].push(...newQs);
-        renderQuizEditor(); alert(`${newQs.length} questions added to ${subjectName}!`);
-    }catch(e){alert("AI generation failed");}
+    const token = localStorage.getItem('adminToken');
+    if (!token) return alert("Authentication error. Please log in again.");
+
+    try {
+        const response = await fetch('/generate-questions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}` // Add the token here
+            },
+            body: JSON.stringify({ topic, numQuestions })
+        });
+        if (!response.ok) throw new Error('AI generation failed.');
+        const newQuestions = await response.json();
+        quizzesData[selectedQuizIndex].subjects[subjectName].push(...newQuestions);
+        renderQuizEditor();
+        alert(`${newQuestions.length} questions generated for ${subjectName}!`);
+    } catch (error) {
+        alert("Could not generate questions from topic.");
+    }
 }
 
-async function generateFromText(){
-    const text=document.getElementById('ai-text-input').value.trim();
-    if(!text) return alert("Paste text first!");
-    try{
-        const res=await fetch('/generate-from-text',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
-        const newQs=await res.json();
-        newQs.forEach(q=>{ if(quizzesData[selectedQuizIndex].subjects[q.subject]) quizzesData[selectedQuizIndex].subjects[q.subject].push(q); });
-        renderQuizEditor(); alert(`${newQs.length} questions added!`);
-    }catch(e){alert("Failed to generate from text");}
+async function generateFromText() {
+    const textInput = document.getElementById('ai-text-input').value;
+    if (!textInput.trim()) return alert("Please paste text.");
+
+    const token = localStorage.getItem('adminToken');
+    if (!token) return alert("Authentication error. Please log in again.");
+
+    try {
+        const response = await fetch('/generate-from-text', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}` // Add the token here
+            },
+            body: JSON.stringify({ text: textInput })
+        });
+        if (!response.ok) throw new Error('AI generation failed.');
+        const newQuestions = await response.json();
+        newQuestions.forEach(q => {
+            if (quizzesData[selectedQuizIndex].subjects[q.subject]) {
+                quizzesData[selectedQuizIndex].subjects[q.subject].push(q);
+            }
+        });
+        renderQuizEditor();
+        alert(`${newQuestions.length} questions generated and added!`);
+    } catch (error) {
+        alert("Could not generate questions from text.");
+    }
 }
 
-async function deleteQuiz(){
-    if(confirm(`Delete "${quizzesData[selectedQuizIndex].title}"?`)){
-        quizzesData.splice(selectedQuizIndex,1);
-        await saveAllQuizzesToServer();
-        selectedQuizIndex=0;
+async function deleteQuiz() {
+    if (confirm(`Are you sure you want to delete "${quizzesData[selectedQuizIndex].title}"?`)) {
+        quizzesData.splice(selectedQuizIndex, 1);
+        
+        // saveAllQuizzesToServer already includes the token, so we can just call it
+        await saveAllQuizzesToServer(); 
+        
+        selectedQuizIndex = 0;
         loadQuizzes();
     }
 }
@@ -382,12 +420,25 @@ async function saveQuiz() {
     }
 }
 
-async function saveAllQuizzesToServer(){
-    try{
-        const res=await fetch('/update-quizzes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(quizzesData)});
-        if(!res.ok) throw new Error("Server error");
-        alert('Saved successfully'); renderQuizList();
-    }catch(e){alert("Failed to save");}
+async function saveAllQuizzesToServer() {
+    const token = localStorage.getItem('adminToken');
+    if (!token) return alert("Authentication error. Please log in again.");
+
+    try {
+        const response = await fetch('/update-quizzes', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}` // Add the token here
+            },
+            body: JSON.stringify(quizzesData)
+        });
+        if (!response.ok) throw new Error('Server error');
+        alert('Changes saved successfully!');
+        renderQuizList();
+    } catch (error) {
+        alert('Failed to save changes.');
+    }
 }
 
 function generatePDF(){
