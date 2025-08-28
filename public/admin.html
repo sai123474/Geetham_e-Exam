@@ -115,6 +115,11 @@ function renderQuizDetails(quiz) {
     document.getElementById('quiz-details').innerHTML = `
         <label>Title:</label><input type="text" id="quiz-title" value="${quiz.title}">
         <label>Time Limit (minutes):</label><input type="number" id="quiz-time" value="${quiz.timeLimit}">
+        <label>Class / Grade:</label>
+<select id="quiz-class">
+    ${[6,7,8,9,10,11,12].map(g => `<option value="${g}" ${quiz.class == g ? 'selected' : ''}>${g}th</option>`).join('')}
+</select>
+
         <label>Password:</label><input type="text" id="quiz-password" value="${quiz.password}">
     `;
 }
@@ -327,6 +332,7 @@ async function saveQuiz() {
     // Save main quiz details safely
     quizToSave.title = document.getElementById('quiz-title')?.value || quizToSave.title;
     quizToSave.timeLimit = parseInt(document.getElementById('quiz-time')?.value) || quizToSave.timeLimit;
+    quizToSave.class = document.getElementById('quiz-class').value;
     quizToSave.password = document.getElementById('quiz-password')?.value || quizToSave.password;
 
     const newSubjects = {};
