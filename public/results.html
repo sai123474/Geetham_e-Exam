@@ -107,13 +107,13 @@ td.wrong-mark { background-color: #dc3545; color: #fff; font-weight: bold; curso
     function normalizeRecord(r){ 
         return {
             ...r,
-            studentName:r.studentName||'N/A', 
-            mobile:r.mobile||'N/A', 
-            class:String(r.class||'N/A'), 
-            totalScore:Number(r.totalScore||0), 
-            subjectScores:r.subjectScores||{}, 
-            warnings:Number(r.warnings||0),
-            location: r.location || 'N/A'  // Location column
+            studentName: r.studentName||'N/A', 
+            mobile: r.mobile||'N/A', 
+            class: String(r.class||'N/A'), 
+            totalScore: Number(r.totalScore||0), 
+            subjectScores: r.subjectScores||{}, 
+            warnings: Number(r.warnings||0),
+            location: r.location || 'N/A'
         }; 
     }
 
@@ -121,7 +121,7 @@ td.wrong-mark { background-color: #dc3545; color: #fff; font-weight: bold; curso
         const sorted = [...arr].sort((a,b)=>b.totalScore-a.totalScore);
         const scoreToRank = new Map();
         sorted.forEach((item,index)=>{ if(!scoreToRank.has(item.totalScore)) scoreToRank.set(item.totalScore,index+1); });
-        return arr.map(it=>({...it, rank:scoreToRank.get(it.totalScore)}));
+        return arr.map(it=>({...it, rank: scoreToRank.get(it.totalScore)}));
     }
 
     function applyFiltersAndRender(){
@@ -132,10 +132,10 @@ td.wrong-mark { background-color: #dc3545; color: #fff; font-weight: bold; curso
             let matchSearch = !searchEl.value || r.studentName.toLowerCase().includes(searchEl.value.toLowerCase()) || r.mobile.includes(searchEl.value);
             return matchGrade && matchTop && matchSearch;
         });
-        // Sort filtered by rank
-        filtered.sort((a,b)=>a.rank - b.rank);
+        filtered.sort((a,b)=>a.rank - b.rank); // always rank-wise
         renderTable(filtered);
         renderChart(filtered);
+        renderMap(filtered);
     }
 
     function renderTable(data){
@@ -152,9 +152,9 @@ td.wrong-mark { background-color: #dc3545; color: #fff; font-weight: bold; curso
             <th data-key="totalScore">Total</th>`;
         dynamicSubjects.forEach(sub=>headerHTML+=`<th>${sub}</th>`);
         headerHTML+='<th data-key="warnings">Warnings</th><th>Details</th><th>AI Analysis</th></tr>';
-        thead.innerHTML=headerHTML;
+        thead.innerHTML = headerHTML;
 
-        tbody.innerHTML='';
+        tbody.innerHTML = '';
         data.forEach(res=>{
             const row = tbody.insertRow();
             let rowHTML=`<td>${res.rank}</td><td>${res.studentName}</td><td>${res.mobile}</td><td>${res.class}</td><td>${res.location}</td><td>${res.totalScore}</td>`;
@@ -167,7 +167,7 @@ td.wrong-mark { background-color: #dc3545; color: #fff; font-weight: bold; curso
             rowHTML+=`<td class="${warnClass}">${res.warnings}</td>
                       <td><button class="view-btn" onclick='showDetailsModal(${JSON.stringify(res)})'>View</button></td>
                       <td><button class="ai-btn" onclick='getAIAnalysis(${JSON.stringify(res)})'>AI</button></td>`;
-            row.innerHTML=rowHTML;
+            row.innerHTML = rowHTML;
         });
         addSortListeners();
     }
@@ -182,72 +182,41 @@ td.wrong-mark { background-color: #dc3545; color: #fff; font-weight: bold; curso
         if(window.chartInstance) window.chartInstance.destroy();
         window.chartInstance=new Chart(ctx,{type:'bar', data:{labels, datasets:[{label:'Average Scores', data:scores, backgroundColor:'#007bff'}]}, options:{responsive:true, plugins:{legend:{display:false}}}});
     }
-function renderMap(data){
-    if(window.mapInstance){ window.mapInstance.remove(); }
-    const mapEl = document.getElementById('map');
-    window.mapInstance = L.map(mapEl).setView([20, 78], 5); // center India
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '© OpenStreetMap'
-    }).addTo(window.mapInstance);
 
-    data.forEach(r=>{
-        if(r.location && r.location!=='N/A'){
-            const [lat,lng] = r.location.split(',').map(Number);
-            L.marker([lat,lng]).addTo(window.mapInstance)
-                .bindPopup(`<b>${r.studentName}</b><br>Class: ${r.class}<br>Total: ${r.totalScore}`);
-        }
-    });
-}
-
-// Call renderMap whenever filters or top-N changes
-function applyFiltersAndRender(){
-    let rankedResults = computeRanks(allResults);
-    filtered = rankedResults.filter(r=>{
-        let matchGrade = gradeFilter.value === 'all' || r.class === gradeFilter.value;
-        let matchTop = !topN.value || r.rank <= Number(topN.value);
-        let matchSearch = !searchEl.value || r.studentName.toLowerCase().includes(searchEl.value.toLowerCase()) || r.mobile.includes(searchEl.value);
-        return matchGrade && matchTop && matchSearch;
-    });
-    filtered.sort((a,b)=>a.rank - b.rank);
-    renderTable(filtered);
-    renderChart(filtered);
-    renderMap(filtered);
-}
-
-// Make Location column sortable
-function addSortListeners(){
-    document.querySelectorAll('th[data-key]').forEach(th=>{
-        th.onclick=()=>{
-            const key=th.dataset.key;
-            sortDir=(sortKey===key && sortDir==='asc')?'desc':'asc';
-            sortKey=key;
-            filtered.sort((a,b)=>{
-                if(key==='location'){
-                    const locA = a.location.toLowerCase(), locB = b.location.toLowerCase();
-                    return (locA > locB ? 1 : locA < locB ? -1 : 0) * (sortDir==='asc'?1:-1);
-                }
-                return ((a[key] > b[key]?1:a[key]<b[key]?-1:0) * (sortDir==='asc'?1:-1));
-            });
-            renderTable(filtered);
-            renderMap(filtered);
-        };
-    });
-}
-</script>
+    function renderMap(data){
+        if(window.mapInstance) window.mapInstance.remove();
+        const mapEl = document.getElementById('map');
+        window.mapInstance = L.map(mapEl).setView([20, 78], 5);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19, attribution:'© OpenStreetMap'}).addTo(window.mapInstance);
+        data.forEach(r=>{
+            if(r.location && r.location!=='N/A'){
+                const [lat,lng] = r.location.split(',').map(Number);
+                L.marker([lat,lng]).addTo(window.mapInstance)
+                 .bindPopup(`<b>${r.studentName}</b><br>Class: ${r.class}<br>Total: ${r.totalScore}`);
+            }
+        });
+    }
 
     function addSortListeners(){
         document.querySelectorAll('th[data-key]').forEach(th=>{
-            th.onclick=()=>{
+            th.onclick = ()=>{
                 const key=th.dataset.key;
                 sortDir=(sortKey===key && sortDir==='asc')?'desc':'asc';
                 sortKey=key;
-                applyFiltersAndRender();
+                filtered.sort((a,b)=>{
+                    if(key==='location'){
+                        const locA = a.location.toLowerCase(), locB = b.location.toLowerCase();
+                        return (locA>locB?1:locA<locB?-1:0)*(sortDir==='asc'?1:-1);
+                    }
+                    return ((a[key]>b[key]?1:a[key]<b[key]?-1:0)*(sortDir==='asc'?1:-1));
+                });
+                renderTable(filtered);
+                renderMap(filtered);
             };
         });
     }
 
-    window.showDetailsModal=function(res){
+    window.showDetailsModal = function(res){
         const modal=document.getElementById('details-modal');
         document.getElementById('modal-title').textContent=`Report: ${res.studentName}`;
         let html='<ul>';
@@ -284,48 +253,41 @@ function addSortListeners(){
         });
         doc.save('student_results.pdf');
     };
-    
-    document.getElementById('exportBtn').onclick = function() {
-        if (filtered.length === 0) { alert("No results to export."); return; }
-        const headers = ["Rank", "Student Name", "Mobile", "Class", "Location", "Total Score", ...dynamicSubjects, "Warnings"];
+
+    document.getElementById('exportBtn').onclick = function(){
+        if(filtered.length===0){ alert("No results to export."); return; }
+        const headers=["Rank","Student Name","Mobile","Class","Location","Total Score",...dynamicSubjects,"Warnings"];
         let csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n";
-        filtered.forEach(res => {
-            const rowData = [
-                res.rank,
-                `"${res.studentName}"`,
-                `"${res.mobile}"`,
-                `"${res.class}"`,
-                `"${res.location}"`,
-                res.totalScore,
-            ];
-            dynamicSubjects.forEach(subject => rowData.push(res.subjectScores[subject] || 0));
+        filtered.forEach(res=>{
+            const rowData=[res.rank, `"${res.studentName}"`, `"${res.mobile}"`, `"${res.class}"`, `"${res.location}"`, res.totalScore];
+            dynamicSubjects.forEach(sub=>rowData.push(res.subjectScores[sub]||0));
             rowData.push(res.warnings);
-            csvContent += rowData.join(",") + "\n";
+            csvContent+=rowData.join(",")+"\n";
         });
-        const encodedUri = encodeURI(csvContent);
-        const link = document.createElement("a");
+        const encodedUri=encodeURI(csvContent);
+        const link=document.createElement("a");
         link.setAttribute("href", encodedUri);
-        link.setAttribute("download", "geetham_results.csv");
+        link.setAttribute("download","geetham_results.csv");
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
     }
 
-    document.getElementById('clearBtn').onclick = async function() {
-        if (confirm("Are you sure you want to delete all results? This cannot be undone.")) {
-            try {
+    document.getElementById('clearBtn').onclick = async function(){
+        if(confirm("Are you sure you want to delete all results? This cannot be undone.")){
+            try{
                 const response = await fetch('/clear-results', { method: 'POST' });
-                if (!response.ok) throw new Error('Server error');
+                if(!response.ok) throw new Error('Server error');
                 alert('All results have been cleared successfully.');
                 fetchResults();
-            } catch (error) { alert('Failed to clear results.'); }
+            }catch(e){ alert('Failed to clear results.'); }
         }
     }
 
-    document.getElementById('refreshBtn').onclick=fetchResults;
-    gradeFilter.onchange=applyFiltersAndRender;
-    topN.onchange=applyFiltersAndRender;
-    searchEl.oninput=applyFiltersAndRender;
+    document.getElementById('refreshBtn').onclick = fetchResults;
+    gradeFilter.onchange = applyFiltersAndRender;
+    topN.onchange = applyFiltersAndRender;
+    searchEl.oninput = applyFiltersAndRender;
 
     async function fetchResults(){
         try{
@@ -339,9 +301,9 @@ function addSortListeners(){
     }
 
     fetchResults();
-})();
 
-function markWrong(td) { td.className = 'wrong-mark'; }  // click to mark wrong
+    window.markWrong=function(td){ td.className='wrong-mark'; }
+})();
 </script>
 </body>
 </html>
