@@ -4,6 +4,8 @@ const { MongoClient, ServerApiVersion } = require('mongodb');
 const path = require('path');
 const cors = require('cors');
 const { GoogleGenerativeAI } = require("@google/generative-ai");
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 
 // --- CONFIGURATION ---
 const app = express();
@@ -12,6 +14,8 @@ const PORT = process.env.PORT || 3000;
 // Use environment variables for security
 const API_KEY = "AIzaSyA3WIHFw2_5E8hYUSlG2rrLdq7J7KKwbe0";
 const MONGO_URI = "mongodb+srv://yamparalasaikrishna6:Tngy9EWjTg1akDXW@saikrishna.dced3fy.mongodb.net/?retryWrites=true&w=majority&appName=SaiKrishna";
+const JWT_SECRET ="Geetham_e_exam2025"
+const ADMIN_PASSWORD="Geetham@2014"
 
 const genAI = new GoogleGenerativeAI(API_KEY);
 const client = new MongoClient(MONGO_URI, {
@@ -23,6 +27,27 @@ let db;
 app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
+// --- AUTHENTICATION MIDDLEWARE ---
+function authenticateToken(req, res, next) {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+    if (token == null) return res.sendStatus(401);
+
+    jwt.verify(token, JWT_SECRET, (err, user) => {
+        if (err) return res.sendStatus(403);
+        req.user = user;
+        next();
+    });
+}
+app.post('/login', (req, res) => {
+    const { password } = req.body;
+    if (bcrypt.compareSync(password, ADMIN_PASSWORD_HASH)) {
+        const accessToken = jwt.sign({ user: 'admin' }, JWT_SECRET, { expiresIn: '8h' });
+        res.json({ accessToken });
+    } else {
+        res.status(401).send('Incorrect password');
+    }
+});
 
 // --- DATABASE CONNECTION ---
 async function connectDB() {
@@ -50,7 +75,7 @@ app.get('/get-quizzes', async (req, res) => {
 });
 
 // Update all quizzes in the database
-app.post('/update-quizzes', async (req, res) => {
+app.post('/update-quizzes', authenticateToken, async (req, res) => {
     try {
         const updatedQuizzes = req.body;
         const quizzesCollection = db.collection('quizzes');
@@ -119,7 +144,7 @@ app.get('/results', async (req, res) => {
 });
 
 // Clear all results
-app.post('/clear-results', async (req, res) => {
+app.post('/clear-results', authenticateToken, async (req, res) => {
     try {
         const resultsCollection = db.collection('results');
         await resultsCollection.deleteMany({});
@@ -130,7 +155,7 @@ app.post('/clear-results', async (req, res) => {
 });
 
 // AI Endpoint to generate questions from a topic
-app.post('/generate-questions', async (req, res) => {
+app.post('/generate-questions', authenticateToken, async (req, res) => {
     try {
         const { topic, numQuestions } = req.body;
         const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
@@ -144,7 +169,7 @@ app.post('/generate-questions', async (req, res) => {
 });
 
 // AI Endpoint to generate questions from pasted text
-app.post('/generate-from-text', async (req, res) => {
+app.post('/generate-from-text', authenticateToken, async (req, res) => {
     try {
         const { text } = req.body;
         const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
