@@ -1,43 +1,43 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Results - Geetham e-Exam</title>
-    <link rel="icon" type="image/jpeg" href="/geetham.jpg" />
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        :root {
-            --bg: #f8f9fa; --card: #fff; --text: #1f2937; --muted: #6b7280; --brand: #0056b3;
-            --brand-2: #007bff; --ok: #28a745; --warn: #f59e0b; --danger: #dc3545; --info: #17a2b8;
-            --border: #e5e7eb; --shadow: 0 4px 12px rgba(0,0,0,.08);
-        }
-        body { font-family: Arial,sans-serif; background: var(--bg); color: var(--text); margin:0; padding:16px; }
-        .container { max-width:1400px; margin:auto; background:var(--card); padding:24px; border-radius:12px; box-shadow:var(--shadow);}
-        .header { text-align:center; margin-bottom:16px; }
-        .header img { max-height:64px; }
-        .toolbar { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:12px; justify-content:space-between; }
-        select,input[type="text"]{padding:8px 12px; font-size:16px; border-radius:8px; border:1px solid var(--border);}
-        button{padding:8px 12px; border:none; border-radius:8px; color:#fff; cursor:pointer;}
-        button.view-btn { background-color: #17a2b8; color: #fff; }   /* blue for View */
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Results - Geetham e-Exam</title>
+<link rel="icon" type="image/jpeg" href="/geetham.jpg" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+:root {
+    --bg: #f8f9fa; --card: #fff; --text: #1f2937; --muted: #6b7280; --brand: #0056b3;
+    --brand-2: #007bff; --ok: #28a745; --warn: #f59e0b; --danger: #dc3545; --info: #17a2b8;
+    --border: #e5e7eb; --shadow: 0 4px 12px rgba(0,0,0,.08);
+}
+body { font-family: Arial,sans-serif; background: var(--bg); color: var(--text); margin:0; padding:16px; }
+.container { max-width:1400px; margin:auto; background:var(--card); padding:24px; border-radius:12px; box-shadow:var(--shadow);}
+.header { text-align:center; margin-bottom:16px; }
+.header img { max-height:64px; }
+.toolbar { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:12px; justify-content:space-between; }
+select,input[type="text"]{padding:8px 12px; font-size:16px; border-radius:8px; border:1px solid var(--border);}
+button{padding:8px 12px; border:none; border-radius:8px; color:#fff; cursor:pointer;}
+button.view-btn { background-color: #17a2b8; color: #fff; }   /* blue for View */
 button.ai-btn   { background-color: #ffc107; color: #333; }   /* yellow for AI */
-        .table-wrap { border:1px solid var(--border); border-radius:8px; overflow:auto; }
-        table { width:100%; border-collapse:collapse; }
-        thead th { position:sticky; top:0; background:var(--brand); color:#fff; padding:10px; cursor:pointer;}
-        tbody td { padding:10px; border-top:1px solid var(--border); text-align:center; }
-        td.wrong-mark { background-color: #dc3545; color: #fff; font-weight: bold; }
-        .rank { font-weight:800; }
-        .color-low { background:#ffcccc; }
-        .color-medium { background:#fff3cd; }
-        .color-high { background:#d4edda; }
-        .warn-high { color:#dc3545; font-weight:600;}
-        .modal-backdrop { position:fixed; top:0; left:0;width:100%;height:100%;background:rgba(0,0,0,0.5); display:none; align-items:center; justify-content:center; z-index:100;}
-        .modal-content { background:#fff; padding:20px; border-radius:8px; width:90%; max-width:600px;}
-        .modal-header { display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #ccc; padding-bottom:10px;}
-        .modal-close { font-size:24px; font-weight:bold; cursor:pointer; border:none; background:none; padding:0; }
-        .modal-body { padding-top:15px; max-height:400px; overflow-y:auto; }
-    </style>
+.table-wrap { border:1px solid var(--border); border-radius:8px; overflow:auto; }
+table { width:100%; border-collapse:collapse; }
+thead th { position:sticky; top:0; background:var(--brand); color:#fff; padding:10px; cursor:pointer;}
+tbody td { padding:10px; border-top:1px solid var(--border); text-align:center; }
+td.wrong-mark { background-color: #dc3545; color: #fff; font-weight: bold; cursor:pointer;}
+.rank { font-weight:800; }
+.color-low { background:#ffcccc; }
+.color-medium { background:#fff3cd; }
+.color-high { background:#d4edda; }
+.warn-high { color:#dc3545; font-weight:600;}
+.modal-backdrop { position:fixed; top:0; left:0;width:100%;height:100%;background:rgba(0,0,0,0.5); display:none; align-items:center; justify-content:center; z-index:100;}
+.modal-content { background:#fff; padding:20px; border-radius:8px; width:90%; max-width:600px;}
+.modal-header { display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #ccc; padding-bottom:10px;}
+.modal-close { font-size:24px; font-weight:bold; cursor:pointer; border:none; background:none; padding:0; }
+.modal-body { padding-top:15px; max-height:400px; overflow-y:auto; }
+</style>
 </head>
 <body>
 <div class="container">
@@ -101,7 +101,18 @@ button.ai-btn   { background-color: #ffc107; color: #333; }   /* yellow for AI *
     const topN = document.getElementById('topN');
     const searchEl = document.getElementById('search');
 
-    function normalizeRecord(r){ return {...r, studentName:r.studentName||'N/A', mobile:r.mobile||'N/A', class:String(r.class||'N/A'), totalScore:Number(r.totalScore||0), subjectScores:r.subjectScores||{}, warnings:Number(r.warnings||0)}; }
+    function normalizeRecord(r){ 
+        return {
+            ...r,
+            studentName:r.studentName||'N/A', 
+            mobile:r.mobile||'N/A', 
+            class:String(r.class||'N/A'), 
+            totalScore:Number(r.totalScore||0), 
+            subjectScores:r.subjectScores||{}, 
+            warnings:Number(r.warnings||0),
+            location: r.location || 'N/A'  // Location column
+        }; 
+    }
 
     function computeRanks(arr){
         const sorted = [...arr].sort((a,b)=>b.totalScore-a.totalScore);
@@ -118,6 +129,8 @@ button.ai-btn   { background-color: #ffc107; color: #333; }   /* yellow for AI *
             let matchSearch = !searchEl.value || r.studentName.toLowerCase().includes(searchEl.value.toLowerCase()) || r.mobile.includes(searchEl.value);
             return matchGrade && matchTop && matchSearch;
         });
+        // Sort filtered by rank
+        filtered.sort((a,b)=>a.rank - b.rank);
         renderTable(filtered);
         renderChart(filtered);
     }
@@ -127,7 +140,13 @@ button.ai-btn   { background-color: #ffc107; color: #333; }   /* yellow for AI *
         allResults.forEach(res=>Object.keys(res.subjectScores||{}).forEach(sub=>subjectSet.add(sub)));
         dynamicSubjects = Array.from(subjectSet).sort();
 
-        let headerHTML = `<tr><th data-key="rank">Rank</th><th data-key="studentName">Name</th><th data-key="mobile">Mobile</th><th data-key="class">Class</th><th data-key="totalScore">Total</th>`;
+        let headerHTML = `<tr>
+            <th data-key="rank">Rank</th>
+            <th data-key="studentName">Name</th>
+            <th data-key="mobile">Mobile</th>
+            <th data-key="class">Class</th>
+            <th data-key="location">Location</th>
+            <th data-key="totalScore">Total</th>`;
         dynamicSubjects.forEach(sub=>headerHTML+=`<th>${sub}</th>`);
         headerHTML+='<th data-key="warnings">Warnings</th><th>Details</th><th>AI Analysis</th></tr>';
         thead.innerHTML=headerHTML;
@@ -135,21 +154,16 @@ button.ai-btn   { background-color: #ffc107; color: #333; }   /* yellow for AI *
         tbody.innerHTML='';
         data.forEach(res=>{
             const row = tbody.insertRow();
-            let rowHTML=`<td>${res.rank}</td><td>${res.studentName}</td><td>${res.mobile}</td><td>${res.class}</td><td>${res.totalScore}</td>`;
-           dynamicSubjects.forEach(sub=>{
-    let val=res.subjectScores[sub]||0;
-    let colorClass = val>=75?'color-high': val>=50?'color-medium':'color-low';
-    rowHTML+=`<td class="${colorClass}" onclick="markWrong(this)">${val}</td>`;
-});
-
+            let rowHTML=`<td>${res.rank}</td><td>${res.studentName}</td><td>${res.mobile}</td><td>${res.class}</td><td>${res.location}</td><td>${res.totalScore}</td>`;
+            dynamicSubjects.forEach(sub=>{
+                let val=res.subjectScores[sub]||0;
+                let colorClass = val>=75?'color-high': val>=50?'color-medium':'color-low';
+                rowHTML+=`<td class="${colorClass}" onclick="markWrong(this)">${val}</td>`;
+            });
             let warnClass = res.warnings>3?'warn-high':'';
             rowHTML+=`<td class="${warnClass}">${res.warnings}</td>
-                        <td>
-    <button class="view-btn" onclick='showDetailsModal(${JSON.stringify(res)})'>View</button>
-</td>
-<td>
-    <button class="ai-btn" onclick='getAIAnalysis(${JSON.stringify(res)})'>AI</button>
-</td>`;
+                      <td><button class="view-btn" onclick='showDetailsModal(${JSON.stringify(res)})'>View</button></td>
+                      <td><button class="ai-btn" onclick='getAIAnalysis(${JSON.stringify(res)})'>AI</button></td>`;
             row.innerHTML=rowHTML;
         });
         addSortListeners();
@@ -208,7 +222,7 @@ button.ai-btn   { background-color: #ffc107; color: #333; }   /* yellow for AI *
         let y=20; doc.setFontSize(16); doc.text('Student Results',105,y,{align:'center'}); y+=10;
         filtered.forEach(r=>{
             if(y>270){ doc.addPage(); y=20; }
-            doc.text(`${r.rank}. ${r.studentName} | ${r.mobile} | Total: ${r.totalScore}`,10,y); y+=7;
+            doc.text(`${r.rank}. ${r.studentName} | ${r.mobile} | ${r.class} | ${r.location} | Total: ${r.totalScore}`,10,y); y+=7;
             dynamicSubjects.forEach(sub=>{ doc.text(`   ${sub}: ${r.subjectScores[sub]||0}`,15,y); y+=6; });
             y+=3;
         });
@@ -216,28 +230,22 @@ button.ai-btn   { background-color: #ffc107; color: #333; }   /* yellow for AI *
     };
     
     document.getElementById('exportBtn').onclick = function() {
-        if (filtered.length === 0) {
-            alert("No results to export.");
-            return;
-        }
-        const headers = ["Rank", "Student Name", "Mobile", "Class", "Total Score", ...dynamicSubjects, "Warnings"];
+        if (filtered.length === 0) { alert("No results to export."); return; }
+        const headers = ["Rank", "Student Name", "Mobile", "Class", "Location", "Total Score", ...dynamicSubjects, "Warnings"];
         let csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n";
-        
         filtered.forEach(res => {
             const rowData = [
                 res.rank,
                 `"${res.studentName}"`,
                 `"${res.mobile}"`,
                 `"${res.class}"`,
+                `"${res.location}"`,
                 res.totalScore,
             ];
-            dynamicSubjects.forEach(subject => {
-                rowData.push(res.subjectScores[subject] || 0);
-            });
+            dynamicSubjects.forEach(subject => rowData.push(res.subjectScores[subject] || 0));
             rowData.push(res.warnings);
             csvContent += rowData.join(",") + "\n";
         });
-
         const encodedUri = encodeURI(csvContent);
         const link = document.createElement("a");
         link.setAttribute("href", encodedUri);
@@ -254,9 +262,7 @@ button.ai-btn   { background-color: #ffc107; color: #333; }   /* yellow for AI *
                 if (!response.ok) throw new Error('Server error');
                 alert('All results have been cleared successfully.');
                 fetchResults();
-            } catch (error) {
-                alert('Failed to clear results.');
-            }
+            } catch (error) { alert('Failed to clear results.'); }
         }
     }
 
@@ -278,10 +284,8 @@ button.ai-btn   { background-color: #ffc107; color: #333; }   /* yellow for AI *
 
     fetchResults();
 })();
-    function markWrong(td) {
-    td.className = 'wrong-mark';  // apply red background
-}
 
+function markWrong(td) { td.className = 'wrong-mark'; }  // click to mark wrong
 </script>
 </body>
 </html>
