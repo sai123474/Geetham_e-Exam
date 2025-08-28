@@ -7,16 +7,16 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 // --- CONFIGURATION ---
 const app = express();
-const PORT = 3000;
-const API_KEY = "AIzaSyA3WIHFw2_5E8hYUSlG2rrLdq7J7KKwbe0";
-const genAI = new GoogleGenerativeAI(API_KEY);
+const PORT = process.env.PORT || 3000;
 
-// ** IMPORTANT: Replace with your MongoDB Atlas Connection String **
+// Use environment variables for security
+const API_KEY = "AIzaSyA3WIHFw2_5E8hYUSlG2rrLdq7J7KKwbe0";
 const MONGO_URI = "mongodb+srv://yamparalasaikrishna6:Tngy9EWjTg1akDXW@saikrishna.dced3fy.mongodb.net/?retryWrites=true&w=majority&appName=SaiKrishna";
+
+const genAI = new GoogleGenerativeAI(API_KEY);
 const client = new MongoClient(MONGO_URI, {
     serverApi: { version: ServerApiVersion.v1, strict: true, deprecationErrors: true }
 });
-
 let db;
 
 // --- MIDDLEWARE ---
@@ -28,32 +28,58 @@ app.use(express.static('public'));
 async function connectDB() {
     try {
         await client.connect();
-        db = client.db("GeethamQuizDB"); // Your database name
-        console.log("Successfully connected to MongoDB Atlas!");
+        db = client.db("GeethamQuizDB");
+        console.log("✅ Successfully connected to MongoDB Atlas!");
     } catch (err) {
-        console.error("Failed to connect to MongoDB", err);
-        process.exit(1); // Exit if DB connection fails
+        console.error("❌ Failed to connect to MongoDB", err);
+        process.exit(1);
     }
 }
 
 // --- API ENDPOINTS ---
 
-// Get all quiz data (still from file for simplicity, but could be moved to DB)
-app.get('/get-quizzes', (req, res) => {
-    fs.readFile(path.join(__dirname, 'quizzes.json'), 'utf8', (err, data) => {
-        if (err) return res.status(500).send('Error reading quizzes file.');
-        res.json(JSON.parse(data));
-    });
+// Get all quizzes from the database
+app.get('/get-quizzes', async (req, res) => {
+    try {
+        const quizzesCollection = db.collection('quizzes');
+        const allQuizzes = await quizzesCollection.find({}).toArray();
+        res.json(allQuizzes);
+    } catch (err) {
+        res.status(500).send('Error fetching quizzes.');
+    }
 });
 
-app.post('/update-quizzes', (req, res) => {
-    fs.writeFile(path.join(__dirname, 'quizzes.json'), JSON.stringify(req.body, null, 2), (err) => {
-        if (err) return res.status(500).send('Error saving quizzes.');
+// Update all quizzes in the database
+app.post('/update-quizzes', async (req, res) => {
+    try {
+        const updatedQuizzes = req.body;
+        const quizzesCollection = db.collection('quizzes');
+        await quizzesCollection.deleteMany({}); // Clear the collection
+        if (updatedQuizzes.length > 0) {
+            await quizzesCollection.insertMany(updatedQuizzes); // Insert the new list
+        }
         res.status(200).send('Quizzes updated successfully.');
-    });
+    } catch (err) {
+        res.status(500).send('Error saving quizzes.');
+    }
+});
+app.post('/ai-analysis', async (req, res) => {
+    try {
+        const { studentName, subjectScores } = req.body;
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+
+        const prompt = `Analyze the performance of a student named ${studentName} based on their subject scores from a mock test. The total marks for each subject are 120. Provide a brief, encouraging analysis (around 50-70 words) that identifies one area of strength and one area for improvement. Format the response as a single valid JSON object with one key: "report". The student's scores are: ${JSON.stringify(subjectScores)}`;
+
+        const result = await model.generateContent(prompt);
+        const text = result.response.text().replace(/```json|```/g, '').trim();
+        res.json(JSON.parse(text));
+    } catch (error) {
+        console.error("AI Analysis Error:", error);
+        res.status(500).send("Failed to generate AI analysis.");
+    }
 });
 
-// Check if a student has already attempted a specific quiz
+// Check if a student has already attempted a quiz
 app.post('/check-attempt', async (req, res) => {
     try {
         const { mobile, quizId } = req.body;
@@ -69,7 +95,7 @@ app.post('/check-attempt', async (req, res) => {
     }
 });
 
-// Save a student's submitted result
+// Submit a student's result
 app.post('/submit-result', async (req, res) => {
     try {
         const newResult = req.body;
@@ -81,7 +107,7 @@ app.post('/submit-result', async (req, res) => {
     }
 });
 
-// Get all results for the teacher's dashboard
+// Get all results for the dashboard
 app.get('/results', async (req, res) => {
     try {
         const resultsCollection = db.collection('results');
@@ -92,7 +118,7 @@ app.get('/results', async (req, res) => {
     }
 });
 
-// Clear all results from the database
+// Clear all results
 app.post('/clear-results', async (req, res) => {
     try {
         const resultsCollection = db.collection('results');
@@ -103,13 +129,37 @@ app.post('/clear-results', async (req, res) => {
     }
 });
 
-// AI Endpoints (no changes needed here)
-app.post('/generate-questions', async (req, res) => { /* ... same as before ... */ });
-app.post('/generate-from-text', async (req, res) => { /* ... same as before ... */ });
+// AI Endpoint to generate questions from a topic
+app.post('/generate-questions', async (req, res) => {
+    try {
+        const { topic, numQuestions } = req.body;
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+        const prompt = `Generate ${numQuestions} multiple-choice questions for a JEE Mains level exam on the topic of "${topic}". Provide the question text, four options, and the 0-based index of the correct answer. Format the response as a single, valid JSON array of objects. Each object must have keys: "text", "options", and "correctAnswer". Output only the raw JSON array.`;
+        const result = await model.generateContent(prompt);
+        const text = result.response.text().replace(/```json|```/g, '').trim();
+        res.json(JSON.parse(text));
+    } catch (error) {
+        res.status(500).send("Failed to generate questions with AI.");
+    }
+});
+
+// AI Endpoint to generate questions from pasted text
+app.post('/generate-from-text', async (req, res) => {
+    try {
+        const { text } = req.body;
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+        const prompt = `Analyze the following text from a question paper and convert it into a valid JSON array of objects. Each object must have keys: "subject", "text", "options", and "correctAnswer" (0-based index). Extract all questions. Output only the raw JSON array. Text to analyze: "${text}"`;
+        const result = await model.generateContent(prompt);
+        const aiResponseText = result.response.text().replace(/```json|```/g, '').trim();
+        res.json(JSON.parse(aiResponseText));
+    } catch (error) {
+        res.status(500).send("Failed to process text with AI.");
+    }
+});
 
 // --- START SERVER ---
 connectDB().then(() => {
     app.listen(PORT, () => {
-        console.log(`Server is running at http://localhost:${PORT}`);
+        console.log(`🚀 Server running at http://localhost:${PORT}`);
     });
 });
