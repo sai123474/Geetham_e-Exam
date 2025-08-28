@@ -20,10 +20,13 @@
         .toolbar { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:12px; justify-content:space-between; }
         select,input[type="text"]{padding:8px 12px; font-size:16px; border-radius:8px; border:1px solid var(--border);}
         button{padding:8px 12px; border:none; border-radius:8px; color:#fff; cursor:pointer;}
+        button.view-btn { background-color: #17a2b8; color: #fff; }   /* blue for View */
+button.ai-btn   { background-color: #ffc107; color: #333; }   /* yellow for AI */
         .table-wrap { border:1px solid var(--border); border-radius:8px; overflow:auto; }
         table { width:100%; border-collapse:collapse; }
         thead th { position:sticky; top:0; background:var(--brand); color:#fff; padding:10px; cursor:pointer;}
         tbody td { padding:10px; border-top:1px solid var(--border); text-align:center; }
+        td.wrong-mark { background-color: #dc3545; color: #fff; font-weight: bold; }
         .rank { font-weight:800; }
         .color-low { background:#ffcccc; }
         .color-medium { background:#fff3cd; }
@@ -133,15 +136,20 @@
         data.forEach(res=>{
             const row = tbody.insertRow();
             let rowHTML=`<td>${res.rank}</td><td>${res.studentName}</td><td>${res.mobile}</td><td>${res.class}</td><td>${res.totalScore}</td>`;
-            dynamicSubjects.forEach(sub=>{
-                let val=res.subjectScores[sub]||0;
-                let colorClass = val>=75?'color-high': val>=50?'color-medium':'color-low';
-                rowHTML+=`<td class="${colorClass}">${val}</td>`;
-            });
+           dynamicSubjects.forEach(sub=>{
+    let val=res.subjectScores[sub]||0;
+    let colorClass = val>=75?'color-high': val>=50?'color-medium':'color-low';
+    rowHTML+=`<td class="${colorClass}" onclick="markWrong(this)">${val}</td>`;
+});
+
             let warnClass = res.warnings>3?'warn-high':'';
             rowHTML+=`<td class="${warnClass}">${res.warnings}</td>
-                        <td><button onclick='showDetailsModal(${JSON.stringify(res)})'>View</button></td>
-                        <td><button onclick='getAIAnalysis(${JSON.stringify(res)})'>AI</button></td>`;
+                        <td>
+    <button class="view-btn" onclick='showDetailsModal(${JSON.stringify(res)})'>View</button>
+</td>
+<td>
+    <button class="ai-btn" onclick='getAIAnalysis(${JSON.stringify(res)})'>AI</button>
+</td>`;
             row.innerHTML=rowHTML;
         });
         addSortListeners();
@@ -270,6 +278,10 @@
 
     fetchResults();
 })();
+    function markWrong(td) {
+    td.className = 'wrong-mark';  // apply red background
+}
+
 </script>
 </body>
 </html>
