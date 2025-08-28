@@ -63,6 +63,21 @@ app.post('/update-quizzes', async (req, res) => {
         res.status(500).send('Error saving quizzes.');
     }
 });
+app.post('/ai-analysis', async (req, res) => {
+    try {
+        const { studentName, subjectScores } = req.body;
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+
+        const prompt = `Analyze the performance of a student named ${studentName} based on their subject scores from a mock test. The total marks for each subject are 120. Provide a brief, encouraging analysis (around 50-70 words) that identifies one area of strength and one area for improvement. Format the response as a single valid JSON object with one key: "report". The student's scores are: ${JSON.stringify(subjectScores)}`;
+
+        const result = await model.generateContent(prompt);
+        const text = result.response.text().replace(/```json|```/g, '').trim();
+        res.json(JSON.parse(text));
+    } catch (error) {
+        console.error("AI Analysis Error:", error);
+        res.status(500).send("Failed to generate AI analysis.");
+    }
+});
 
 // Check if a student has already attempted a quiz
 app.post('/check-attempt', async (req, res) => {
