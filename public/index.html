@@ -111,10 +111,8 @@ button:disabled { background-color: #a0a0a0; cursor: not-allowed; }
                 <button onclick="saveAndNext()">Save & Next</button>
             </div>
         </div>
-        <div style="text-align: center; margin-top: 20px;">
-            <button class="submit" onclick="confirmSubmit()">Submit Test</button>
-            <button onclick="downloadPDFReport()">Download PDF</button>
-        </div>
+       <div id="pdf-button-container" style="text-align:center; margin-top:20px; display:none;">
+    <button id="download-pdf-btn" onclick="downloadPDFReport()">Download PDF Report</button>
     </div>
     <div class="sidebar">
         <h4>Question Palette</h4>
@@ -125,6 +123,9 @@ button:disabled { background-color: #a0a0a0; cursor: not-allowed; }
         <div style="display:flex; align-items: center; margin-top: 10px;"><div class="palette-item status-review"></div><span style="margin-left: 10px;">Marked for Review</span></div>
         <div style="display:flex; align-items: center; margin-top: 10px;"><div class="palette-item status-not-answered"></div><span style="margin-left: 10px;">Not Answered</span></div>
     </div>
+    
+</div>
+
 </div>
 
 <script type="module">
@@ -429,7 +430,7 @@ function submitTest() {
     if (!quizInProgress) return;
     quizInProgress = false;
     clearInterval(timerInterval);
-    
+
     let totalScore = 0;
     let subjectScores = {};
 
@@ -472,16 +473,22 @@ function submitTest() {
             console.warn("Could not clear saved progress.");
         }
 
-        // Show result summary
-        const quizScreen = document.getElementById('quiz-screen');
-        quizScreen.innerHTML = `
+        alert(`Test Submitted Successfully!`);
+        
+        // Show PDF button
+        const pdfContainer = document.getElementById('pdf-button-container');
+        if (pdfContainer) pdfContainer.style.display = 'block';
+
+        // Optionally, show score
+        document.getElementById('quiz-screen').innerHTML = `
             <div style="max-width: 600px; margin: 50px auto; text-align:center;">
                 <h1>Test Submitted Successfully</h1>
-                <button onclick="downloadPDFReport()" style="margin-top:20px; padding:10px 20px; font-size:16px; border-radius:6px; background-color:#007bff; color:white; border:none; cursor:pointer;">
-                    Download PDF Report
-                </button>
+                <h2>Your Final Score: ${totalScore}</h2>
             </div>
         `;
+
+        // Append PDF button below score
+        document.getElementById('quiz-screen').appendChild(pdfContainer);
     })
     .catch(error => {
         alert('There was an error submitting your test. Your progress is still saved.');
@@ -489,29 +496,76 @@ function submitTest() {
     });
 }
 
+
 // DOWNLOAD PDF
-function downloadPDFReport(){
-    if(typeof window.jspdf==='undefined'){alert("PDF library not available.");return;}
-    if(!studentDetails.name||!currentQuiz.title){alert("Student or quiz data missing.");return;}
-    const { jsPDF }=window.jspdf;const doc=new jsPDF();let y=20;
-    doc.setFontSize(20);doc.setFont("helvetica","bold");doc.text("Geetham e-Exam - Performance Report",105,y,{align:'center'});y+=15;
-    doc.setFontSize(12);doc.setFont("helvetica","normal");doc.text(`Student: ${studentDetails.name}`,14,y);doc.text(`Quiz: ${currentQuiz.title}`,105,y,{align:'center'});y+=15;
-    doc.line(14,y,196,y);y+=10;
-    Object.keys(userResponses).forEach(subject=>{
-        if(y>270){doc.addPage();y=20;}
-        doc.setFontSize(14);doc.setFont("helvetica","bold");doc.text(`Subject: ${subject}`,14,y);y+=10;
-        currentQuiz.subjects[subject].forEach((q,i)=>{
-            if(y>270){doc.addPage();y=20;}
-            const resp=userResponses[subject]?.[i]||{};
-            doc.setFontSize(11);doc.setFont("helvetica","bold");
-            const qText=doc.splitTextToSize(`Q${i+1}: ${q.text}`,180);doc.text(qText,14,y);y+=(qText.length*5)+2;
-            doc.setFont("helvetica","normal");
-            doc.text(`Your Answer: ${resp.answer!==undefined?q.shuffledOptions[resp.answer]:"Not Answered"}`,18,y);y+=6;
-            doc.text(`Correct Answer: ${q.shuffledOptions[q.shuffledCorrectAnswerIndex]}`,18,y);y+=10;
+function downloadPDFReport() {
+    if (typeof window.jspdf === 'undefined') {
+        alert("PDF library not available.");
+        return;
+    }
+    if (!studentDetails.name || !currentQuiz.title) {
+        alert("Student or quiz data missing.");
+        return;
+    }
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    let y = 20;
+
+    doc.setFontSize(20);
+    doc.setFont("helvetica", "bold");
+    doc.text("Geetham e-Exam - Performance Report", 105, y, { align: 'center' });
+    y += 15;
+
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Student: ${studentDetails.name}`, 14, y);
+    doc.text(`Quiz: ${currentQuiz.title}`, 105, y, { align: 'center' });
+    y += 15;
+    doc.line(14, y, 196, y);
+    y += 10;
+
+    Object.keys(userResponses).forEach(subject => {
+        if (y > 270) { doc.addPage(); y = 20; }
+
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.text(`Subject: ${subject}`, 14, y);
+        y += 10;
+
+        const questions = currentQuiz.subjects[subject] || [];
+
+        questions.forEach((q, i) => {
+            if (y > 270) { doc.addPage(); y = 20; }
+
+            const resp = userResponses[subject]?.[i] || {};
+            doc.setFontSize(11);
+            doc.setFont("helvetica", "bold");
+
+            const qText = doc.splitTextToSize(`Q${i + 1}: ${q.text || "Question text missing"}`, 180);
+            doc.text(qText, 14, y);
+            y += (qText.length * 5) + 2;
+
+            doc.setFont("helvetica", "normal");
+
+            const userAns = (resp.answer !== undefined && q.shuffledOptions?.[resp.answer] !== undefined)
+                ? q.shuffledOptions[resp.answer]
+                : "Not Answered";
+
+            const correctAns = (q.shuffledOptions?.[q.shuffledCorrectAnswerIndex] !== undefined)
+                ? q.shuffledOptions[q.shuffledCorrectAnswerIndex]
+                : "N/A";
+
+            doc.text(`Your Answer: ${userAns}`, 18, y);
+            y += 6;
+            doc.text(`Correct Answer: ${correctAns}`, 18, y);
+            y += 10;
         });
     });
+
     doc.save(`${studentDetails.name}_Report.pdf`);
 }
+
 
 // GLOBAL FUNCTIONS
 window.goPrevious=goPrevious;
