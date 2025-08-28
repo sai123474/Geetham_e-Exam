@@ -104,6 +104,12 @@
             <div id="quiz-details"></div>
             <div id="subjects-details"></div>
             <button class="btn-add" onclick="addSubject()">Add Subject</button>
+            <div class="question-container" style="margin-top: 30px;">
+                <h4>Generate Questions from Text using AI</h4>
+                <p>Paste your questions and options below, then click generate.</p>
+                <textarea id="ai-text-input" rows="10" placeholder="Paste question paper text here..."></textarea>
+                <button class="btn-add" onclick="generateFromText()">Generate from Text</button>
+            </div>
             <div style="margin-top: 20px; display:flex; justify-content:space-between; flex-wrap: wrap;">
                 <div>
                     <button class="btn-save" onclick="saveQuiz()">Save This Quiz</button>
@@ -134,6 +140,12 @@
                 <label>Subject Name:</label>
                 <input type="text" class="subject-name" value="${subjectName}">
                 <button class="btn-remove" onclick="removeSubject(this)">Remove Subject</button>
+                <div class="question-container">
+                    <h5>Generate Questions for ${subjectName} with AI</h5>
+                    <input type="text" id="topic-${subjectName}" placeholder="Enter topic (e.g., Laws of Motion)">
+                    <input type="number" id="num-${subjectName}" value="3" style="width: 80px;">
+                    <button class="btn-add" onclick="generateWithAI('${subjectName}')">Generate from Topic</button>
+                </div>
             `;
             subjects[subjectName].forEach((q, qIndex) => {
                 subjectDiv.appendChild(createQuestionElement(qIndex, q));
@@ -152,42 +164,21 @@
         qDiv.className = 'question-container';
         qDiv.innerHTML = `
             <h5>Question ${qIndex + 1} <button class="btn-remove" onclick="removeQuestion(this)">Remove</button></h5>
-            <label>Question Type:</label>
-            <select class="question-type" onchange="toggleAnswerType(this)">
-                <option value="multiple-choice" ${!question.type || question.type === 'multiple-choice' ? 'selected' : ''}>Multiple Choice</option>
-                <option value="fill-in-the-blank" ${question.type === 'fill-in-the-blank' ? 'selected' : ''}>Fill in the Blank</option>
-                <option value="subjective" ${question.type === 'subjective' ? 'selected' : ''}>Subjective</option>
+            <label>Question Text:</label><textarea rows="2">${question.text}</textarea>
+            <label>Options:</label>
+            <input type="text" value="${question.options[0]}">
+            <input type="text" value="${question.options[1]}">
+            <input type="text" value="${question.options[2]}">
+            <input type="text" value="${question.options[3]}">
+            <label>Correct Answer:</label>
+            <select>
+                <option value="0" ${question.correctAnswer === 0 ? 'selected' : ''}>Option 1</option>
+                <option value="1" ${question.correctAnswer === 1 ? 'selected' : ''}>Option 2</option>
+                <option value="2" ${question.correctAnswer === 2 ? 'selected' : ''}>Option 3</option>
+                <option value="3" ${question.correctAnswer === 3 ? 'selected' : ''}>Option 4</option>
             </select>
-            <label>Question Text:</label><textarea rows="2">${question.text || ''}</textarea>
-            <div class="answer-fields"></div>
         `;
-        toggleAnswerType(qDiv.querySelector('.question-type'), qDiv.querySelector('.answer-fields'), question);
         return qDiv;
-    }
-    
-    function toggleAnswerType(selectElement, answerFieldsDiv, question = {}) {
-        if (!answerFieldsDiv) {
-            answerFieldsDiv = selectElement.closest('.question-container').querySelector('.answer-fields');
-        }
-        const type = selectElement.value;
-        if (type === 'fill-in-the-blank' || type === 'subjective') {
-            answerFieldsDiv.innerHTML = `<label>Correct Answer / Keywords:</label><input type="text" class="correct-answer-text" value="${question.correctAnswer || ''}">`;
-        } else {
-            let optionsHTML = '';
-            for (let i = 0; i < 4; i++) {
-                optionsHTML += `<label>Option ${i + 1}:</label><input type="text" value="${question.options?.[i] || ''}">`;
-            }
-            answerFieldsDiv.innerHTML = `
-                ${optionsHTML}
-                <label>Correct Answer:</label>
-                <select class="correct-answer-mc">
-                    <option value="0" ${question.correctAnswer === 0 ? 'selected' : ''}>Option 1</option>
-                    <option value="1" ${question.correctAnswer === 1 ? 'selected' : ''}>Option 2</option>
-                    <option value="2" ${question.correctAnswer === 2 ? 'selected' : ''}>Option 3</option>
-                    <option value="3" ${question.correctAnswer === 3 ? 'selected' : ''}>Option 4</option>
-                </select>
-            `;
-        }
     }
 
     function addQuiz() {
@@ -214,12 +205,58 @@
     }
 
     function addQuestion(subjectDiv) {
-        const newQuestion = createQuestionElement(subjectDiv.querySelectorAll('.question-container').length, { type: 'multiple-choice', options: ["", "", "", ""], correctAnswer: 0 });
+        const newQuestion = createQuestionElement(subjectDiv.querySelectorAll('.question-container').length, { options: ["", "", "", ""], correctAnswer: 0 });
         subjectDiv.insertBefore(newQuestion, subjectDiv.querySelector('.btn-add'));
     }
 
     function removeQuestion(button) {
         button.closest('.question-container').remove();
+    }
+
+    async function generateWithAI(subjectName) {
+        const topic = document.getElementById(`topic-${subjectName}`).value;
+        const numQuestions = document.getElementById(`num-${subjectName}`).value;
+        if (!topic) {
+            alert("Please enter a topic.");
+            return;
+        }
+        try {
+            const response = await fetch('/generate-questions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ topic, numQuestions })
+            });
+            if (!response.ok) throw new Error('AI generation failed.');
+            const newQuestions = await response.json();
+            quizzesData[selectedQuizIndex].subjects[subjectName].push(...newQuestions);
+            renderQuizEditor();
+            alert(`${newQuestions.length} questions generated for ${subjectName}!`);
+        } catch (error) {
+            alert("Could not generate questions from topic.");
+        }
+    }
+
+    async function generateFromText() {
+        const textInput = document.getElementById('ai-text-input').value;
+        if (!textInput.trim()) return alert("Please paste text.");
+        try {
+            const response = await fetch('/generate-from-text', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: textInput })
+            });
+            if (!response.ok) throw new Error('AI generation failed.');
+            const newQuestions = await response.json();
+            newQuestions.forEach(q => {
+                if (quizzesData[selectedQuizIndex].subjects[q.subject]) {
+                    quizzesData[selectedQuizIndex].subjects[q.subject].push(q);
+                }
+            });
+            renderQuizEditor();
+            alert(`${newQuestions.length} questions generated and added!`);
+        } catch (error) {
+            alert("Could not generate questions from text.");
+        }
     }
 
     async function deleteQuiz() {
@@ -244,18 +281,12 @@
             if (subjectName) {
                 newSubjects[subjectName] = [];
                 subjectDiv.querySelectorAll('.question-container').forEach(qDiv => {
-                    const type = qDiv.querySelector('.question-type').value;
-                    const questionData = {
+                    const inputs = qDiv.querySelectorAll('input');
+                    newSubjects[subjectName].push({
                         text: qDiv.querySelector('textarea').value,
-                        type: type,
-                    };
-                    if (type === 'multiple-choice') {
-                        questionData.options = Array.from(qDiv.querySelectorAll('.answer-fields input')).map(input => input.value);
-                        questionData.correctAnswer = parseInt(qDiv.querySelector('.correct-answer-mc').value, 10);
-                    } else {
-                        questionData.correctAnswer = qDiv.querySelector('.correct-answer-text').value;
-                    }
-                    newSubjects[subjectName].push(questionData);
+                        options: [inputs[0].value, inputs[1].value, inputs[2].value, inputs[3].value],
+                        correctAnswer: parseInt(qDiv.querySelector('select').value)
+                    });
                 });
             }
         });
@@ -298,14 +329,10 @@
                 const textLines = doc.splitTextToSize(`${questionCounter}. ${q.text}`, 180);
                 doc.text(textLines, 14, y);
                 y += (textLines.length * 5) + 5;
-                if (q.type === 'multiple-choice') {
-                    q.options.forEach((opt, index) => {
-                        doc.text(`   (${String.fromCharCode(97 + index)}) ${opt}`, 20, y);
-                        y += 7;
-                    });
-                } else {
-                    y += 10; // Space for answer line
-                }
+                q.options.forEach((opt, index) => {
+                    doc.text(`   (${String.fromCharCode(97 + index)}) ${opt}`, 20, y);
+                    y += 7;
+                });
                 questionCounter++;
             });
         });
