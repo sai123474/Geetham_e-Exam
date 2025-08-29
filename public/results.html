@@ -112,7 +112,8 @@ const quizFilter = document.getElementById('quizFilter');
       totalScore: Number(r.totalScore||0), 
       subjectScores: r.subjectScores||{}, 
       warnings: Number(r.warnings||0),
-      location: r.location || null
+      location: r.location || null,
+      quizTitle: r.quizTitle || "Untitled Quiz"
     }; 
   }
 
@@ -130,7 +131,7 @@ const quizFilter = document.getElementById('quizFilter');
     let matchGrade = gradeFilter.value === 'all' || r.class === gradeFilter.value;
     let matchTop = !topN.value || r.rank <= Number(topN.value);
     let matchSearch = !searchEl.value || r.studentName.toLowerCase().includes(searchEl.value.toLowerCase()) || r.mobile.includes(searchEl.value);
-    let matchQuiz = quizFilter.value === 'all' || r.quizName === quizFilter.value;
+    let matchQuiz = quizFilter.value === 'all' || r.quizTitle === quizFilter.value;
     return matchGrade && matchTop && matchSearch && matchQuiz;
   });
 
