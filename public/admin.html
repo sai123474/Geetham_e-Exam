@@ -475,7 +475,8 @@
         quizToSave.subjects = newSubjects;
 
         await saveAllQuizzesToServer();
-        await loadQuizzes(); // reload with latest data
+       renderQuizList();
+     renderQuizEditor();
     }
 
     async function saveAllQuizzesToServer() {
