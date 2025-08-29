@@ -1,191 +1,310 @@
-// server.js
-const express = require('express');
-const { MongoClient, ServerApiVersion } = require('mongodb');
-const path = require('path');
-const cors = require('cors');
-const { GoogleGenerativeAI } = require("@google/generative-ai");
-const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Results - Geetham e-Exam</title>
+  <link rel="icon" type="image/jpeg" href="/geetham.jpg" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg:#f8f9fa; --card:#fff; --text:#1f2937; --muted:#6b7280; --brand:#0056b3;
+      --brand-2:#007bff; --ok:#28a745; --warn:#f59e0b; --danger:#dc3545; --info:#17a2b8;
+      --border:#e5e7eb; --shadow:0 4px 12px rgba(0,0,0,.08);
+    }
+    body{font-family:Arial,sans-serif;background:var(--bg);color:var(--text);margin:0;padding:16px;}
+    .container{max-width:1400px;margin:auto;background:var(--card);padding:24px;border-radius:12px;box-shadow:var(--shadow);}
+    .header{text-align:center;margin-bottom:16px;}
+    .header img{max-height:64px;}
+    .toolbar{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px;justify-content:space-between;}
+    select,input[type="text"]{padding:8px 12px;font-size:16px;border-radius:8px;border:1px solid var(--border);}
+    button{padding:8px 12px;border:none;border-radius:8px;color:#fff;cursor:pointer;}
+    .table-wrap{border:1px solid var(--border);border-radius:8px;overflow:auto;}
+    table{width:100%;border-collapse:collapse;}
+    thead th{position:sticky;top:0;background:var(--brand);color:#fff;padding:10px;cursor:pointer;}
+    tbody td{padding:10px;border-top:1px solid var(--border);text-align:center;}
+    .rank{font-weight:800;}
+    .color-low{background:#ffcccc;}
+    .color-medium{background:#fff3cd;}
+    .color-high{background:#d4edda;}
+    .modal-backdrop{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:none;align-items:center;justify-content:center;z-index:100;}
+    .modal-content{background:#fff;padding:20px;border-radius:8px;width:90%;max-width:600px;}
+    .modal-header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #ccc;padding-bottom:10px;}
+    .modal-close{font-size:24px;font-weight:bold;cursor:pointer;border:none;background:none;padding:0;}
+    .modal-body{padding-top:15px;max-height:400px;overflow-y:auto;}
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <img src="/geetham.jpg" alt="Geetham Logo">
+    <h1>Student Results Dashboard</h1>
+  </div>
+  <div class="toolbar">
+    <div>
+      <label for="quizFilter">Quiz:</label>
+      <select id="quizFilter"><option value="all">All Quizzes</option></select>
+      <label for="gradeFilter">Class:</label>
+      <select id="gradeFilter"><option value="all">All Classes</option></select>
+      <label for="topN">Top N:</label>
+      <select id="topN"><option value="">All</option><option value="5">Top 5</option><option value="10">Top 10</option></select>
+      <label for="search">Search:</label>
+      <input id="search" type="text" placeholder="Name or Mobile…">
+    </div>
+    <div>
+      <button id="pdfBtn" style="background:#007bff;">⬇ PDF</button>
+      <button id="exportBtn" style="background:#17a2b8;">⬇ Export CSV</button>
+      <button id="clearBtn" style="background:#dc3545;">🗑 Clear All</button>
+      <button id="refreshBtn" style="background:#28a745;">⟳ Refresh</button>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table id="results-table">
+      <thead></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <canvas id="chart" style="margin-top:20px; max-height:300px;"></canvas>
+  <div id="map" style="height:400px; margin-top:20px; border-radius:12px;"></div>
+</div>
 
-// --- CONFIGURATION ---
-const app = express();
-const PORT = process.env.PORT || 3000;
+<!-- Modals -->
+<div id="details-modal" class="modal-backdrop">
+  <div class="modal-content" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h3 id="modal-title">Detailed Report</h3>
+      <button class="modal-close" onclick="closeDetailsModal()">&times;</button>
+    </div>
+    <div id="modal-body" class="modal-body"></div>
+  </div>
+</div>
 
-// Use environment variables for security
-const API_KEY = "AIzaSyA3WIHFw2_5E8hYUSlG2rrLdq7J7KKwbe0";
-const MONGO_URI = "mongodb+srv://yamparalasaikrishna6:Tngy9EWjTg1akDXW@saikrishna.dced3fy.mongodb.net/?retryWrites=true&w=majority&appName=SaiKrishna";
-const JWT_SECRET ="Geetham_e_exam2025"
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "Geetham@2014";
-const ADMIN_PASSWORD_HASH=bcrypt.hashSync(process.env.ADMIN_PASSWORD || ADMIN_PASSWORD, 10);
+<div id="ai-modal" class="modal-backdrop">
+  <div class="modal-content" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h3 id="ai-modal-title">AI Performance</h3>
+      <button class="modal-close" onclick="closeAIModal()">&times;</button>
+    </div>
+    <div id="ai-modal-body" class="modal-body"></div>
+  </div>
+</div>
 
-const genAI = new GoogleGenerativeAI(API_KEY);
-const client = new MongoClient(MONGO_URI, {
-    serverApi: { version: ServerApiVersion.v1, strict: true, deprecationErrors: true }
-});
-let db;
+<script>
+const quizFilter = document.getElementById('quizFilter');
 
-// --- MIDDLEWARE ---
-app.use(cors());
-app.use(express.json());
-app.use(express.static('public'));
-// --- AUTHENTICATION MIDDLEWARE ---
-function authenticateToken(req, res, next) {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
-    if (token == null) return res.sendStatus(401);
+(function(){
+  let allResults=[], filtered=[], dynamicSubjects=[], sortKey='totalScore', sortDir='desc';
+  const tbody = document.querySelector('#results-table tbody');
+  const thead = document.querySelector('#results-table thead');
+  const gradeFilter = document.getElementById('gradeFilter');
+  const topN = document.getElementById('topN');
+  const searchEl = document.getElementById('search');
 
-    jwt.verify(token, JWT_SECRET, (err, user) => {
-        if (err) return res.sendStatus(403);
-        req.user = user;
-        next();
+  function normalizeRecord(r){ 
+    return {
+      ...r,
+      studentName: r.studentName||'N/A', 
+      mobile: r.mobile||'N/A', 
+      class: String(r.class||'N/A'), 
+      totalScore: Number(r.totalScore||0), 
+      subjectScores: r.subjectScores||{}, 
+      warnings: Number(r.warnings||0),
+      location: r.location || null
+    }; 
+  }
+
+  function computeRanks(arr){
+    const sorted=[...arr].sort((a,b)=>b.totalScore-a.totalScore);
+    const scoreToRank=new Map();
+    sorted.forEach((item,index)=>{if(!scoreToRank.has(item.totalScore)) scoreToRank.set(item.totalScore,index+1);});
+    return arr.map(it=>({...it, rank: scoreToRank.get(it.totalScore)}));
+  }
+
+  function applyFiltersAndRender(){
+    let rankedResults = computeRanks(allResults);
+    filtered = rankedResults.filter(r=>{
+      let matchGrade = gradeFilter.value === 'all' || r.class === gradeFilter.value;
+      let matchTop = !topN.value || r.rank <= Number(topN.value);
+      let matchSearch = !searchEl.value || r.studentName.toLowerCase().includes(searchEl.value.toLowerCase()) || r.mobile.includes(searchEl.value);
+      let matchQuiz = quizFilter.value === 'all' || r.quizName === quizFilter.value;
+      return matchGrade && matchTop && matchSearch && matchQuiz;
     });
-}
-app.post('/login', (req, res) => {
-    const { password } = req.body;
-    if (bcrypt.compareSync(password, ADMIN_PASSWORD_HASH)) {
-        const accessToken = jwt.sign({ user: 'admin' }, JWT_SECRET, { expiresIn: '8h' });
-        res.json({ accessToken });
-    } else {
-        res.status(401).send('Incorrect password');
-    }
-});
+    renderTable(filtered);
+    renderChart(filtered);
+    renderMap(filtered);
+  }
 
-// --- DATABASE CONNECTION ---
-async function connectDB() {
-    try {
-        await client.connect();
-        db = client.db("GeethamQuizDB");
-        console.log("Successfully connected to MongoDB Atlas!");
-    } catch (err) {
-        console.error("Failed to connect to MongoDB", err);
-        process.exit(1);
-    }
-}
+  function renderTable(data){
+    const subjectSet=new Set();
+    allResults.forEach(res=>Object.keys(res.subjectScores||{}).forEach(sub=>subjectSet.add(sub)));
+    dynamicSubjects=Array.from(subjectSet).sort();
 
-// --- API ENDPOINTS ---
+    let headerHTML=`<tr>
+      <th data-key="rank">Rank</th>
+      <th data-key="studentName">Name</th>
+      <th data-key="mobile">Mobile</th>
+      <th data-key="class">Class</th>
+      <th data-key="location">Location</th>
+      <th data-key="totalScore">Total</th>`;
+    dynamicSubjects.forEach(sub=>headerHTML+=`<th>${sub}</th>`);
+    headerHTML+='<th data-key="warnings">Warnings</th><th>Details</th><th>AI Analysis</th></tr>';
+    thead.innerHTML=headerHTML;
 
-// Get all quizzes from the database
-app.get('/get-quizzes', async (req, res) => {
-    try {
-        const quizzesCollection = db.collection('quizzes');
-        const allQuizzes = await quizzesCollection.find({}).toArray();
-        res.json(allQuizzes);
-    } catch (err) {
-        res.status(500).send('Error fetching quizzes.');
-    }
-});
-
-// Update all quizzes in the database
-app.post('/update-quizzes', authenticateToken, async (req, res) => {
-    try {
-        const updatedQuizzes = req.body;
-        const quizzesCollection = db.collection('quizzes');
-        await quizzesCollection.deleteMany({}); // Clear the collection
-        if (updatedQuizzes.length > 0) {
-            await quizzesCollection.insertMany(updatedQuizzes); // Insert the new list
+    tbody.innerHTML='';
+    data.forEach(res=>{
+      const row=tbody.insertRow();
+      let locationHTML='N/A';
+      if(res.location){
+        if(typeof res.location === 'object' && res.location.lat && res.location.lon){
+          locationHTML=`<a href="https://www.google.com/maps?q=${res.location.lat},${res.location.lon}" target="_blank">${res.location.lat}, ${res.location.lon}</a>`;
+        }else{
+          locationHTML=res.location;
         }
-        res.status(200).send('Quizzes updated successfully.');
-    } catch (err) {
-        res.status(500).send('Error saving quizzes.');
-    }
-});
-app.post('/ai-analysis', async (req, res) => {
-    try {
-        const { studentName, subjectScores } = req.body;
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
-
-        const prompt = `Analyze the performance of a student named ${studentName} based on their subject scores from a mock test. The total marks for each subject are 120. Provide a brief, encouraging analysis (around 50-70 words) that identifies one area of strength and one area for improvement. Format the response as a single valid JSON object with one key: "report". The student's scores are: ${JSON.stringify(subjectScores)}`;
-
-        const result = await model.generateContent(prompt);
-        const text = result.response.text().replace(/```json|```/g, '').trim();
-        res.json(JSON.parse(text));
-    } catch (error) {
-        console.error("AI Analysis Error:", error);
-        res.status(500).send("Failed to generate AI analysis.");
-    }
-});
-
-// Check if a student has already attempted a quiz
-app.post('/check-attempt', async (req, res) => {
-    try {
-        const { mobile, quizId } = req.body;
-        const resultsCollection = db.collection('results');
-        const existingAttempt = await resultsCollection.findOne({ mobile, quizId });
-        if (existingAttempt) {
-            res.json({ canAttempt: false, message: "You have already attempted this quiz." });
-        } else {
-            res.json({ canAttempt: true });
-        }
-    } catch (err) {
-        res.status(500).send('Error checking attempt.');
-    }
-});
-
-// Submit a student's result
-app.post('/submit-result', async (req, res) => {
-    try {
-        const newResult = req.body;
-        const resultsCollection = db.collection('results');
-        await resultsCollection.insertOne(newResult);
-        res.status(200).send('Result saved successfully.');
-    } catch (err) {
-        res.status(500).send('Error saving result.');
-    }
-});
-
-// Get all results for the dashboard
-app.get('/results', async (req, res) => {
-    try {
-        const resultsCollection = db.collection('results');
-        const allResults = await resultsCollection.find({}).toArray();
-        res.json(allResults);
-    } catch (err) {
-        res.status(500).send('Error fetching results.');
-    }
-});
-
-// Clear all results
-app.post('/clear-results', async (req, res) => {
-    try {
-        const resultsCollection = db.collection('results');
-        await resultsCollection.deleteMany({});
-        res.status(200).send('Results cleared successfully.');
-    } catch (err) {
-        res.status(500).send('Error clearing results.');
-    }
-});
-
-// AI Endpoint to generate questions from a topic
-app.post('/generate-questions', authenticateToken, async (req, res) => {
-    try {
-        const { topic, numQuestions } = req.body;
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
-        const prompt = `Generate ${numQuestions} multiple-choice questions for a JEE Mains level exam on the topic of "${topic}". Provide the question text, four options, and the 0-based index of the correct answer. Format the response as a single, valid JSON array of objects. Each object must have keys: "text", "options", and "correctAnswer". Output only the raw JSON array.`;
-        const result = await model.generateContent(prompt);
-        const text = result.response.text().replace(/```json|```/g, '').trim();
-        res.json(JSON.parse(text));
-    } catch (error) {
-        res.status(500).send("Failed to generate questions with AI.");
-    }
-});
-
-// AI Endpoint to generate questions from pasted text
-app.post('/generate-from-text', authenticateToken, async (req, res) => {
-    try {
-        const { text } = req.body;
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
-        const prompt = `Analyze the following text from a question paper and convert it into a valid JSON array of objects. Each object must have keys: "subject", "text", "options", and "correctAnswer" (0-based index). Extract all questions. Output only the raw JSON array. Text to analyze: "${text}"`;
-        const result = await model.generateContent(prompt);
-        const aiResponseText = result.response.text().replace(/```json|```/g, '').trim();
-        res.json(JSON.parse(aiResponseText));
-    } catch (error) {
-        res.status(500).send("Failed to process text with AI.");
-    }
-});
-
-// --- START SERVER ---
-connectDB().then(() => {
-    app.listen(PORT, () => {
-        console.log(`Server running at http://localhost:${PORT}`);
+      }
+      let rowHTML=`<td>${res.rank}</td>
+        <td>${res.studentName}</td>
+        <td>${res.mobile}</td>
+        <td>${res.class}</td>
+        <td>${locationHTML}</td>
+        <td>${res.totalScore}</td>`;
+      dynamicSubjects.forEach(sub=>{
+        let val=res.subjectScores[sub]||0;
+        let colorClass=val>=75?'color-high':val>=50?'color-medium':'color-low';
+        rowHTML+=`<td class="${colorClass}">${val}</td>`;
+      });
+      let warnClass=res.warnings>=3?'warn-high':'';
+      rowHTML+=`<td class="${warnClass}">${res.warnings}</td>
+        <td><button onclick='showDetailsModal(${JSON.stringify(res)})'>View</button></td>
+        <td><button onclick='getAIAnalysis(${JSON.stringify(res)})'>AI</button></td>`;
+      row.innerHTML=rowHTML;
     });
-});
+    addSortListeners();
+  }
+
+  function renderChart(data){
+    const ctx=document.getElementById('chart').getContext('2d');
+    const avgScores={}; dynamicSubjects.forEach(sub=>avgScores[sub]=0);
+    data.forEach(r=>dynamicSubjects.forEach(sub=>avgScores[sub]+=(r.subjectScores[sub]||0)));
+    const labels=Object.keys(avgScores);
+    const scores=labels.map(sub=>data.length>0?Math.round(avgScores[sub]/data.length):0);
+    if(window.chartInstance) window.chartInstance.destroy();
+    window.chartInstance=new Chart(ctx,{type:'bar',data:{labels,datasets:[{label:'Average Scores',data:scores,backgroundColor:'#007bff'}]},options:{responsive:true,plugins:{legend:{display:false}}}});
+  }
+
+  function renderMap(data){
+    if(window.mapInstance) window.mapInstance.remove();
+    window.mapInstance=L.map('map').setView([20.5937,78.9629],5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(window.mapInstance);
+    data.forEach(r=>{
+      if(r.location && typeof r.location==='object' && r.location.lat && r.location.lon){
+        L.marker([r.location.lat,r.location.lon]).addTo(window.mapInstance)
+          .bindPopup(`<b>${r.studentName}</b><br>Class: ${r.class}<br>Total: ${r.totalScore}`);
+      }
+    });
+  }
+
+  function addSortListeners(){
+    document.querySelectorAll('th[data-key]').forEach(th=>{
+      th.onclick=()=>{
+        const key=th.dataset.key;
+        sortDir=(sortKey===key && sortDir==='asc')?'desc':'asc';
+        sortKey=key;
+        applyFiltersAndRender();
+      };
+    });
+  }
+
+  window.showDetailsModal=function(res){
+    const modal=document.getElementById('details-modal');
+    document.getElementById('modal-title').textContent=`Report: ${res.studentName}`;
+    let html='<ul>';
+    Object.keys(res.subjectScores).forEach(sub=>{html+=`<li>${sub}: ${res.subjectScores[sub]}</li>`;});
+    html+='</ul>';
+    document.getElementById('modal-body').innerHTML=html;
+    modal.style.display='flex';
+  };
+  window.closeDetailsModal=function(){document.getElementById('details-modal').style.display='none';}
+
+  window.getAIAnalysis=async function(res){
+    const modal=document.getElementById('ai-modal');
+    document.getElementById('ai-modal-title').textContent=`AI Analysis: ${res.studentName}`;
+    const modalBody=document.getElementById('ai-modal-body');
+    modalBody.innerHTML='<p>Generating report...</p>';
+    modal.style.display='flex';
+    try{
+      const response=await fetch('/ai-analysis',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(res)});
+      const data=await response.json();
+      modalBody.innerHTML=`<p>${data.report}</p>`;
+    }catch(e){modalBody.innerHTML='<p style="color:red;">Failed to generate AI report.</p>'; }
+  };
+  window.closeAIModal=function(){document.getElementById('ai-modal').style.display='none';}
+
+  document.getElementById('pdfBtn').onclick=function(){
+    const {jsPDF}=window.jspdf;
+    const doc=new jsPDF(); let y=20;
+    doc.setFontSize(16); doc.text('Student Results',105,y,{align:'center'}); y+=10;
+    filtered.forEach(r=>{
+      if(y>270){doc.addPage(); y=20;}
+      doc.text(`${r.rank}. ${r.studentName} | ${r.mobile} | Total: ${r.totalScore}`,10,y); y+=7;
+      dynamicSubjects.forEach(sub=>{doc.text(`   ${sub}: ${r.subjectScores[sub]||0}`,15,y); y+=6;});
+      y+=3;
+    });
+    doc.save('student_results.pdf');
+  };
+
+  document.getElementById('exportBtn').onclick=function(){
+    if(filtered.length===0){alert("No results to export."); return;}
+    const headers=["Rank","Student Name","Mobile","Class","Location","Total Score",...dynamicSubjects,"Warnings"];
+    let csvContent="data:text/csv;charset=utf-8,"+headers.join(",")+"\n";
+    filtered.forEach(res=>{
+      const locationStr=(res.location && res.location.lat)?`${res.location.lat},${res.location.lon}`:(res.location||'N/A');
+      const rowData=[res.rank,`"${res.studentName}"`,`"${res.mobile}"`,`"${res.class}"`,`"${locationStr}"`,res.totalScore];
+      dynamicSubjects.forEach(sub=>rowData.push(res.subjectScores[sub]||0));
+      rowData.push(res.warnings);
+      csvContent+=rowData.join(",")+"\n";
+    });
+    const encodedUri=encodeURI(csvContent);
+    const link=document.createElement("a");
+    link.setAttribute("href",encodedUri);
+    link.setAttribute("download","geetham_results.csv");
+    document.body.appendChild(link); link.click(); document.body.removeChild(link);
+  }
+
+  document.getElementById('clearBtn').onclick=async function(){
+    if(confirm("Are you sure you want to delete all results? This cannot be undone.")){
+      try{
+        const response=await fetch('/clear-results',{method:'POST'});
+        if(!response.ok) throw new Error('Server error');
+        alert('All results have been cleared successfully.');
+        fetchResults();
+      }catch(e){alert('Failed to clear results.');}
+    }
+  }
+
+  document.getElementById('refreshBtn').onclick=fetchResults;
+  gradeFilter.onchange=applyFiltersAndRender;
+  topN.onchange=applyFiltersAndRender;
+  searchEl.oninput=applyFiltersAndRender;
+  quizFilter.onchange=applyFiltersAndRender;
+
+  async function fetchResults(){
+    try{
+      const response=await fetch('/results');
+      const data=await response.json();
+      allResults=data.map(normalizeRecord);
+      const grades=Array.from(new Set(allResults.map(r=>r.class))).sort();
+      gradeFilter.innerHTML='<option value="all">All Classes</option>'+grades.map(g=>`<option value="${g}">${g}</option>`).join('');
+      const quizzes=Array.from(new Set(allResults.map(r=>r.quizName))).sort();
+      quizFilter.innerHTML='<option value="all">All Quizzes</option>'+quizzes.map(q=>`<option value="${q}">${q}</option>`).join('');
+      applyFiltersAndRender();
+    }catch(e){alert('Failed to fetch results.');}
+  }
+
+  fetchResults();
+})();
+</script>
+</body>
+</html>
