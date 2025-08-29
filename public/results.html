@@ -124,18 +124,24 @@ const quizFilter = document.getElementById('quizFilter');
   }
 
   function applyFiltersAndRender(){
-    let rankedResults = computeRanks(allResults);
-    filtered = rankedResults.filter(r=>{
-      let matchGrade = gradeFilter.value === 'all' || r.class === gradeFilter.value;
-      let matchTop = !topN.value || r.rank <= Number(topN.value);
-      let matchSearch = !searchEl.value || r.studentName.toLowerCase().includes(searchEl.value.toLowerCase()) || r.mobile.includes(searchEl.value);
-      let matchQuiz = quizFilter.value === 'all' || r.quizName === quizFilter.value;
-      return matchGrade && matchTop && matchSearch && matchQuiz;
-    });
-    renderTable(filtered);
-    renderChart(filtered);
-    renderMap(filtered);
-  }
+  let rankedResults = computeRanks(allResults);
+
+  filtered = rankedResults.filter(r=>{
+    let matchGrade = gradeFilter.value === 'all' || r.class === gradeFilter.value;
+    let matchTop = !topN.value || r.rank <= Number(topN.value);
+    let matchSearch = !searchEl.value || r.studentName.toLowerCase().includes(searchEl.value.toLowerCase()) || r.mobile.includes(searchEl.value);
+    let matchQuiz = quizFilter.value === 'all' || r.quizName === quizFilter.value;
+    return matchGrade && matchTop && matchSearch && matchQuiz;
+  });
+
+  // ✅ ensure rank order in table
+  filtered.sort((a,b)=>a.rank-b.rank);
+
+  renderTable(filtered);
+  renderChart(filtered);
+  renderMap(filtered);
+}
+
 
   function renderTable(data){
     const subjectSet=new Set();
@@ -297,8 +303,13 @@ const quizFilter = document.getElementById('quizFilter');
       allResults=data.map(normalizeRecord);
       const grades=Array.from(new Set(allResults.map(r=>r.class))).sort();
       gradeFilter.innerHTML='<option value="all">All Classes</option>'+grades.map(g=>`<option value="${g}">${g}</option>`).join('');
-      const quizzes=Array.from(new Set(allResults.map(r=>r.quizName))).sort();
-      quizFilter.innerHTML='<option value="all">All Quizzes</option>'+quizzes.map(q=>`<option value="${q}">${q}</option>`).join('');
+      const quizzes = Array.from(
+  new Set(allResults.map(r => r.quizName || "Untitled Quiz"))
+).sort();
+
+quizFilter.innerHTML = '<option value="all">All Quizzes</option>' +
+  quizzes.map((q, i) => `<option value="${q}">${q || "Quiz " + (i+1)}</option>`).join('');
+
       applyFiltersAndRender();
     }catch(e){alert('Failed to fetch results.');}
   }
