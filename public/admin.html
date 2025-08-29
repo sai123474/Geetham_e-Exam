@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!DOCTYPE html> 
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -23,7 +23,17 @@
         .btn-remove { background-color: #dc3545; padding: 5px 10px; font-size: 12px; }
         .btn-delete-quiz { background-color: #dc3545; }
         .btn-pdf { background-color: #ffc107; color: #212529; }
+        .btn-review { background-color: #6f42c1; }
         .question-container, .subject-container { border: 1px solid #e9ecef; padding: 15px; margin-top: 15px; border-radius: 5px; background-color: #fdfdff; }
+        .marks-badge { margin-left: 10px; font-weight: bold; font-size: 0.9rem; }
+        .marks-badge .positive { color: #198754; }
+        .marks-badge .negative { color: #dc3545; }
+        .flex-row { display:flex; align-items:center; gap:10px; flex-wrap: wrap; }
+        .muted { color:#6c757d; font-size: 0.9rem; }
+        /* Review dashboard */
+        #review-dashboard { display:none; margin-top:20px; }
+        .student-card { background: #ffffff; padding: 15px; margin: 10px 0; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.06); border:1px solid #eee;}
+        .pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:.8rem; background:#e9ecef; color:#343a40; }
     </style>
 </head>
 <body>
@@ -111,24 +121,38 @@
             <div id="quiz-details"></div>
             <div id="subjects-details"></div>
             <button class="btn-add" onclick="addSubject()">Add Subject</button>
+
             <div class="question-container" style="margin-top: 30px;">
                 <h4>Generate Questions from Text using AI</h4>
                 <textarea id="ai-text-input" rows="8" placeholder="Paste question paper text here..."></textarea>
                 <button class="btn-add" onclick="generateFromText()">Generate from Text</button>
             </div>
-            <div style="margin-top: 20px; display:flex; justify-content:space-between; flex-wrap: wrap;">
-                <div>
+
+            <div style="margin-top: 20px; display:flex; gap:10px; flex-wrap: wrap;">
+                <div class="flex-row">
                     <button class="btn-save" onclick="saveQuiz()">Save This Quiz</button>
                     <button class="btn-delete-quiz" onclick="deleteQuiz()">Delete This Quiz</button>
+                    <button class="btn-pdf" onclick="generatePDF()">Download as PDF</button>
+                    <button class="btn-review" onclick="openReviewDashboard()">Teacher Review Dashboard</button>
                 </div>
-                <button class="btn-pdf" onclick="generatePDF()">Download as PDF</button>
             </div>
+
+            <div id="review-dashboard"></div>
         `;
         renderQuizDetails(quiz);
         renderSubjects(quiz.subjects);
+        // listeners + initial computed values
+        attachMarksListeners();
+        updateAllQuestionBadges();
+        updateTotalMarks();
     }
 
     function renderQuizDetails(quiz) {
+        // defaults for new schema
+        if (!quiz.marksMode) quiz.marksMode = 'uniform';
+        if (quiz.correctMarks === undefined) quiz.correctMarks = 1;
+        if (quiz.wrongMarks === undefined) quiz.wrongMarks = 0;
+
         document.getElementById('quiz-details').innerHTML = `
             <label>Title:</label><input type="text" id="quiz-title" value="${quiz.title}">
             <label>Time Limit (minutes):</label><input type="number" id="quiz-time" value="${quiz.timeLimit}">
@@ -137,6 +161,25 @@
                 ${[6,7,8,9,10,11,12].map(g => `<option value="${g}" ${quiz.class == g ? 'selected' : ''}>${g}th</option>`).join('')}
             </select>
             <label>Password:</label><input type="text" id="quiz-password" value="${quiz.password}">
+
+            <label>Marks Mode:</label>
+            <select id="quiz-marks-mode" onchange="renderQuizEditor()">
+                <option value="uniform" ${quiz.marksMode !== "custom" ? "selected" : ""}>Uniform for all</option>
+                <option value="custom" ${quiz.marksMode === "custom" ? "selected" : ""}>Custom per question</option>
+            </select>
+
+            <div id="marks-settings">
+                ${quiz.marksMode === "custom" ? `
+                    <p class="muted">Each question has its own marks fields.</p>
+                ` : `
+                    <label>Marks for Correct Answer:</label>
+                    <input type="number" id="quiz-correct-marks" value="${quiz.correctMarks ?? 1}">
+                    <label>Marks for Incorrect Answer:</label>
+                    <input type="number" id="quiz-wrong-marks" value="${quiz.wrongMarks ?? 0}" step="0.25">
+                `}
+            </div>
+
+            <h4>Total Marks: <span id="total-marks-display">0</span></h4>
         `;
     }
 
@@ -147,8 +190,15 @@
             const div = document.createElement('div');
             div.className = 'subject-container';
             div.innerHTML = `
-                <label>Subject Name:</label>
-                <input type="text" class="subject-name" value="${subjectName}">
+                <div class="flex-row" style="justify-content:space-between;">
+                    <div style="flex:1;">
+                        <label>Subject Name:</label>
+                        <input type="text" class="subject-name" value="${subjectName}">
+                    </div>
+                    <div>
+                        <span class="pill" id="subject-total-${encodeURIComponent(subjectName)}">Total: 0</span>
+                    </div>
+                </div>
                 <button class="btn-remove" onclick="removeSubject(this)">Remove Subject</button>
                 <div class="question-container">
                     <h5>Generate Questions for ${subjectName} with AI</h5>
@@ -165,18 +215,45 @@
             div.appendChild(addBtn);
             container.appendChild(div);
         });
+        // Update per-subject totals initially
+        updateSubjectTotals();
     }
 
     function createQuestionElement(index, question = {}) {
+        const quiz = quizzesData[selectedQuizIndex] || {};
+        const mode = quiz.marksMode || 'uniform';
         const div = document.createElement('div');
         div.className = 'question-container';
         div.innerHTML = `
-            <h5>Question ${index + 1} <button class="btn-remove" onclick="removeQuestion(this)">Remove</button></h5>
+            <h5 class="flex-row">
+                <span>Question ${index + 1}</span>
+                <span class="marks-badge"> <span class="positive">+${mode === 'custom' ? (question.correctMarks ?? 1) : (quiz.correctMarks ?? 1)}</span>, <span class="negative">-${mode === 'custom' ? (question.wrongMarks ?? 0) : (quiz.wrongMarks ?? 0)}</span> </span>
+                <button class="btn-remove" onclick="removeQuestion(this)">Remove</button>
+            </h5>
             <label>Question Type:</label>
             <select class="question-type" onchange="toggleAnswerType(this)"></select>
-            <label>Question Text:</label><textarea rows="2">${question.text || ''}</textarea>
+
+            <label>Question Text:</label>
+            <textarea rows="2">${question.text || ''}</textarea>
+
             <div class="answer-fields"></div>
+
+            ${mode === "custom" ? `
+                <div class="flex-row" style="gap:15px;">
+                    <div style="min-width:180px;">
+                        <label>Marks (Correct):</label>
+                        <input type="number" class="question-correct-marks" value="${question.correctMarks ?? 1}">
+                    </div>
+                    <div style="min-width:180px;">
+                        <label>Marks (Wrong):</label>
+                        <input type="number" class="question-wrong-marks" value="${question.wrongMarks ?? 0}" step="0.25">
+                    </div>
+                </div>
+            ` : ``}
+
+            <div class="muted">${question.type === 'subjective' ? 'Subjective questions are manually graded.' : ''}</div>
         `;
+        // Build select
         const select = div.querySelector('.question-type');
         ['multiple-choice', 'fill-in-the-blank', 'subjective'].forEach(t => {
             const opt = document.createElement('option');
@@ -192,11 +269,13 @@
     function toggleAnswerType(select, container, question = {}) {
         if (!container) container = select.closest('.question-container').querySelector('.answer-fields');
         const type = select.value;
+
         if (type === 'multiple-choice') {
             container.innerHTML = '';
             for (let i = 0; i < 4; i++) {
                 const input = document.createElement('input');
                 input.type = 'text';
+                input.placeholder = `Option ${i+1}`;
                 input.value = question.options?.[i] || '';
                 container.appendChild(input);
             }
@@ -210,13 +289,34 @@
                 correct.appendChild(opt);
             }
             container.appendChild(correct);
-        } else {
-            container.innerHTML = `<input type="text" class="correct-answer-text" value="${question.correctAnswer || ''}">`;
+        } else if (type === 'fill-in-the-blank') {
+            // Pipe-separated answers for synonyms; case-insensitive match on student side
+            container.innerHTML = `
+                <label>Correct Answers (use | to separate synonyms):</label>
+                <input type="text" class="correct-answer-text" placeholder="e.g., Delhi|New Delhi" value="${(typeof question.correctAnswer === 'string' ? question.correctAnswer : '') || ''}">
+            `;
+        } else if (type === 'subjective') {
+            container.innerHTML = `
+                <label>Rubric / Expected Points (optional, for teachers):</label>
+                <textarea class="subjective-rubric" rows="2">${question.rubric || ''}</textarea>
+            `;
         }
+        // After type change, re-attach listeners (for badges/marks in custom mode)
+        attachMarksListeners();
     }
 
     function addQuiz() {
-        quizzesData.push({ id: Date.now(), title: "New Mock Test", timeLimit: 180, password: "newpassword", class: "12", subjects: {} });
+        quizzesData.push({
+            id: Date.now(),
+            title: "New Mock Test",
+            timeLimit: 180,
+            password: "newpassword",
+            class: "12",
+            marksMode: "uniform",
+            correctMarks: 1,
+            wrongMarks: 0,
+            subjects: {}
+        });
         selectedQuizIndex = quizzesData.length - 1;
         renderQuizList();
         renderQuizEditor();
@@ -239,29 +339,33 @@
             const name = subDiv.querySelector('.subject-name').value;
             delete quizzesData[selectedQuizIndex].subjects[name];
             subDiv.remove();
+            updateTotalMarks();
         }
     }
 
     function addQuestion(subjectDiv) {
-    const questions = subjectDiv.querySelectorAll('.question-container');
-    const qIndex = questions.length;
-    const newQ = { type: 'multiple-choice', text: '', options: ["", "", "", ""], correctAnswer: 0 };
-    const newEl = createQuestionElement(qIndex, newQ);
+        const questions = subjectDiv.querySelectorAll(':scope > .question-container');
+        const qIndex = questions.length - 1; // subtract 1 for the AI generator block
+        const newQ = { type: 'multiple-choice', text: '', options: ["", "", "", ""], correctAnswer: 0, correctMarks: 1, wrongMarks: 0 };
+        const newEl = createQuestionElement(qIndex + 1, newQ);
 
-    // Select only the direct child ".btn-add" of this subject block
-    const addBtn = subjectDiv.querySelector(':scope > .btn-add');
-
-    if (addBtn) {
-        subjectDiv.insertBefore(newEl, addBtn);
-    } else {
-        // fallback: just append at the end
-        subjectDiv.appendChild(newEl);
+        // Insert before the subject-level Add button
+        const addBtn = subjectDiv.querySelector(':scope > .btn-add');
+        if (addBtn) {
+            subjectDiv.insertBefore(newEl, addBtn);
+        } else {
+            subjectDiv.appendChild(newEl);
+        }
+        attachMarksListeners();
+        updateQuestionBadge(newEl);
+        updateTotalMarks();
+        updateSubjectTotals();
     }
-}
-
 
     function removeQuestion(btn) {
         btn.closest('.question-container').remove();
+        updateTotalMarks();
+        updateSubjectTotals();
     }
 
     async function generateWithAI(subjectName) {
@@ -318,43 +422,61 @@
         }
     }
 
-   async function saveQuiz() {
-    const quizToSave = quizzesData[selectedQuizIndex];
-    if (!quizToSave) return;
+    async function saveQuiz() {
+        const quizToSave = quizzesData[selectedQuizIndex];
+        if (!quizToSave) return;
 
-    // Update quiz details
-    quizToSave.title = document.getElementById('quiz-title')?.value || quizToSave.title;
-    quizToSave.timeLimit = parseInt(document.getElementById('quiz-time')?.value) || quizToSave.timeLimit;
-    quizToSave.class = document.getElementById('quiz-class').value;
-    quizToSave.password = document.getElementById('quiz-password')?.value || quizToSave.password;
+        // Update quiz details
+        quizToSave.title = document.getElementById('quiz-title')?.value || quizToSave.title;
+        quizToSave.timeLimit = parseInt(document.getElementById('quiz-time')?.value) || quizToSave.timeLimit;
+        quizToSave.class = document.getElementById('quiz-class').value;
+        quizToSave.password = document.getElementById('quiz-password')?.value || quizToSave.password;
+        quizToSave.marksMode = document.getElementById('quiz-marks-mode')?.value || 'uniform';
 
-    const newSubjects = {};
-    document.querySelectorAll('.subject-container').forEach(subDiv => {
-        const name = subDiv.querySelector('.subject-name')?.value;
-        if (!name) return;
+        if (quizToSave.marksMode === "uniform") {
+            quizToSave.correctMarks = parseFloat(document.getElementById('quiz-correct-marks')?.value || 1);
+            quizToSave.wrongMarks = parseFloat(document.getElementById('quiz-wrong-marks')?.value || 0);
+        }
 
-        newSubjects[name] = [];
-        // FIX: Only direct child question-containers
-        subDiv.querySelectorAll(':scope > .question-container').forEach(qDiv => {
-            const type = qDiv.querySelector('.question-type')?.value || 'multiple-choice';
-            const qData = { text: qDiv.querySelector('textarea')?.value || '', type };
+        const newSubjects = {};
+        document.querySelectorAll('.subject-container').forEach(subDiv => {
+            const name = subDiv.querySelector('.subject-name')?.value;
+            if (!name) return;
+            newSubjects[name] = [];
 
-            if (type === 'multiple-choice') {
-                qData.options = Array.from(qDiv.querySelectorAll('.answer-fields input')).map(i => i.value);
-                qData.correctAnswer = parseInt(qDiv.querySelector('.correct-answer-mc')?.value || 0, 10);
-            } else {
-                qData.correctAnswer = qDiv.querySelector('.correct-answer-text')?.value || '';
-            }
+            // Only direct child question-containers (skip the AI generator block)
+            subDiv.querySelectorAll(':scope > .question-container').forEach(qDiv => {
+                // Skip the generator block that contains <h5>Generate Questions ...</h5>
+                const isGenerator = qDiv.querySelector('h5') && qDiv.querySelector('h5').textContent.includes('Generate Questions for');
+                if (isGenerator) return;
 
-            newSubjects[name].push(qData);
+                const type = qDiv.querySelector('.question-type')?.value || 'multiple-choice';
+                const qData = { text: qDiv.querySelector('textarea')?.value || '', type };
+
+                if (type === 'multiple-choice') {
+                    qData.options = Array.from(qDiv.querySelectorAll('.answer-fields input')).map(i => i.value);
+                    qData.correctAnswer = parseInt(qDiv.querySelector('.correct-answer-mc')?.value || 0, 10);
+                } else if (type === 'fill-in-the-blank') {
+                    qData.correctAnswer = qDiv.querySelector('.correct-answer-text')?.value || '';
+                } else if (type === 'subjective') {
+                    qData.rubric = qDiv.querySelector('.subjective-rubric')?.value || '';
+                    qData.correctAnswer = ''; // no automatic key
+                }
+
+                if (quizToSave.marksMode === "custom") {
+                    qData.correctMarks = parseFloat(qDiv.querySelector('.question-correct-marks')?.value || 1);
+                    qData.wrongMarks = parseFloat(qDiv.querySelector('.question-wrong-marks')?.value || 0);
+                }
+
+                newSubjects[name].push(qData);
+            });
         });
-    });
 
-    quizToSave.subjects = newSubjects;
+        quizToSave.subjects = newSubjects;
 
-    await saveAllQuizzesToServer();
-    await loadQuizzes(); // reload with latest data
-}
+        await saveAllQuizzesToServer();
+        await loadQuizzes(); // reload with latest data
+    }
 
     async function saveAllQuizzesToServer() {
         const token = localStorage.getItem('adminToken');
@@ -373,27 +495,283 @@
         }
     }
 
+    // ---- Live totals & badges ----
+    function updateTotalMarks() {
+        // Use DOM for live accuracy
+        const marksMode = document.getElementById('quiz-marks-mode')?.value || "uniform";
+        let totalMarks = 0;
+
+        if (marksMode === "custom") {
+            document.querySelectorAll('.subject-container').forEach(subDiv => {
+                // Only direct child questions (skip generator)
+                subDiv.querySelectorAll(':scope > .question-container').forEach(qDiv => {
+                    const isGenerator = qDiv.querySelector('h5') && qDiv.querySelector('h5').textContent.includes('Generate Questions for');
+                    if (isGenerator) return;
+                    const cm = parseFloat(qDiv.querySelector('.question-correct-marks')?.value || 1);
+                    totalMarks += cm;
+                });
+            });
+        } else {
+            const correctMarks = parseFloat(document.getElementById('quiz-correct-marks')?.value || 1);
+            let totalQuestions = 0;
+            document.querySelectorAll('.subject-container').forEach(subDiv => {
+                subDiv.querySelectorAll(':scope > .question-container').forEach(qDiv => {
+                    const isGenerator = qDiv.querySelector('h5') && qDiv.querySelector('h5').textContent.includes('Generate Questions for');
+                    if (!isGenerator) totalQuestions++;
+                });
+            });
+            totalMarks = totalQuestions * correctMarks;
+        }
+
+        const totalMarksDisplay = document.getElementById('total-marks-display');
+        if (totalMarksDisplay) totalMarksDisplay.textContent = totalMarks;
+
+        updateSubjectTotals();
+    }
+
+    function updateSubjectTotals() {
+        const marksMode = document.getElementById('quiz-marks-mode')?.value || "uniform";
+        const uniformCorrect = parseFloat(document.getElementById('quiz-correct-marks')?.value || 1);
+
+        document.querySelectorAll('.subject-container').forEach(subDiv => {
+            let sum = 0;
+            subDiv.querySelectorAll(':scope > .question-container').forEach(qDiv => {
+                const isGenerator = qDiv.querySelector('h5') && qDiv.querySelector('h5').textContent.includes('Generate Questions for');
+                if (isGenerator) return;
+                if (marksMode === 'custom') {
+                    sum += parseFloat(qDiv.querySelector('.question-correct-marks')?.value || 1);
+                } else {
+                    sum += uniformCorrect;
+                }
+            });
+            const name = subDiv.querySelector('.subject-name')?.value || '';
+            const pill = document.getElementById(`subject-total-${encodeURIComponent(name)}`);
+            if (pill) pill.textContent = `Total: ${sum}`;
+        });
+    }
+
+    function updateQuestionBadge(qDiv) {
+        const marksMode = document.getElementById('quiz-marks-mode')?.value || "uniform";
+        let cm = 1, wm = 0;
+        if (marksMode === 'custom') {
+            cm = parseFloat(qDiv.querySelector('.question-correct-marks')?.value || 1);
+            wm = parseFloat(qDiv.querySelector('.question-wrong-marks')?.value || 0);
+        } else {
+            cm = parseFloat(document.getElementById('quiz-correct-marks')?.value || 1);
+            wm = parseFloat(document.getElementById('quiz-wrong-marks')?.value || 0);
+        }
+        const badge = qDiv.querySelector('.marks-badge');
+        if (badge) {
+            badge.innerHTML = `<span class="positive">+${cm}</span>, <span class="negative">-${wm}</span>`;
+        }
+    }
+
+    function updateAllQuestionBadges() {
+        document.querySelectorAll('.subject-container :scope > .question-container').forEach(qDiv => {
+            const isGenerator = qDiv.querySelector('h5') && qDiv.querySelector('h5').textContent.includes('Generate Questions for');
+            if (!isGenerator) updateQuestionBadge(qDiv);
+        });
+    }
+
+    function attachMarksListeners() {
+        // Uniform fields
+        document.getElementById('quiz-correct-marks')?.addEventListener('input', () => {
+            updateTotalMarks();
+            updateAllQuestionBadges();
+        });
+        document.getElementById('quiz-wrong-marks')?.addEventListener('input', () => {
+            updateTotalMarks();
+            updateAllQuestionBadges();
+        });
+
+        // Custom fields per question
+        document.querySelectorAll('.question-correct-marks, .question-wrong-marks').forEach(inp => {
+            inp.oninput = (e) => {
+                const qDiv = e.target.closest('.question-container');
+                updateQuestionBadge(qDiv);
+                updateTotalMarks();
+            };
+        });
+
+        // Also when subject name changes, keep totals aligned
+        document.querySelectorAll('.subject-name').forEach(inp => {
+            inp.addEventListener('input', updateSubjectTotals);
+        });
+    }
+
+    // ---- PDF ----
     function generatePDF() {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
         const quiz = quizzesData[selectedQuizIndex];
-        let y = 20; doc.setFontSize(18); doc.text(quiz.title, 105, y, { align: 'center' }); y += 10; let qNo = 1;
+
+        let y = 20;
+        doc.setFontSize(18);
+        doc.text(quiz.title, 105, y, { align: 'center' });
+        y += 10;
+
+        // Marks header
+        doc.setFontSize(12);
+        if (quiz.marksMode === "uniform") {
+            doc.text(`Marks per correct: ${quiz.correctMarks ?? 1}, per wrong: ${quiz.wrongMarks ?? 0}`, 14, y); 
+            y += 8;
+            const totalQs = Object.values(quiz.subjects).reduce((acc, arr) => acc + arr.length, 0);
+            doc.text(`Total Marks: ${(quiz.correctMarks ?? 1) * totalQs}`, 14, y);
+            y += 12;
+        } else {
+            doc.text(`Custom Marks Mode Enabled`, 14, y);
+            y += 12;
+        }
+
+        let qNo = 1;
         Object.keys(quiz.subjects).forEach(subject => {
             if (y > 260) { doc.addPage(); y = 20; }
             doc.setFontSize(14); doc.text(`Section: ${subject}`, 14, y); y += 10;
+
             quiz.subjects[subject].forEach(q => {
                 if (y > 260) { doc.addPage(); y = 20; }
                 doc.setFontSize(12);
+
+                // Question text
                 const lines = doc.splitTextToSize(`${qNo}. ${q.text}`, 180);
-                doc.text(lines, 14, y); y += (lines.length * 5) + 5;
-                if (q.type === 'multiple-choice') q.options.forEach((opt, i) => { doc.text(`   (${String.fromCharCode(97 + i)}) ${opt}`, 20, y); y += 7; }); else y += 10;
+                doc.text(lines, 14, y); 
+                y += (lines.length * 5) + 3;
+
+                // Options or placeholders
+                if (q.type === 'multiple-choice') {
+                    q.options.forEach((opt, i) => { 
+                        doc.text(`   (${String.fromCharCode(97 + i)}) ${opt}`, 20, y); 
+                        y += 7; 
+                    });
+                } else if (q.type === 'fill-in-the-blank') {
+                    doc.text(`   [Write your answer]`, 20, y);
+                    y += 7;
+                } else if (q.type === 'subjective') {
+                    doc.text(`   [Answer in 3-5 lines]`, 20, y);
+                    y += 7;
+                }
+
+                // Marks badge
+                let cm = (quiz.marksMode === 'custom') ? (q.correctMarks ?? 1) : (quiz.correctMarks ?? 1);
+                let wm = (quiz.marksMode === 'custom') ? (q.wrongMarks ?? 0) : (quiz.wrongMarks ?? 0);
+                doc.text(`   Marks: +${cm}, -${wm}`, 20, y);
+                y += 8;
                 qNo++;
             });
         });
         doc.save(`${quiz.title.replace(/\s+/g, '_')}.pdf`);
     }
 
+    // ---- Review Dashboard (basic scaffold) ----
+    async function openReviewDashboard() {
+        const container = document.getElementById('review-dashboard');
+        const quiz = quizzesData[selectedQuizIndex];
+        const token = localStorage.getItem('adminToken');
+
+        container.style.display = 'block';
+        container.innerHTML = `<h3>Teacher Review Dashboard — ${quiz.title}</h3><p class="muted">Subjective responses pending review.</p><div id="review-list">Loading…</div>`;
+
+        try {
+            // Expect backend to return: [{studentId, name, answers:[{qIndex, subject, type, answer, marks}]}]
+            const res = await fetch(`/get-submissions?quizId=${encodeURIComponent(quiz.id)}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const submissions = await res.json();
+            renderReviewList(submissions, quiz);
+        } catch (e) {
+            document.getElementById('review-list').innerHTML = `<div class="muted">Failed to load submissions.</div>`;
+        }
+    }
+
+    function renderReviewList(submissions, quiz) {
+        const wrap = document.getElementById('review-list');
+        if (!Array.isArray(submissions) || submissions.length === 0) {
+            wrap.innerHTML = `<div class="muted">No submissions found.</div>`;
+            return;
+        }
+        wrap.innerHTML = '';
+        submissions.forEach(s => {
+            const card = document.createElement('div');
+            card.className = 'student-card';
+            const total = computeStudentTotal(s, quiz);
+            card.innerHTML = `
+                <h4>${s.name || 'Student'} (ID: ${s.studentId || '-'}) — <span class="pill">Total: ${total.total}</span> <span class="pill" style="background:#ffe69c;">Pending: ${total.pending}</span></h4>
+                <div>${renderStudentAnswersHTML(s, quiz)}</div>
+            `;
+            wrap.appendChild(card);
+        });
+    }
+
+    function renderStudentAnswersHTML(s, quiz) {
+        // Render subjective items editable; others read-only
+        const rows = [];
+        (s.answers || []).forEach((ans, idx) => {
+            const label = `Q${(ans.qNumber ?? idx+1)} — ${ans.subject || ''} (${ans.type})`;
+            if (ans.type === 'subjective') {
+                rows.push(`
+                    <div style="border-top:1px dashed #ddd; padding-top:8px; margin-top:8px;">
+                        <div><strong>${label}</strong></div>
+                        <div class="muted">Answer:</div>
+                        <div style="white-space:pre-wrap; background:#f8f9fa; padding:8px; border-radius:6px; border:1px solid #eee;">${escapeHTML(ans.answer || '')}</div>
+                        <label style="margin-top:8px;">Marks:</label>
+                        <input type="number" value="${typeof ans.marks === 'number' ? ans.marks : ''}" min="0" step="0.5"
+                               data-student="${s.studentId}" data-qid="${ans.qId}" class="review-marks-input">
+                        <button onclick="saveReviewedMarks('${s.studentId}','${ans.qId}')" class="btn-save">Save</button>
+                    </div>
+                `);
+            } else {
+                rows.push(`
+                    <div style="border-top:1px dashed #eee; padding-top:6px; margin-top:6px;">
+                        <div><strong>${label}</strong> — Marks: ${ans.marks}</div>
+                    </div>
+                `);
+            }
+        });
+        return rows.join('');
+    }
+
+    function escapeHTML(str) {
+        return (str || '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+    }
+
+    function computeStudentTotal(s, quiz) {
+        let total = 0;
+        let pending = 0;
+        (s.answers || []).forEach(ans => {
+            if (ans.type === 'subjective') {
+                if (typeof ans.marks === 'number') total += ans.marks;
+                else pending++;
+            } else {
+                // MCQ / Fill already evaluated server-side ideally
+                if (typeof ans.marks === 'number') total += ans.marks;
+            }
+        });
+        return { total, pending };
+    }
+
+    async function saveReviewedMarks(studentId, qId) {
+        const token = localStorage.getItem('adminToken');
+        const input = document.querySelector(`.review-marks-input[data-student="${CSS.escape(studentId)}"][data-qid="${CSS.escape(qId)}"]`);
+        const marks = parseFloat(input.value);
+        if (isNaN(marks)) return alert('Enter valid marks');
+        try {
+            const res = await fetch('/grade-subjective', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ studentId, qId, marks })
+            });
+            if (!res.ok) throw new Error('Save failed');
+            alert('Marks saved');
+            // refresh dashboard
+            openReviewDashboard();
+        } catch (e) {
+            alert('Failed to save marks');
+        }
+    }
+
+    // ---- DOM Ready ----
     document.addEventListener('DOMContentLoaded', () => {});
+
 </script>
 </body>
 </html>
