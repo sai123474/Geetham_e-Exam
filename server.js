@@ -55,9 +55,9 @@ async function connectDB() {
     try {
         await client.connect();
         db = client.db("GeethamQuizDB");
-        console.log("✅ Successfully connected to MongoDB Atlas!");
+        console.log("Successfully connected to MongoDB Atlas!");
     } catch (err) {
-        console.error("❌ Failed to connect to MongoDB", err);
+        console.error("Failed to connect to MongoDB", err);
         process.exit(1);
     }
 }
@@ -145,7 +145,7 @@ app.get('/results', async (req, res) => {
 });
 
 // Clear all results
-app.post('/clear-results', authenticateToken, async (req, res) => {
+app.post('/clear-results', async (req, res) => {
     try {
         const resultsCollection = db.collection('results');
         await resultsCollection.deleteMany({});
@@ -186,6 +186,6 @@ app.post('/generate-from-text', authenticateToken, async (req, res) => {
 // --- START SERVER ---
 connectDB().then(() => {
     app.listen(PORT, () => {
-        console.log(`🚀 Server running at http://localhost:${PORT}`);
+        console.log(`Server running at http://localhost:${PORT}`);
     });
 });
