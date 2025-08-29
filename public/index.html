@@ -44,7 +44,11 @@
         #ai-status.loading { background: #ffc107; color: #333; }
         #ai-status.ready { background: #28a745; color: white; }
         #ai-status.error { background: #dc3545; color: white; }
-        #fullscreen-warning { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); color: white; z-index: 999999; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+        #fullscreen-warning { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); color: white; z-index: 999999; display: flex; flex-direction: column; pointer-events: none; align-items: center; justify-content: center; text-align: center; }
+#resume-fullscreen-btn {
+    pointer-events: auto;
+}
+
     </style>
 </head>
 <body>
@@ -120,7 +124,7 @@
     const LOOK_AWAY_THRESHOLD = 3000;
     let questionTimes = {};
     let lastQuestionStart = null;
-    let fullscreenCountdownInterval;
+
 
     // --- UTILITY FUNCTIONS ---
     function showToast(message, type = 'warning') {
@@ -324,23 +328,63 @@ document.getElementById('resume-fullscreen-btn').onclick = async () => {
         }
     });
 }
+let fullscreenCountdownInterval;
+const FULLSCREEN_COUNTDOWN = 5;
+
+// Helper: cross-browser fullscreen
+async function requestFullscreenSafe() {
+    const elem = document.documentElement;
+    if (elem.requestFullscreen) await elem.requestFullscreen();
+    else if (elem.webkitRequestFullscreen) await elem.webkitRequestFullscreen(); // Safari
+    else if (elem.msRequestFullscreen) await elem.msRequestFullscreen(); // IE/Edge legacy
+    else throw new Error("Fullscreen API not supported");
+}
+
+// Start countdown for resuming fullscreen
 function startFullscreenCountdown() {
-    let seconds = 5;
-    const countdownElement = document.getElementById('fullscreen-countdown');
-    countdownElement.textContent = seconds;
+    let seconds = FULLSCREEN_COUNTDOWN;
+    const countdownEl = document.getElementById('fullscreen-countdown');
+    countdownEl.textContent = seconds;
 
     clearInterval(fullscreenCountdownInterval);
     fullscreenCountdownInterval = setInterval(() => {
         seconds--;
-        countdownElement.textContent = seconds;
+        countdownEl.textContent = seconds;
+
         if (seconds <= 0) {
             clearInterval(fullscreenCountdownInterval);
-            // Instead of forcing fullscreen, keep showing the warning
-            // and rely on Resume button
+            // Do not auto-force fullscreen, just prompt user
             document.getElementById("resume-fullscreen-btn").textContent = "Click to Resume Full-Screen";
         }
     }, 1000);
 }
+
+// Handle fullscreen change
+document.addEventListener('fullscreenchange', () => {
+    const overlay = document.getElementById('fullscreen-warning');
+    if (!document.fullscreenElement && quizInProgress) {
+        handleWarning("You have exited full-screen.");
+        overlay.style.display = 'flex';
+        startFullscreenCountdown();
+    } else {
+        overlay.style.display = 'none';
+        clearInterval(fullscreenCountdownInterval);
+    }
+});
+
+// Resume fullscreen button
+document.getElementById('resume-fullscreen-btn').onclick = async () => {
+    clearInterval(fullscreenCountdownInterval);
+    try {
+        if (!document.fullscreenElement) {
+            await requestFullscreenSafe();
+        }
+        document.getElementById('fullscreen-warning').style.display = 'none';
+    } catch (err) {
+        console.error("Failed to resume fullscreen:", err);
+        alert("Could not resume full-screen. Please press F11 or browser full-screen manually.");
+    }
+};
 
     function handleWarning(message) {
         warningCount++;
