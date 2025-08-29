@@ -75,6 +75,73 @@ app.get('/get-quizzes', async (req, res) => {
         res.status(500).send('Error fetching quizzes.');
     }
 });
+// Save per-question marks along with quiz update
+app.post('/update-question-marks', authenticateToken, async (req, res) => {
+    try {
+        const { quizId, subject, questionIndex, correctMarks = 1, wrongMarks = 0 } = req.body;
+        const quizzesCollection = db.collection('quizzes');
+        const quiz = await quizzesCollection.findOne({ id: quizId });
+        if (!quiz) return res.status(404).send('Quiz not found');
+        
+        if (!quiz.subjects[subject] || !quiz.subjects[subject][questionIndex]) {
+            return res.status(404).send('Question not found');
+        }
+
+        quiz.subjects[subject][questionIndex].correctMarks = correctMarks;
+        quiz.subjects[subject][questionIndex].wrongMarks = wrongMarks;
+
+        await quizzesCollection.updateOne({ id: quizId }, { $set: { subjects: quiz.subjects } });
+        res.status(200).send('Marks updated successfully');
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Error updating marks');
+    }
+});
+// Student submits answers
+app.post('/submit', async (req, res) => {
+    try {
+        const { studentId, name, quizId, answers } = req.body;
+        if (!studentId || !quizId || !Array.isArray(answers)) return res.status(400).send('Invalid submission');
+
+        const quizzesCollection = db.collection('quizzes');
+        const resultsCollection = db.collection('results');
+        const quiz = await quizzesCollection.findOne({ id: quizId });
+        if (!quiz) return res.status(404).send('Quiz not found');
+
+        let totalMarks = 0;
+        const evaluatedAnswers = answers.map(ans => {
+            const q = quiz.subjects[ans.subject][ans.qIndex];
+            if (!q) return { ...ans, marks: 0 };
+
+            let marks = 0;
+            if (q.type === 'multiple-choice') {
+                marks = ans.answer === q.correctAnswer ? (q.correctMarks || 1) : (q.wrongMarks || 0);
+            } else if (q.type === 'fill-in-the-blank') {
+                marks = ans.answer.trim().toLowerCase() === String(q.correctAnswer).trim().toLowerCase() ? (q.correctMarks || 1) : (q.wrongMarks || 0);
+            } else {
+                marks = 'pending'; // subjective questions will be graded later
+            }
+            if (typeof marks === 'number') totalMarks += marks;
+            return { ...ans, marks };
+        });
+
+        const resultRecord = {
+            id: crypto.randomBytes(8).toString('hex'),
+            studentId,
+            name,
+            quizId,
+            submittedAt: new Date().toISOString(),
+            totalMarks,
+            answers: evaluatedAnswers
+        };
+
+        await resultsCollection.insertOne(resultRecord);
+        res.json({ ok: true, totalMarks, resultId: resultRecord.id });
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Error submitting answers');
+    }
+});
 
 // Update all quizzes in the database
 app.post('/update-quizzes', authenticateToken, async (req, res) => {
@@ -90,6 +157,56 @@ app.post('/update-quizzes', authenticateToken, async (req, res) => {
         res.status(500).send('Error saving quizzes.');
     }
 });
+// Teacher grades subjective question
+app.post('/grade-subjective', authenticateToken, async (req, res) => {
+    try {
+        const { resultId, qIndex, subject, marks } = req.body;
+        if (!resultId || !subject || qIndex === undefined || marks === undefined) return res.status(400).send('Invalid data');
+
+        const resultsCollection = db.collection('results');
+        const result = await resultsCollection.findOne({ id: resultId });
+        if (!result) return res.status(404).send('Result not found');
+
+        const ans = result.answers.find(a => a.subject === subject && a.qIndex === qIndex);
+        if (!ans) return res.status(404).send('Answer not found');
+
+        ans.marks = marks;
+
+        // recalc total marks
+        result.totalMarks = result.answers.reduce((sum, a) => sum + (typeof a.marks === 'number' ? a.marks : 0), 0);
+
+        await resultsCollection.updateOne({ id: resultId }, { $set: { answers: result.answers, totalMarks: result.totalMarks } });
+        res.status(200).send('Subjective marks updated successfully');
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Error grading subjective question');
+    }
+});
+// Fetch live total marks and per-question marks for a quiz
+app.get('/live-results/:quizId', authenticateToken, async (req, res) => {
+    try {
+        const { quizId } = req.params;
+        const resultsCollection = db.collection('results');
+        const allResults = await resultsCollection.find({ quizId }).toArray();
+
+        const liveData = allResults.map(r => ({
+            studentId: r.studentId,
+            name: r.name,
+            totalMarks: r.totalMarks,
+            answers: r.answers.map(a => ({
+                subject: a.subject,
+                qIndex: a.qIndex,
+                marks: a.marks
+            }))
+        }));
+
+        res.json(liveData);
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Error fetching live results');
+    }
+});
+
 app.post('/ai-analysis', async (req, res) => {
     try {
         const { studentName, subjectScores } = req.body;
