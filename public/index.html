@@ -48,11 +48,13 @@
     </style>
 </head>
 <body>
-    <div id="fullscreen-warning" style="display:none;">
-        <h1>You Exited Full-Screen!</h1>
-        <p>Please return to full-screen to continue the test.</p>
-        <button id="resume-fullscreen-btn">Resume Full-Screen</button>
-    </div>
+   <div id="fullscreen-warning" style="display:none;">
+    <h1>You Exited Full-Screen!</h1>
+    <p>Please return to full-screen to continue the test.</p>
+    <p>Resuming in <span id="fullscreen-countdown">5</span> seconds...</p>
+    <button id="resume-fullscreen-btn">Resume Full-Screen</button>
+</div>
+
     <div id="ai-status" class="loading" style="display:none;">AI Proctor Loading...</div>
     <div id="warnings-indicator" title="Warnings" style="display:none;">Warnings: <span id="warning-count">0</span></div>
     <div id="camera-wrapper">
@@ -289,6 +291,10 @@
             clearInterval(fullscreenCountdownInterval);
         }
     });
+document.getElementById('resume-fullscreen-btn').onclick = async () => {
+    clearInterval(fullscreenCountdownInterval);
+    await startFullScreen();
+};
 
     // Detects switching to another application
     window.addEventListener("blur", () => {
