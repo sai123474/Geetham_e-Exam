@@ -8,6 +8,7 @@
     <link rel="manifest" href="/manifest.json">
     <script type="module" src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/vision_bundle.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js"></script>
     <meta name="theme-color" content="#0056b3"/>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f0f2f5; color: #333; margin: 0; padding: 10px; }
@@ -267,7 +268,7 @@
     async function startFullScreen() {
         if (document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen();
     }
-    
+ 
     function setupProctoringListeners() {
     // Detects tab switching
     document.addEventListener('visibilitychange', () => {
@@ -526,6 +527,9 @@ function startFullscreenCountdown() {
                 submitTest();
                 return;
             }
+             if (timeLeft === 300) {
+    document.getElementById("warningBanner").style.display = "block";
+}
             timeLeft--;
             const hours = Math.floor(timeLeft / 3600);
             const minutes = Math.floor((timeLeft % 3600) / 60);
@@ -533,9 +537,7 @@ function startFullscreenCountdown() {
             document.getElementById('timer').textContent = 
                 `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
         }, 1000);
-       if (timeLeft === 300) {
-    document.getElementById("warningBanner").style.display = "block";
-}
+      
     }
     
     function confirmSubmit() {
