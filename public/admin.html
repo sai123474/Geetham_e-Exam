@@ -12,7 +12,7 @@
         h1, h3, h4, h5 { color: #0056b3; }
         .admin-panel { display: flex; gap: 30px; }
         .quiz-list { width: 300px; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); align-self: flex-start; }
-        .quiz-editor { flex-grow: 1; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .quiz-editor { flex-grow: 1; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);overflow-y: auto;}
         .quiz-list-item { padding: 15px; margin-bottom: 10px; border-radius: 6px; cursor: pointer; border: 1px solid #ddd; }
         .quiz-list-item.active { background-color: #e7f3ff; border-left: 4px solid #007bff; font-weight: bold; }
         label { font-weight: 600; color: #333; margin-top: 15px; display: block; }
@@ -160,7 +160,7 @@
             <select id="quiz-class">
                 ${[6,7,8,9,10,11,12].map(g => `<option value="${g}" ${quiz.class == g ? 'selected' : ''}>${g}th</option>`).join('')}
             </select>
-            <label>Password:</label><input type="text" id="quiz-password" value="${quiz.password}">
+            <label>Password:</label><input type="password" id="quiz-password" value="${quiz.password}">
 
             <label>Marks Mode:</label>
             <select id="quiz-marks-mode" onchange="renderQuizEditor()">
@@ -345,7 +345,9 @@
 
     function addQuestion(subjectDiv) {
         const questions = subjectDiv.querySelectorAll(':scope > .question-container');
-        const qIndex = questions.length - 1; // subtract 1 for the AI generator block
+       const qIndex = Array.from(subjectDiv.querySelectorAll(':scope > .question-container'))
+                .filter(q => !q.querySelector('h5')?.textContent.includes('Generate Questions')).length;
+
         const newQ = { type: 'multiple-choice', text: '', options: ["", "", "", ""], correctAnswer: 0, correctMarks: 1, wrongMarks: 0 };
         const newEl = createQuestionElement(qIndex + 1, newQ);
 
