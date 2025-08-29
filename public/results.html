@@ -114,7 +114,7 @@
             totalScore: Number(r.totalScore||0), 
             subjectScores: r.subjectScores||{}, 
             warnings: Number(r.warnings||0),
-            location: r.location
+            location: JSON.stringify(r.location)
         }; 
     }
 
