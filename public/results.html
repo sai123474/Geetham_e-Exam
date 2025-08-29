@@ -304,7 +304,7 @@ const quizFilter = document.getElementById('quizFilter');
       const grades=Array.from(new Set(allResults.map(r=>r.class))).sort();
       gradeFilter.innerHTML='<option value="all">All Classes</option>'+grades.map(g=>`<option value="${g}">${g}</option>`).join('');
       const quizzes = Array.from(
-  new Set(allResults.map(r => r.quizName || "Untitled Quiz"))
+  new Set(allResults.map(r => r.quizTitle || "Untitled Quiz"))
 ).sort();
 
 quizFilter.innerHTML = '<option value="all">All Quizzes</option>' +
