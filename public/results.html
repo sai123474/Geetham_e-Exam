@@ -45,6 +45,11 @@
     </div>
     <div class="toolbar">
         <div>
+             <label for="quizFilter">Quiz:</label>
+<select id="quizFilter">
+  <option value="all">All Quizzes</option>
+</select>
+
             <label for="gradeFilter">Class:</label>
             <select id="gradeFilter"><option value="all">All Classes</option></select>
             <label for="topN">Top N:</label>
@@ -90,6 +95,8 @@
 </div>
 
 <script>
+    const quizFilter = document.getElementById('quizFilter');
+
 (function(){
     let allResults=[], filtered=[], dynamicSubjects=[], sortKey='totalScore', sortDir='desc';
     const tbody = document.querySelector('#results-table tbody');
@@ -119,6 +126,8 @@
     }
 
     function applyFiltersAndRender(){
+        let matchQuiz = quizFilter.value === 'all' || r.quizName === quizFilter.value;
+       return matchGrade && matchTop && matchSearch && matchQuiz;
         let rankedResults = computeRanks(allResults);
         filtered = rankedResults.filter(r=>{
             let matchGrade = gradeFilter.value === 'all' || r.class === gradeFilter.value;
@@ -280,12 +289,21 @@
             allResults=data.map(normalizeRecord);
             const grades=Array.from(new Set(allResults.map(r=>r.class))).sort();
             gradeFilter.innerHTML='<option value="all">All Classes</option>'+grades.map(g=>`<option value="${g}">${g}</option>`).join('');
+            // Collect unique quiz names
+const quizzes = Array.from(new Set(allResults.map(r => r.quizName))).sort();
+
+// Populate dropdown
+quizFilter.innerHTML = '<option value="all">All Quizzes</option>' +
+                       quizzes.map(q => `<option value="${q}">${q}</option>`).join('');
+
             applyFiltersAndRender();
         }catch(e){ alert('Failed to fetch results.'); }
     }
 
     fetchResults();
 })();
+    quizFilter.onchange = applyFiltersAndRender;
+
 </script>
 </body>
 </html>
