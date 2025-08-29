@@ -75,7 +75,8 @@
             </div>
         </div>
     </div>
-    
+    <div id="warningBanner" style="display:none; background:#ff4d4d; color:white; padding:10px; text-align:center; font-weight:bold;">Last 5 minutes remaining! Please finish your quiz.</div>
+
     <div class="main-container" id="quiz-screen">
         <div class="quiz-panel">
             <h1 style="margin-top: 0;" id="quiz-title-main"></h1>
@@ -532,6 +533,9 @@ function startFullscreenCountdown() {
             document.getElementById('timer').textContent = 
                 `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
         }, 1000);
+       if (timeLeft === 300) {
+    document.getElementById("warningBanner").style.display = "block";
+}
     }
     
     function confirmSubmit() {
