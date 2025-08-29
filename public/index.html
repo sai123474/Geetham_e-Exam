@@ -556,9 +556,10 @@ function startFullscreenCountdown() {
         // Show number and fill-in-the-blank preview if available
         let displayText = (index + 1).toString();
         if (question.type === "fill-in-the-blank" && response.answer) {
-            const answerPreview = response.answer.length > 3 ? response.answer.slice(0,3) + '…' : response.answer;
+           const answerPreview = response.answer.length > 6 ? response.answer.slice(0,6) + '…' : response.answer;
             displayText += `\n${answerPreview}`;
-            item.style.fontSize = '10px';
+            item.style.fontSize = '11px';
+            item.style.lineHeight = '1.2';
             item.style.whiteSpace = 'pre-line';
         }
         item.textContent = displayText;
@@ -569,8 +570,10 @@ function startFullscreenCountdown() {
             currentQuestionIndex = index;
             loadQuestion();
         };
-
-        palette.appendChild(item);
+        if (question.type === "fill-in-the-blank" && response.answer) {
+    item.title = response.answer; // Full answer on hover
+}
+ palette.appendChild(item);
     });
 }
 
