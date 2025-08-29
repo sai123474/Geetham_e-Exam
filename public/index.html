@@ -422,28 +422,31 @@ function startFullscreenCountdown() {
         updatePalette();
     }
 
-    function loadQuestion() {
-        const question = currentQuiz.subjects[currentSubject][currentQuestionIndex];
-        const questionArea = document.getElementById('question-area');
-        let shuffledOptions;
-        if (question.shuffledOptions) {
-            shuffledOptions = question.shuffledOptions;
-        } else {
+   function loadQuestion() {
+    const question = currentQuiz.subjects[currentSubject][currentQuestionIndex];
+    const questionArea = document.getElementById('question-area');
+    
+    questionArea.innerHTML = `
+        <h3 id="question-number">Question ${currentQuestionIndex + 1}</h3>
+        <p id="question-text">${question.text}</p>
+        <img id="question-image" class="question-image" style="display:${question.imageUrl ? 'block' : 'none'}; max-width:100%;" src="${question.imageUrl || ''}">
+        <div id="options-container"></div>
+    `;
+
+    const optionsContainer = document.getElementById('options-container');
+    const response = userResponses[currentSubject]?.[currentQuestionIndex] || {};
+
+    if (question.type === "multiple-choice") {
+        // Shuffle options if not shuffled
+        if (!question.shuffledOptions) {
             const originalCorrectAnswerText = question.options[question.correctAnswer];
-            shuffledOptions = [...question.options];
+            const shuffledOptions = [...question.options];
             shuffleArray(shuffledOptions);
             question.shuffledOptions = shuffledOptions;
             question.shuffledCorrectAnswerIndex = shuffledOptions.indexOf(originalCorrectAnswerText);
         }
-        questionArea.innerHTML = `
-            <h3 id="question-number">Question ${currentQuestionIndex + 1}</h3>
-            <p id="question-text">${question.text}</p>
-            <img id="question-image" class="question-image" style="display:${question.imageUrl ? 'block' : 'none'}; max-width:100%;" src="${question.imageUrl || ''}">
-            <div id="options-container"></div>
-        `;
-        const optionsContainer = document.getElementById('options-container');
-        const response = userResponses[currentSubject]?.[currentQuestionIndex] || {};
-        shuffledOptions.forEach((option, index) => {
+
+        question.shuffledOptions.forEach((option, index) => {
             const div = document.createElement('div');
             div.className = 'option';
             div.textContent = option;
@@ -451,18 +454,43 @@ function startFullscreenCountdown() {
             div.onclick = () => selectOption(index);
             optionsContainer.appendChild(div);
         });
-        lastQuestionStart = Date.now();
-        updatePalette();
+
+    } else if (question.type === "fill-in-the-blank") {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.placeholder = 'Enter your answer here';
+        input.value = response.answer || '';
+        input.oninput = (e) => selectOption(e.target.value);
+        optionsContainer.appendChild(input);
+
+    } else if (question.type === "subjective") {
+        const textarea = document.createElement('textarea');
+        textarea.placeholder = 'Write your answer here';
+        textarea.rows = 4;
+        textarea.style.width = '100%';
+        textarea.value = response.answer || '';
+        textarea.oninput = (e) => selectOption(e.target.value);
+        optionsContainer.appendChild(textarea);
     }
+
+    lastQuestionStart = Date.now();
+    updatePalette();
+}
     
-    function selectOption(index) {
-        if (!userResponses[currentSubject]) userResponses[currentSubject] = {};
-        userResponses[currentSubject][currentQuestionIndex] = userResponses[currentSubject][currentQuestionIndex] || {};
-        userResponses[currentSubject][currentQuestionIndex].answer = index;
+   function selectOption(answer) {
+    if (!userResponses[currentSubject]) userResponses[currentSubject] = {};
+    userResponses[currentSubject][currentQuestionIndex] = userResponses[currentSubject][currentQuestionIndex] || {};
+    userResponses[currentSubject][currentQuestionIndex].answer = answer;
+
+    // Update UI for multiple-choice only
+    const question = currentQuiz.subjects[currentSubject][currentQuestionIndex];
+    if (question.type === "multiple-choice") {
         document.querySelectorAll('.option').forEach((opt, optIndex) => {
-            opt.classList.toggle('selected', optIndex === index);
+            opt.classList.toggle('selected', optIndex === answer);
         });
     }
+}
+
 
     function accumulateTimeForCurrent() {
         if (!quizInProgress || lastQuestionStart === null) return;
@@ -511,22 +539,42 @@ function startFullscreenCountdown() {
         loadQuestion();
     }
 
-    function updatePalette() {
-        const palette = document.getElementById('question-palette');
-        palette.innerHTML = '';
-        currentQuiz.subjects[currentSubject].forEach((_, index) => {
-            const response = userResponses[currentSubject]?.[index] || {};
-            const item = document.createElement('div');
-            item.className = 'palette-item';
-            if (response.status === 'answered') item.classList.add('status-answered');
-            else if (response.status === 'review') item.classList.add('status-review');
-            else item.classList.add('status-not-answered');
-            item.textContent = index + 1;
-            item.onclick = () => { accumulateTimeForCurrent(); currentQuestionIndex = index; loadQuestion(); };
-            palette.appendChild(item);
-        });
-    }
-    
+   function updatePalette() {
+    const palette = document.getElementById('question-palette');
+    palette.innerHTML = '';
+
+    currentQuiz.subjects[currentSubject].forEach((question, index) => {
+        const response = userResponses[currentSubject]?.[index] || {};
+        const item = document.createElement('div');
+        item.className = 'palette-item';
+
+        // Set status color
+        if (response.status === 'answered') item.classList.add('status-answered');
+        else if (response.status === 'review') item.classList.add('status-review');
+        else item.classList.add('status-not-answered');
+
+        // Show number and fill-in-the-blank preview if available
+        let displayText = (index + 1).toString();
+        if (question.type === "fill-in-the-blank" && response.answer) {
+            const answerPreview = response.answer.length > 3 ? response.answer.slice(0,3) + '…' : response.answer;
+            displayText += `\n${answerPreview}`;
+            item.style.fontSize = '10px';
+            item.style.whiteSpace = 'pre-line';
+        }
+        item.textContent = displayText;
+
+        // Click to navigate
+        item.onclick = () => {
+            accumulateTimeForCurrent();
+            currentQuestionIndex = index;
+            loadQuestion();
+        };
+
+        palette.appendChild(item);
+    });
+}
+
+
     function startTimer(duration) {
         let timeLeft = duration;
         timerInterval = setInterval(() => {
@@ -553,68 +601,84 @@ function startFullscreenCountdown() {
         if (confirm("Are you sure you want to submit the test?")) submitTest();
     }
 
-    function submitTest() {
-        const submitBtn = document.querySelector('.submit');
-        if (submitBtn) submitBtn.disabled = true;
-        if (!quizInProgress) return;
-        quizInProgress = false;
-        clearInterval(timerInterval);
-        accumulateTimeForCurrent();
-        let totalScore = 0;
-        let subjectScores = {};
-        Object.keys(currentQuiz.subjects).forEach(subject => {
-            let subjectScore = 0;
-            currentQuiz.subjects[subject].forEach((question, index) => {
-                const response = userResponses[subject]?.[index];
-                if (response && response.answer !== undefined) {
-                    if (response.answer === question.shuffledCorrectAnswerIndex) subjectScore += 4;
-                    else subjectScore -= 1;
-                }
-            });
-            subjectScores[subject] = subjectScore;
-            totalScore += subjectScore;
+  function submitTest() {
+    const submitBtn = document.querySelector('.submit');
+    if (submitBtn) submitBtn.disabled = true;
+    if (!quizInProgress) return;
+    quizInProgress = false;
+    clearInterval(timerInterval);
+    accumulateTimeForCurrent();
+
+    let totalScore = 0;
+    let subjectScores = {};
+
+    const correctMarks = currentQuiz.marksCorrect || 4;
+    const incorrectMarks = currentQuiz.marksIncorrect || -1;
+    const fillBlankMarks = currentQuiz.marksFillBlank || 2; // admin can set this
+
+   Object.keys(currentQuiz.subjects).forEach(subject => {
+    let subjectScore = 0;
+    currentQuiz.subjects[subject].forEach((question, index) => {
+        const response = userResponses[subject]?.[index];
+        if (!response || response.answer === undefined) return;
+
+        if (question.type === "multiple-choice") {
+            if (response.answer === question.shuffledCorrectAnswerIndex) subjectScore += 4;
+            else subjectScore -= 1;
+        } else if (question.type === "fill-in-the-blank") {
+            if (response.answer?.trim().toLowerCase() === question.answerKey?.trim().toLowerCase()) subjectScore += 4;
+            else subjectScore -= 1;
+        }
+        // Subjective answers handled manually
+    });
+    subjectScores[subject] = subjectScore;
+    totalScore += subjectScore;
+});
+
+
+    // Send results to server
+    function sendResult(location = null) {
+        const resultData = {
+            date: new Date().toISOString(),
+            studentName: studentDetails.name,
+            mobile: studentDetails.mobile,
+            class: currentQuiz.class,
+            quizId: currentQuiz.id,
+            quizTitle: currentQuiz.title,
+            totalScore: totalScore,
+            subjectScores: subjectScores,
+            warnings: warningCount,
+            questionTimes: questionTimes,
+            location: location
+        };
+        fetch('/submit-result', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(resultData),
+        })
+        .then(response => {
+            if (!response.ok) throw new Error('Submission failed');
+            alert(`Test Submitted Successfully!`);
+            document.getElementById('quiz-screen').innerHTML = `<div style="max-width: 600px; margin: 50px auto; text-align:center;"><h1>Thanks for taking Exam</h1><button onclick="downloadPDFReport()">Download Report</button></div>`;
+        })
+        .catch(error => {
+            alert('There was an error submitting your test.');
+            if (submitBtn) submitBtn.disabled = false;
         });
-        
-        function sendResult(location = null) {
-            const resultData = {
-                date: new Date().toISOString(),
-                studentName: studentDetails.name,
-                mobile: studentDetails.mobile,
-                class: currentQuiz.class,
-                quizId: currentQuiz.id,
-                quizTitle: currentQuiz.title,
-                totalScore: totalScore,
-                subjectScores: subjectScores,
-                warnings: warningCount,
-                questionTimes: questionTimes,
-                location: location
-            };
-            fetch('/submit-result', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(resultData),
-            })
-            .then(response => {
-                if (!response.ok) throw new Error('Submission failed');
-                alert(`Test Submitted Successfully!`);
-                document.getElementById('quiz-screen').innerHTML = `<div style="max-width: 600px; margin: 50px auto; text-align:center;"><h1>Thanks for taking Exam</h1><button onclick="downloadPDFReport()">Download Report</button></div>`;
-            })
-            .catch(error => {
-                alert('There was an error submitting your test.');
-                if (submitBtn) submitBtn.disabled = false;
-            });
-        }
-        
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-                pos => sendResult({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
-                () => sendResult(),
-                { timeout: 5000 }
-            );
-        } else {
-            sendResult();
-        }
     }
+
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            pos => sendResult({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
+            () => sendResult(),
+            { timeout: 5000 }
+        );
+    } else {
+        sendResult();
+    }
+}
+
+
     
    function downloadPDFReport() {
     if (typeof window.jspdf === 'undefined') {
@@ -648,11 +712,11 @@ function startFullscreenCountdown() {
         doc.setFont("helvetica", "bold");
         doc.text(`Subject: ${subject}`, 14, y);
         y += 10;
-        
+
         currentQuiz.subjects[subject].forEach((q, i) => {
             if (y > 270) { doc.addPage(); y = 20; }
             const resp = userResponses[subject]?.[i] || {};
-            
+
             doc.setFontSize(11);
             doc.setFont("helvetica", "bold");
             const questionText = doc.splitTextToSize(`Q${i + 1}: ${q.text}`, 180);
@@ -660,8 +724,19 @@ function startFullscreenCountdown() {
             y += (questionText.length * 5) + 2;
 
             doc.setFont("helvetica", "normal");
-            const userAnswer = resp.answer !== undefined && q.shuffledOptions ? q.shuffledOptions[resp.answer] : "Not Answered";
-            const correctAnswer = q.shuffledCorrectAnswerIndex !== undefined && q.shuffledOptions ? q.shuffledOptions[q.shuffledCorrectAnswerIndex] : "N/A";
+            let userAnswer = "Not Answered";
+            let correctAnswer = "N/A";
+
+            if (q.type === "multiple-choice") {
+                userAnswer = resp.answer !== undefined && q.shuffledOptions ? q.shuffledOptions[resp.answer] : "Not Answered";
+                correctAnswer = q.shuffledCorrectAnswerIndex !== undefined && q.shuffledOptions ? q.shuffledOptions[q.shuffledCorrectAnswerIndex] : "N/A";
+            } else if (q.type === "fill-in-the-blank") {
+                userAnswer = resp.answer || "Not Answered";
+                correctAnswer = q.answerKey || "N/A";
+            } else if (q.type === "subjective") {
+                userAnswer = resp.answer || "Pending Review";
+                correctAnswer = "Manual Grading Required";
+            }
 
             doc.text(`Your Answer: ${userAnswer}`, 18, y);
             y += 6;
