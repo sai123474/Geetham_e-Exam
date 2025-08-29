@@ -1,17 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Geetham e-Exam</title>
-    <link rel="icon" type="image/jpeg" href="/geetham.jpg">
-    <link rel="manifest" href="/manifest.json">
-    <script type="module" src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/vision_bundle.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js"></script>
-    <meta name="theme-color" content="#0056b3"/>
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f0f2f5; color: #333; margin: 0; padding: 10px; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Geetham e-Exam</title>
+<link rel="icon" type="image/jpeg" href="/geetham.jpg">
+<link rel="manifest" href="/manifest.json">
+<script type="module" src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/vision_bundle.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/face-api.js"></script>
+<meta name="theme-color" content="#0056b3"/>
+<style>
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f0f2f5; color: #333; margin: 0; padding: 10px; }
         .main-container, #student-details-screen { display: none; }
         .quiz-panel { flex-grow: 1; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
         .sidebar { width: 300px; margin-left: 20px; background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
@@ -44,141 +44,131 @@
         #ai-status.loading { background: #ffc107; color: #333; }
         #ai-status.ready { background: #28a745; color: white; }
         #ai-status.error { background: #dc3545; color: white; }
-       
-}
-
-    </style>
+</style>
 </head>
 <body>
-  <div id="fullscreen-warning" style="display:none;">
+<div id="fullscreen-warning" style="display:none;">
     <h1>You Exited Full-Screen!</h1>
     <p>Please return to full-screen to continue the test.</p>
     <p>Resuming automatically in <span id="fullscreen-countdown">5</span> seconds...</p>
     <button id="resume-fullscreen-btn">Resume Full-Screen</button>
 </div>
-    <div id="ai-status" class="loading" style="display:none;">AI Proctor Loading...</div>
-    <div id="warnings-indicator" title="Warnings" style="display:none;">Warnings: <span id="warning-count">0</span></div>
-    <div id="camera-wrapper">
-        <div id="camera-header"><span>Camera</span></div>
-        <video id="camera-view" autoplay playsinline muted></video>
-    </div>
+<div id="ai-status" class="loading" style="display:none;">AI Proctor Loading...</div>
+<div id="warnings-indicator" title="Warnings" style="display:none;">Warnings: <span id="warning-count">0</span></div>
+<div id="camera-wrapper">
+    <div id="camera-header"><span>Camera</span></div>
+    <video id="camera-view" autoplay playsinline muted></video>
+</div>
 
-    <div id="student-details-screen" style="display: block;">
-        <div style="max-width: 500px; margin: 50px auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-            <div style="text-align: center; margin-bottom: 15px;">
-                <img src="/geetham.jpg" alt="Geetham Institute Logo" style="max-height: 80px;">
-            </div>
-            <h1>Geetham e-Exam</h1>
-            <div id="login-form">
-                <h2>Enter Your Details</h2>
-                <p>You can only attempt each test once.</p>
-                <div id="quiz-selection-container"></div>
-                <input type="text" id="student-name" placeholder="Enter your full name" required autocomplete="off">
-                <input type="tel" id="student-mobile" placeholder="Enter your mobile number" required autocomplete="off">
-                <button id="proceed-btn" style="width: 100%;">Proceed</button>
-            </div>
+<div id="student-details-screen" style="display: block;">
+    <div style="max-width: 500px; margin: 50px auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        <div style="text-align: center; margin-bottom: 15px;">
+            <img src="/geetham.jpg" alt="Geetham Institute Logo" style="max-height: 80px;">
+        </div>
+        <h1>Geetham e-Exam</h1>
+        <div id="login-form">
+            <h2>Enter Your Details</h2>
+            <p>You can only attempt each test once.</p>
+            <div id="quiz-selection-container"></div>
+            <input type="text" id="student-name" placeholder="Enter your full name" required autocomplete="off">
+            <input type="tel" id="student-mobile" placeholder="Enter your mobile number" required autocomplete="off">
+            <button id="proceed-btn" style="width: 100%;">Proceed</button>
         </div>
     </div>
-    <div id="warningBanner" style="display:none; background:#ff4d4d; color:white; padding:10px; text-align:center; font-weight:bold;">Last 5 minutes remaining! Please finish your quiz.</div>
+</div>
+<div id="warningBanner" style="display:none; background:#ff4d4d; color:white; padding:10px; text-align:center; font-weight:bold;">Last 5 minutes remaining! Please finish your quiz.</div>
 
-    <div class="main-container" id="quiz-screen">
-        <div class="quiz-panel">
-            <h1 style="margin-top: 0;" id="quiz-title-main"></h1>
-            <div id="timer">00:00:00</div>
-            <div class="subject-tabs"></div>
-            <div id="question-area" class="question-area"></div>
-            <div class="nav-buttons">
-                <button class="secondary" onclick="markForReview()">Mark for Review & Next</button>
-                <div>
-                    <button onclick="goPrevious()">Previous</button>
-                    <button class="secondary" onclick="clearResponse()">Clear Response</button>
-                    <button onclick="saveAndNext()">Save & Next</button>
-                </div>
-            </div>
-            <div style="text-align: center; margin-top: 20px;">
-                <button class="submit" onclick="confirmSubmit()">Submit Test</button>
+<div class="main-container" id="quiz-screen">
+    <div class="quiz-panel">
+        <h1 style="margin-top: 0;" id="quiz-title-main"></h1>
+        <div id="timer">00:00:00</div>
+        <div class="subject-tabs"></div>
+        <div id="question-area" class="question-area"></div>
+        <div class="nav-buttons">
+            <button class="secondary" onclick="markForReview()">Mark for Review & Next</button>
+            <div>
+                <button onclick="goPrevious()">Previous</button>
+                <button class="secondary" onclick="clearResponse()">Clear Response</button>
+                <button onclick="saveAndNext()">Save & Next</button>
             </div>
         </div>
-        <div class="sidebar">
-            <h4>Question Palette</h4>
-            <div id="question-palette" class="palette-grid"></div>
-            <hr>
-            <h4>Legend</h4>
-            <div style="display:flex; align-items: center; margin-top: 10px;"><div class="palette-item status-answered"></div><span style="margin-left: 10px;">Answered</span></div>
-            <div style="display:flex; align-items: center; margin-top: 10px;"><div class="palette-item status-review"></div><span style="margin-left: 10px;">Marked for Review</span></div>
-            <div style="display:flex; align-items: center; margin-top: 10px;"><div class="palette-item status-not-answered"></div><span style="margin-left: 10px;">Not Answered</span></div>
+        <div style="text-align: center; margin-top: 20px;">
+            <button class="submit" onclick="confirmSubmit()">Submit Test</button>
         </div>
     </div>
+    <div class="sidebar">
+        <h4>Question Palette</h4>
+        <div id="question-palette" class="palette-grid"></div>
+        <hr>
+        <h4>Legend</h4>
+        <div style="display:flex; align-items: center; margin-top: 10px;"><div class="palette-item status-answered"></div><span style="margin-left: 10px;">Answered</span></div>
+        <div style="display:flex; align-items: center; margin-top: 10px;"><div class="palette-item status-review"></div><span style="margin-left: 10px;">Marked for Review</span></div>
+        <div style="display:flex; align-items: center; margin-top: 10px;"><div class="palette-item status-not-answered"></div><span style="margin-left: 10px;">Not Answered</span></div>
+    </div>
+</div>
 
 <script type="module">
-    import { FaceLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/vision_bundle.js";
+import { FaceLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/vision_bundle.js";
 
-    // --- GLOBAL VARIABLES ---
-    let allQuizzes = [], currentQuiz = {}, currentSubject = "", currentQuestionIndex = 0;
-    let userResponses = {}, studentDetails = {}, timerInterval, quizInProgress = false, warningCount = 0;
-    const maxWarnings = 3;
-    let faceLandmarker, isGazeDetectionRunning = false, lookAwayStartTime = null;
-    const LOOK_AWAY_THRESHOLD = 3000;
-    let questionTimes = {};
-    let lastQuestionStart = null;
-    let fullscreenCountdownInterval;
+// --- GLOBAL VARIABLES ---
+let allQuizzes = [], currentQuiz = {}, currentSubject = "", currentQuestionIndex = 0;
+let userResponses = {}, studentDetails = {}, timerInterval, quizInProgress = false, warningCount = 0;
+const maxWarnings = 3;
+let faceLandmarker, isGazeDetectionRunning = false, lookAwayStartTime = null;
+const LOOK_AWAY_THRESHOLD = 3000;
+let questionTimes = {}, lastQuestionStart = null, fullscreenCountdownInterval, autoSaveInterval;
 
+// --- UTILITY FUNCTIONS ---
+function showToast(message, type = 'warning') {
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    setTimeout(() => { toast.classList.add('show'); }, 100);
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 500);
+    }, 4000);
+}
 
+function updateAIStatus(status, message) {
+    const aiStatus = document.getElementById('ai-status');
+    aiStatus.className = status;
+    aiStatus.textContent = message;
+    aiStatus.style.display = 'block';
+    if (status === 'ready') setTimeout(() => { aiStatus.style.display = 'none'; }, 3000);
+}
 
-    // --- UTILITY FUNCTIONS ---
-    function showToast(message, type = 'warning') {
-        const toast = document.createElement('div');
-        toast.className = `toast ${type}`;
-        toast.textContent = message;
-        document.body.appendChild(toast);
-        setTimeout(() => { toast.classList.add('show'); }, 100);
-        setTimeout(() => {
-            toast.classList.remove('show');
-            setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 500);
-        }, 4000);
+function shuffleArray(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
     }
+}
 
-    function updateAIStatus(status, message) {
-        const aiStatus = document.getElementById('ai-status');
-        aiStatus.className = status;
-        aiStatus.textContent = message;
-        aiStatus.style.display = 'block';
-        if (status === 'ready') {
-            setTimeout(() => { aiStatus.style.display = 'none'; }, 3000);
-        }
+// --- QUIZ FLOW ---
+async function loadInitialData() {
+    try {
+        const response = await fetch('/get-quizzes');
+        allQuizzes = await response.json();
+        displayInitialScreen();
+    } catch (error) {
+        document.body.innerHTML = "<h1>Error: Could not load quiz data.</h1>";
     }
+}
 
-    function shuffleArray(array) {
-        for (let i = array.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [array[i], array[j]] = [array[j], array[i]];
-        }
-    }
+function displayInitialScreen() {
+    document.getElementById('student-details-screen').style.display = 'block';
+    const quizSelectionContainer = document.getElementById('quiz-selection-container');
+    let selectHTML = '<label for="quiz-select">Select a Test:</label><select id="quiz-select">';
+    allQuizzes.forEach((quiz, index) => selectHTML += `<option value="${index}">${quiz.title}</option>`);
+    selectHTML += '</select>';
+    quizSelectionContainer.innerHTML = selectHTML;
+    document.getElementById('proceed-btn').onclick = handleProceed;
+}
 
-    // --- QUIZ FLOW ---
-    async function loadInitialData() {
-        try {
-            const response = await fetch('/get-quizzes');
-            allQuizzes = await response.json();
-            displayInitialScreen();
-        } catch (error) {
-            document.body.innerHTML = "<h1>Error: Could not load quiz data.</h1>";
-        }
-    }
-    
-    function displayInitialScreen() {
-        document.getElementById('student-details-screen').style.display = 'block';
-        const quizSelectionContainer = document.getElementById('quiz-selection-container');
-        let selectHTML = '<label for="quiz-select">Select a Test:</label><select id="quiz-select">';
-        allQuizzes.forEach((quiz, index) => {
-            selectHTML += `<option value="${index}">${quiz.title}</option>`;
-        });
-        selectHTML += '</select>';
-        quizSelectionContainer.innerHTML = selectHTML;
-        document.getElementById('proceed-btn').onclick = handleProceed;
-    }
-
-    async function handleProceed() {
+// --- [Existing handleProceed(), showPasswordScreen(), prepareQuiz(), initializeQuiz() remain mostly unchanged] ---
+async function handleProceed() {
         const name = document.getElementById('student-name').value;
         const mobile = document.getElementById('student-mobile').value;
         const quizSelect = document.getElementById('quiz-select');
@@ -259,8 +249,72 @@
         setTimeout(startGazeDetection, 2000);
     }
     
-    // --- PROCTORING AND NAVIGATION ---
-    async function startCamera() {
+
+// --- AUTO-SAVE FEATURE ---
+function startAutoSave() {
+    clearInterval(autoSaveInterval);
+    autoSaveInterval = setInterval(() => {
+        if (!quizInProgress) return;
+        const inputField = document.querySelector('#options-container input, #options-container textarea');
+if (inputField) selectOption(inputField.value);
+    }, 5000);
+}
+
+// Call startAutoSave() at the end of loadQuestion()
+function loadQuestion() {
+    const question = currentQuiz.subjects[currentSubject][currentQuestionIndex];
+    const questionArea = document.getElementById('question-area');
+    questionArea.innerHTML = `
+        <h3 id="question-number">Question ${currentQuestionIndex + 1}</h3>
+        <p id="question-text">${question.text}</p>
+        <img id="question-image" class="question-image" style="display:${question.imageUrl ? 'block' : 'none'}; max-width:100%;" src="${question.imageUrl || ''}">
+        <div id="options-container"></div>
+    `;
+    const optionsContainer = document.getElementById('options-container');
+    const response = userResponses[currentSubject]?.[currentQuestionIndex] || {};
+
+    if (question.type === "multiple-choice") {
+        if (!question.shuffledOptions) {
+            const originalCorrectAnswerText = question.options[question.correctAnswer];
+            const shuffledOptions = [...question.options];
+            shuffleArray(shuffledOptions);
+            question.shuffledOptions = shuffledOptions;
+            question.shuffledCorrectAnswerIndex = shuffledOptions.indexOf(originalCorrectAnswerText);
+        }
+        question.shuffledOptions.forEach((option, index) => {
+            const div = document.createElement('div');
+            div.className = 'option';
+            div.textContent = option;
+            if (response.answer === index) div.classList.add('selected');
+            div.onclick = () => selectOption(index);
+            optionsContainer.appendChild(div);
+        });
+    } else if (question.type === "fill-in-the-blank") {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.placeholder = 'Enter your answer here';
+        input.value = response.answer || '';
+        input.oninput = (e) => selectOption(e.target.value);
+        optionsContainer.appendChild(input);
+    } else if (question.type === "subjective") {
+        const textarea = document.createElement('textarea');
+        textarea.placeholder = 'Write your answer here';
+        textarea.rows = 4;
+        textarea.style.width = '100%';
+        textarea.value = response.answer || '';
+        textarea.oninput = (e) => selectOption(e.target.value);
+        optionsContainer.appendChild(textarea);
+    }
+
+    lastQuestionStart = Date.now();
+    updatePalette();
+    startAutoSave();
+}
+
+// --- REST OF CODE: PROCTORING, TIMER, SUBMIT, PDF REPORT ---
+/* Keep all existing proctoring, gaze detection, fullscreen, tab-switch warnings,
+timer, submitTest(), downloadPDFReport() intact as in your previous code. */
+async function startCamera() {
         const videoElement = document.getElementById('camera-view');
         if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
             const stream = await navigator.mediaDevices.getUserMedia({ video: true });
@@ -294,10 +348,6 @@
             clearInterval(fullscreenCountdownInterval);
         }
     });
-document.getElementById('resume-fullscreen-btn').onclick = async () => {
-    clearInterval(fullscreenCountdownInterval);
-    await startFullScreen();
-};
 
     // Detects switching to another application
     window.addEventListener("blur", () => {
@@ -375,22 +425,7 @@ document.addEventListener('fullscreenchange', () => {
     }
 });
 
-
-// Resume fullscreen button
-document.getElementById('resume-fullscreen-btn').onclick = async () => {
-    clearInterval(fullscreenCountdownInterval);
-    try {
-        if (!document.fullscreenElement) {
-            await requestFullscreenSafe();
-        }
-        document.getElementById('fullscreen-warning').style.display = 'none';
-    } catch (err) {
-        console.error("Failed to resume fullscreen:", err);
-        alert("Could not resume full-screen. Please press F11 or browser full-screen manually.");
-    }
-};
-
-    function handleWarning(message) {
+  function handleWarning(message) {
         warningCount++;
         const warningMessage = `Warning ${warningCount}/${maxWarnings}: ${message}`;
         showToast(warningMessage, 'warning');
@@ -469,63 +504,7 @@ document.getElementById('resume-fullscreen-btn').onclick = async () => {
         loadQuestion();
         updatePalette();
     }
-
-   function loadQuestion() {
-    const question = currentQuiz.subjects[currentSubject][currentQuestionIndex];
-    const questionArea = document.getElementById('question-area');
-    
-    questionArea.innerHTML = `
-        <h3 id="question-number">Question ${currentQuestionIndex + 1}</h3>
-        <p id="question-text">${question.text}</p>
-        <img id="question-image" class="question-image" style="display:${question.imageUrl ? 'block' : 'none'}; max-width:100%;" src="${question.imageUrl || ''}">
-        <div id="options-container"></div>
-    `;
-
-    const optionsContainer = document.getElementById('options-container');
-    const response = userResponses[currentSubject]?.[currentQuestionIndex] || {};
-
-    if (question.type === "multiple-choice") {
-        // Shuffle options if not shuffled
-        if (!question.shuffledOptions) {
-            const originalCorrectAnswerText = question.options[question.correctAnswer];
-            const shuffledOptions = [...question.options];
-            shuffleArray(shuffledOptions);
-            question.shuffledOptions = shuffledOptions;
-            question.shuffledCorrectAnswerIndex = shuffledOptions.indexOf(originalCorrectAnswerText);
-        }
-
-        question.shuffledOptions.forEach((option, index) => {
-            const div = document.createElement('div');
-            div.className = 'option';
-            div.textContent = option;
-            if (response.answer === index) div.classList.add('selected');
-            div.onclick = () => selectOption(index);
-            optionsContainer.appendChild(div);
-        });
-
-    } else if (question.type === "fill-in-the-blank") {
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.placeholder = 'Enter your answer here';
-        input.value = response.answer || '';
-        input.oninput = (e) => selectOption(e.target.value);
-        optionsContainer.appendChild(input);
-
-    } else if (question.type === "subjective") {
-        const textarea = document.createElement('textarea');
-        textarea.placeholder = 'Write your answer here';
-        textarea.rows = 4;
-        textarea.style.width = '100%';
-        textarea.value = response.answer || '';
-        textarea.oninput = (e) => selectOption(e.target.value);
-        optionsContainer.appendChild(textarea);
-    }
-
-    lastQuestionStart = Date.now();
-    updatePalette();
-}
-    
-   function selectOption(answer) {
+ function selectOption(answer) {
     if (!userResponses[currentSubject]) userResponses[currentSubject] = {};
     userResponses[currentSubject][currentQuestionIndex] = userResponses[currentSubject][currentQuestionIndex] || {};
     userResponses[currentSubject][currentQuestionIndex].answer = answer;
@@ -812,7 +791,8 @@ document.getElementById('resume-fullscreen-btn').onclick = async () => {
             navigator.serviceWorker.register('/service-worker.js');
         });
     }
-    document.addEventListener('DOMContentLoaded', loadInitialData);
+
+document.addEventListener('DOMContentLoaded', loadInitialData);
 </script>
 </body>
 </html>
