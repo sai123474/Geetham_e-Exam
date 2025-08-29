@@ -325,20 +325,23 @@ document.getElementById('resume-fullscreen-btn').onclick = async () => {
     });
 }
 function startFullscreenCountdown() {
-        let seconds = 5;
-        const countdownElement = document.getElementById('fullscreen-countdown');
-        countdownElement.textContent = seconds;
+    let seconds = 5;
+    const countdownElement = document.getElementById('fullscreen-countdown');
+    countdownElement.textContent = seconds;
 
-        clearInterval(fullscreenCountdownInterval); // Clear any existing interval
-        fullscreenCountdownInterval = setInterval(async () => {
-            seconds--;
-            countdownElement.textContent = seconds;
-            if (seconds <= 0) {
-                clearInterval(fullscreenCountdownInterval);
-                await startFullScreen();
-            }
-        }, 1000);
-    }
+    clearInterval(fullscreenCountdownInterval);
+    fullscreenCountdownInterval = setInterval(() => {
+        seconds--;
+        countdownElement.textContent = seconds;
+        if (seconds <= 0) {
+            clearInterval(fullscreenCountdownInterval);
+            // Instead of forcing fullscreen, keep showing the warning
+            // and rely on Resume button
+            document.getElementById("resume-fullscreen-btn").textContent = "Click to Resume Full-Screen";
+        }
+    }, 1000);
+}
+
     function handleWarning(message) {
         warningCount++;
         const warningMessage = `Warning ${warningCount}/${maxWarnings}: ${message}`;
