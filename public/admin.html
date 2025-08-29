@@ -243,13 +243,22 @@
     }
 
     function addQuestion(subjectDiv) {
-        const questions = subjectDiv.querySelectorAll('.question-container');
-        const qIndex = questions.length;
-        const newQ = { type: 'multiple-choice', text: '', options: ["", "", "", ""], correctAnswer: 0 };
-        const newEl = createQuestionElement(qIndex, newQ);
-        const addBtn = subjectDiv.querySelector('.btn-add');
+    const questions = subjectDiv.querySelectorAll('.question-container');
+    const qIndex = questions.length;
+    const newQ = { type: 'multiple-choice', text: '', options: ["", "", "", ""], correctAnswer: 0 };
+    const newEl = createQuestionElement(qIndex, newQ);
+
+    // Select only the direct child ".btn-add" of this subject block
+    const addBtn = subjectDiv.querySelector(':scope > .btn-add');
+
+    if (addBtn) {
         subjectDiv.insertBefore(newEl, addBtn);
+    } else {
+        // fallback: just append at the end
+        subjectDiv.appendChild(newEl);
     }
+}
+
 
     function removeQuestion(btn) {
         btn.closest('.question-container').remove();
