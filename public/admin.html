@@ -318,33 +318,43 @@
         }
     }
 
-    async function saveQuiz() {
-        const quizToSave = quizzesData[selectedQuizIndex];
-        if (!quizToSave) return;
-        quizToSave.title = document.getElementById('quiz-title')?.value || quizToSave.title;
-        quizToSave.timeLimit = parseInt(document.getElementById('quiz-time')?.value) || quizToSave.timeLimit;
-        quizToSave.class = document.getElementById('quiz-class').value;
-        quizToSave.password = document.getElementById('quiz-password')?.value || quizToSave.password;
-        const newSubjects = {};
-        document.querySelectorAll('.subject-container').forEach(subDiv => {
-            const name = subDiv.querySelector('.subject-name')?.value;
-            if (!name) return;
-            newSubjects[name] = [];
-            subDiv.querySelectorAll('.question-container').forEach(qDiv => {
-                const type = qDiv.querySelector('.question-type')?.value || 'multiple-choice';
-                const qData = { text: qDiv.querySelector('textarea')?.value || '', type };
-                if (type === 'multiple-choice') {
-                    qData.options = Array.from(qDiv.querySelectorAll('.answer-fields input')).map(i => i.value);
-                    qData.correctAnswer = parseInt(qDiv.querySelector('.correct-answer-mc')?.value || 0, 10);
-                } else {
-                    qData.correctAnswer = qDiv.querySelector('.correct-answer-text')?.value || '';
-                }
-                newSubjects[name].push(qData);
-            });
+   async function saveQuiz() {
+    const quizToSave = quizzesData[selectedQuizIndex];
+    if (!quizToSave) return;
+
+    // Update quiz details
+    quizToSave.title = document.getElementById('quiz-title')?.value || quizToSave.title;
+    quizToSave.timeLimit = parseInt(document.getElementById('quiz-time')?.value) || quizToSave.timeLimit;
+    quizToSave.class = document.getElementById('quiz-class').value;
+    quizToSave.password = document.getElementById('quiz-password')?.value || quizToSave.password;
+
+    const newSubjects = {};
+    document.querySelectorAll('.subject-container').forEach(subDiv => {
+        const name = subDiv.querySelector('.subject-name')?.value;
+        if (!name) return;
+
+        newSubjects[name] = [];
+        // FIX: Only direct child question-containers
+        subDiv.querySelectorAll(':scope > .question-container').forEach(qDiv => {
+            const type = qDiv.querySelector('.question-type')?.value || 'multiple-choice';
+            const qData = { text: qDiv.querySelector('textarea')?.value || '', type };
+
+            if (type === 'multiple-choice') {
+                qData.options = Array.from(qDiv.querySelectorAll('.answer-fields input')).map(i => i.value);
+                qData.correctAnswer = parseInt(qDiv.querySelector('.correct-answer-mc')?.value || 0, 10);
+            } else {
+                qData.correctAnswer = qDiv.querySelector('.correct-answer-text')?.value || '';
+            }
+
+            newSubjects[name].push(qData);
         });
-        quizToSave.subjects = newSubjects;
-        await saveAllQuizzesToServer();
-    }
+    });
+
+    quizToSave.subjects = newSubjects;
+
+    await saveAllQuizzesToServer();
+    await loadQuizzes(); // reload with latest data
+}
 
     async function saveAllQuizzesToServer() {
         const token = localStorage.getItem('adminToken');
