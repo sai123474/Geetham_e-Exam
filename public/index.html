@@ -53,65 +53,65 @@
     </style>
 </head>
 <body>
-<div id="fullscreen-warning" style="display:none; flex-direction: column; justify-content: center; align-items: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); color: white; z-index: 10000;">
-    <h1>You Exited Full-Screen!</h1>
-    <p>Please return to full-screen to continue the test.</p>
-    <p>Resuming automatically in <span id="fullscreen-countdown">5</span> seconds...</p>
-    <button id="resume-fullscreen-btn">Resume Full-Screen</button>
-</div>
-<div id="ai-status" class="loading" style="display:none;">AI Proctor Loading...</div>
-<div id="warnings-indicator" title="Warnings" style="display:none;">Warnings: <span id="warning-count">0</span></div>
-<div id="camera-wrapper">
-    <div id="camera-header"><span>Camera</span></div>
-    <video id="camera-view" autoplay playsinline muted></video>
-</div>
-<div id="student-details-screen" style="display: block;">
-    <div style="max-width: 500px; margin: 50px auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-        <div style="text-align: center; margin-bottom: 15px;">
-            <img src="/geetham.jpg" alt="Geetham Institute Logo" style="max-height: 80px;">
-        </div>
-        <h1>Geetham e-Exam</h1>
-        <div id="login-form">
-            <h2>Enter Your Details</h2>
-            <p>You can only attempt each test once.</p>
-            <div id="quiz-selection-container"></div>
-            <input type="text" id="student-name" placeholder="Enter your full name" required autocomplete="off">
-            <input type="tel" id="student-mobile" placeholder="Enter your mobile number" required autocomplete="off">
-            <button id="proceed-btn" style="width: 100%;">Proceed</button>
-        </div>
+    <div id="fullscreen-warning" style="display:none; flex-direction: column; justify-content: center; align-items: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); color: white; z-index: 10000;">
+        <h1>You Exited Full-Screen!</h1>
+        <p>Please return to full-screen to continue the test.</p>
+        <p>Resuming automatically in <span id="fullscreen-countdown">5</span> seconds...</p>
+        <button id="resume-fullscreen-btn">Resume Full-Screen</button>
     </div>
-</div>
-<div id="warningBanner" style="display:none; background:#ff4d4d; color:white; padding:10px; text-align:center; font-weight:bold;">Last 5 minutes remaining! Please finish your quiz.</div>
-<div class="main-container" id="quiz-screen">
-    <div class="quiz-panel">
-        <h1 style="margin-top: 0;" id="quiz-title-main"></h1>
-        <div id="timer">00:00:00</div>
-        <div class="subject-tabs"></div>
-        <div id="question-area" class="question-area"></div>
-        <div class="nav-buttons">
-            <button class="secondary" onclick="markForReview()">Mark for Review & Next</button>
-            <div>
-                <button id="manual-save-btn" class="secondary" onclick="manualSave()">Save Progress</button>
-                <button onclick="goPrevious()">Previous</button>
-                <button class="secondary" onclick="clearResponse()">Clear Response</button>
-                <button onclick="saveAndNext()">Save & Next</button>
+    <div id="ai-status" class="loading" style="display:none;">AI Proctor Loading...</div>
+    <div id="warnings-indicator" title="Warnings" style="display:none;">Warnings: <span id="warning-count">0</span></div>
+    <div id="camera-wrapper">
+        <div id="camera-header"><span>Camera</span></div>
+        <video id="camera-view" autoplay playsinline muted></video>
+    </div>
+    <div id="student-details-screen" style="display: block;">
+        <div style="max-width: 500px; margin: 50px auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+            <div style="text-align: center; margin-bottom: 15px;">
+                <img src="/geetham.jpg" alt="Geetham Institute Logo" style="max-height: 80px;">
+            </div>
+            <h1>Geetham e-Exam</h1>
+            <div id="login-form">
+                <h2>Enter Your Details</h2>
+                <p>You can only attempt each test once.</p>
+                <div id="quiz-selection-container"></div>
+                <input type="text" id="student-name" placeholder="Enter your full name" required autocomplete="off">
+                <input type="tel" id="student-mobile" placeholder="Enter your mobile number" required autocomplete="off">
+                <button id="proceed-btn" style="width: 100%;">Proceed</button>
             </div>
         </div>
-        <div style="text-align: center; margin-top: 20px;">
-            <button class="submit" onclick="confirmSubmit()">Submit Test</button>
+    </div>
+    <div id="warningBanner" style="display:none; background:#ff4d4d; color:white; padding:10px; text-align:center; font-weight:bold;">Last 5 minutes remaining! Please finish your quiz.</div>
+    <div class="main-container" id="quiz-screen">
+        <div class="quiz-panel">
+            <h1 style="margin-top: 0;" id="quiz-title-main"></h1>
+            <div id="timer">00:00:00</div>
+            <div class="subject-tabs"></div>
+            <div id="question-area" class="question-area"></div>
+            <div class="nav-buttons">
+                <button class="secondary" onclick="markForReview()">Mark for Review & Next</button>
+                <div>
+                    <button id="manual-save-btn" class="secondary" onclick="manualSave()">Save Progress</button>
+                    <button onclick="goPrevious()">Previous</button>
+                    <button class="secondary" onclick="clearResponse()">Clear Response</button>
+                    <button onclick="saveAndNext()">Save & Next</button>
+                </div>
+            </div>
+            <div style="text-align: center; margin-top: 20px;">
+                <button class="submit" onclick="confirmSubmit()">Submit Test</button>
+            </div>
+        </div>
+        <div class="sidebar">
+            <div id="save-status"></div>
+            <h4>Question Palette</h4>
+            <div id="question-palette" class="palette-grid"></div>
+            <hr>
+            <h4>Legend</h4>
+            <div style="display:flex; align-items: center; margin-top: 10px;"><div class="palette-item status-answered"></div><span style="margin-left: 10px;">Answered</span></div>
+            <div style="display:flex; align-items: center; margin-top: 10px;"><div class="palette-item status-review"></div><span style="margin-left: 10px;">Marked for Review</span></div>
+            <div style="display:flex; align-items: center; margin-top: 10px;"><div class="palette-item status-not-answered"></div><span style="margin-left: 10px;">Not Answered</span></div>
         </div>
     </div>
-    <div class="sidebar">
-        <div id="save-status"></div>
-        <h4>Question Palette</h4>
-        <div id="question-palette" class="palette-grid"></div>
-        <hr>
-        <h4>Legend</h4>
-        <div style="display:flex; align-items: center; margin-top: 10px;"><div class="palette-item status-answered"></div><span style="margin-left: 10px;">Answered</span></div>
-        <div style="display:flex; align-items: center; margin-top: 10px;"><div class="palette-item status-review"></div><span style="margin-left: 10px;">Marked for Review</span></div>
-        <div style="display:flex; align-items: center; margin-top: 10px;"><div class="palette-item status-not-answered"></div><span style="margin-left: 10px;">Not Answered</span></div>
-    </div>
-</div>
 <script type="module">
 import { FaceLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/vision_bundle.js";
 
@@ -359,12 +359,22 @@ function loadQuestion() {
 function selectOption(answer) {
     if (!userResponses[currentSubject]) userResponses[currentSubject] = {};
     const currentResponse = userResponses[currentSubject]?.[currentQuestionIndex] || {};
+    const question = currentQuiz.subjects[currentSubject][currentQuestionIndex];
+
     currentResponse.answer = answer;
+
+    // CRITICAL FIX: For multiple-choice questions, we must also save the shuffled answer key.
+    // This allows the server to correctly re-grade the submission later.
+    if (question.type === "multiple-choice") {
+        currentResponse.shuffledCorrectAnswerIndex = question.shuffledCorrectAnswerIndex;
+    }
+
     if (currentResponse.status !== 'review') {
         currentResponse.status = 'answered';
     }
     userResponses[currentSubject][currentQuestionIndex] = currentResponse;
-    if (currentQuiz.subjects[currentSubject][currentQuestionIndex].type === "multiple-choice") {
+
+    if (question.type === "multiple-choice") {
         document.querySelectorAll('.option').forEach((opt, optIndex) => {
             opt.classList.toggle('selected', optIndex === answer);
         });
@@ -436,10 +446,6 @@ function confirmSubmit() {
     }
 }
 
-// =================================================================
-// ===== CORRECTED FUNCTION STARTS HERE ============================
-// =================================================================
-
 function submitTest() {
     if (!quizInProgress) return;
     quizInProgress = false;
@@ -450,7 +456,7 @@ function submitTest() {
     const submitBtn = document.querySelector('.submit');
     if (submitBtn) submitBtn.disabled = true;
 
-    // Compute total score
+    // Compute total score for auto-graded questions
     let totalScore = 0;
     let subjectScores = {};
     Object.keys(currentQuiz.subjects).forEach(subject => {
@@ -458,32 +464,27 @@ function submitTest() {
         currentQuiz.subjects[subject].forEach((q, index) => {
             const response = userResponses[subject]?.[index];
             let marksObtained = 0;
-
-            // Define the marks to be used for this specific question
             const marksCorrect = currentQuiz.marksMode === 'custom' ? (q.correctMarks ?? 1) : (currentQuiz.correctMarks ?? 1);
             const marksIncorrect = currentQuiz.marksMode === 'custom' ? (q.wrongMarks ?? 0) : (currentQuiz.wrongMarks ?? 0);
             
-            // Check if there was an actual answer provided for auto-gradable questions
             const hasAnswer = response && response.answer !== undefined && response.answer !== '';
 
-            if (q.type === "multiple-choice" || q.type === "fill-in-the-blank") {
-                if (hasAnswer) {
-                    let isCorrect = false;
-                    if (q.type === "multiple-choice") {
-                        isCorrect = (response.answer === q.shuffledCorrectAnswerIndex);
-                    } else { // fill-in-the-blank
-                        const correctAnswers = (q.answerKey || '').split('|').map(a => a.trim().toLowerCase());
-                        isCorrect = correctAnswers.includes((response.answer || '').toString().trim().toLowerCase());
-                    }
-                    marksObtained = isCorrect ? marksCorrect : marksIncorrect;
+            if (q.type === "multiple-choice") {
+                if (hasAnswer && response.answer === response.shuffledCorrectAnswerIndex) {
+                    marksObtained = marksCorrect;
                 } else {
-                    // If unanswered, it gets the penalty/incorrect marks (which is often 0)
                     marksObtained = marksIncorrect;
                 }
-            } else if (q.type === "subjective") {
-                // For subjective questions, use the manually graded marks if they exist
-                marksObtained = response?.marks || 0;
+            } else if (q.type === "fill-in-the-blank") {
+                 if (hasAnswer) {
+                    const correctAnswers = (q.answerKey || '').split('|').map(a => a.trim().toLowerCase());
+                    const isCorrect = correctAnswers.includes((response.answer || '').toString().trim().toLowerCase());
+                    marksObtained = isCorrect ? marksCorrect : marksIncorrect;
+                } else {
+                    marksObtained = marksIncorrect;
+                }
             }
+            // Subjective questions are scored as 0 on initial submission
             subjectScore += marksObtained;
         });
         subjectScores[subject] = subjectScore;
@@ -535,11 +536,6 @@ function submitTest() {
         sendResult({ lat: null, lon: null });
     }
 }
-
-
-// =================================================================
-// ===== CORRECTED FUNCTION ENDS HERE ==============================
-// =================================================================
 
 
 async function requestFullscreenSafe() {
@@ -674,7 +670,7 @@ function goPrevious() {
             const newActiveTab = [...document.querySelectorAll('.subject-tab')].find(t => t.textContent === currentSubject);
             if (newActiveTab) newActiveTab.classList.add('active');
         } else {
-            return; // At the very first question, do nothing
+            return;
         }
     }
     loadQuestion();
@@ -819,26 +815,22 @@ function downloadPDFReport() {
     const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 10;
 
-    // --- Helper function to draw the table header ---
     const drawTableHeader = (currentY) => {
-        doc.setFillColor(230, 230, 230); // Light grey background for header
+        doc.setFillColor(230, 230, 230);
         doc.rect(margin, currentY, 190, 8, 'F');
         doc.setFont(undefined, "bold");
         doc.setTextColor(0);
         doc.setFontSize(10);
-
         doc.text("Q#", 13, currentY + 5.5);
         doc.text("Question", 25, currentY + 5.5);
         doc.text("Your Answer", 100, currentY + 5.5);
         doc.text("Correct Answer", 135, currentY + 5.5);
         doc.text("Time(s)", 170, currentY + 5.5, { align: 'center' });
         doc.text("Marks", 190, currentY + 5.5, { align: 'center' });
-        
         doc.setFont(undefined, "normal");
-        return currentY + 12; // Return new y position below header
+        return currentY + 12;
     };
 
-    // --- PDF Header ---
     doc.setFillColor(0, 86, 179);
     doc.rect(0, 0, 210, 20, 'F');
     doc.setTextColor(255, 255, 255);
@@ -847,18 +839,13 @@ function downloadPDFReport() {
     doc.text("Geetham e-Exam Report", 105, 13, { align: "center" });
     y = 30;
 
-    // --- Student Info ---
     doc.setFontSize(12);
     doc.setFont(undefined, "normal");
     doc.setTextColor(0, 0, 0);
-    doc.text(`Student Name: ${studentDetails.name}`, margin, y);
-    y += 7;
-    doc.text(`Mobile: ${studentDetails.mobile}`, margin, y);
-    y += 7;
-    doc.text(`Quiz Title: ${currentQuiz.title}`, margin, y);
-    y += 7;
-    doc.text(`Date: ${new Date().toLocaleString()}`, margin, y);
-    y += 12;
+    doc.text(`Student Name: ${studentDetails.name}`, margin, y); y += 7;
+    doc.text(`Mobile: ${studentDetails.mobile}`, margin, y); y += 7;
+    doc.text(`Quiz Title: ${currentQuiz.title}`, margin, y); y += 7;
+    doc.text(`Date: ${new Date().toLocaleString()}`, margin, y); y += 12;
 
     let totalScore = 0;
 
@@ -893,19 +880,14 @@ function downloadPDFReport() {
 
             let correctAnswerText = '';
             let marksObtained = 0;
-            
-            // Define the marks to be used for this specific question
             const marksCorrect = currentQuiz.marksMode === 'custom' ? (q.correctMarks ?? 1) : (currentQuiz.correctMarks ?? 1);
             const marksIncorrect = currentQuiz.marksMode === 'custom' ? (q.wrongMarks ?? 0) : (currentQuiz.wrongMarks ?? 0);
-
             const hasAnswer = response && response.answer !== undefined && response.answer !== '';
 
             if (q.type === "multiple-choice") {
                 correctAnswerText = q.options[q.correctAnswer];
-                if (hasAnswer && response.answer === q.shuffledCorrectAnswerIndex) {
+                if (hasAnswer && response.answer === response.shuffledCorrectAnswerIndex) {
                     marksObtained = marksCorrect;
-                } else if (hasAnswer) {
-                    marksObtained = marksIncorrect;
                 } else {
                     marksObtained = marksIncorrect;
                 }
@@ -914,8 +896,6 @@ function downloadPDFReport() {
                 correctAnswerText = correctAnswers.join(", ");
                 if (hasAnswer && correctAnswers.some(ans => ans.trim().toLowerCase() === response.answer.toString().trim().toLowerCase())) {
                     marksObtained = marksCorrect;
-                } else if (hasAnswer) {
-                    marksObtained = marksIncorrect;
                 } else {
                     marksObtained = marksIncorrect;
                 }
@@ -926,14 +906,11 @@ function downloadPDFReport() {
             subjectScore += marksObtained;
 
             const timeSpent = Math.round((questionTimes[subject]?.[index] || 0) / 1000);
-
             const lineHeight = 6;
             const colWidths = { question: 70, yourAnswer: 30, correctAnswer: 30 };
-            
             const questionLines = doc.splitTextToSize(q.text, colWidths.question);
             const yourAnswerLines = doc.splitTextToSize(yourAnswerText, colWidths.yourAnswer);
             const correctAnswerLines = doc.splitTextToSize(correctAnswerText, colWidths.correctAnswer);
-            
             const maxLines = Math.max(questionLines.length, yourAnswerLines.length, correctAnswerLines.length);
             const rowHeight = maxLines * lineHeight + 4;
 
@@ -947,7 +924,6 @@ function downloadPDFReport() {
             doc.rect(margin, y - 5, 190, rowHeight, 'F');
             doc.setFontSize(10);
             doc.setTextColor(50, 50, 50);
-
             doc.text(`${index + 1}`, 13, y);
             doc.text(questionLines, 25, y);
             doc.text(yourAnswerLines, 100, y);
