@@ -32,7 +32,9 @@
         .muted { color:#6c757d; font-size: 0.9rem; }
         #review-dashboard { display:none; margin-top:20px; }
         .student-card { background: #ffffff; padding: 15px; margin: 10px 0; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.06); border:1px solid #eee;}
+        .student-card:hover { background-color: #f0f8ff; }
         .pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:.8rem; background:#e9ecef; color:#343a40; }
+        .grading-answer { background:#f0f0f0; border:1px solid #ccc; padding:10px; border-radius:5px; min-height:50px; margin-top:5px; }
     </style>
 </head>
 <body>
@@ -170,15 +172,10 @@
                 <h4>Total Marks: <span id="total-marks-display">0</span></h4>
             `;
 
-            // ===== CORRECTED CODE IS HERE =====
             document.getElementById('quiz-marks-mode').addEventListener('change', (event) => {
-                // Step 1: Update the data model with the new value from the dropdown
                 quizzesData[selectedQuizIndex].marksMode = event.target.value;
-                
-                // Step 2: Now re-render the entire editor with the updated data
                 renderQuizEditor();
             });
-            // ===== END OF CORRECTION =====
         }
 
         function renderSubjects(subjects = {}) {
@@ -298,7 +295,7 @@
                 container.innerHTML = `<label>Correct Answers (use | to separate synonyms):</label>
                     <input type="text" class="correct-answer-text" placeholder="e.g., Delhi|New Delhi" value="${question.answerKey || ''}">`;
             } else if (type === 'subjective') {
-                container.innerHTML = `<label>Rubric / Expected Points (optional, for teachers):</label>
+                container.innerHTML = `<label>Sample Answer / Rubric (for teachers):</label>
                     <textarea class="subjective-rubric" rows="2">${question.rubric || ''}</textarea>`;
             }
             attachMarksListeners();
@@ -384,18 +381,15 @@
             const quiz = quizzesData[selectedQuizIndex];
             const token = localStorage.getItem('adminToken');
             if (!token) return alert('Please log in again.');
-
             quiz.title = document.getElementById('quiz-title').value;
             quiz.timeLimit = parseInt(document.getElementById('quiz-time').value);
             quiz.class = document.getElementById('quiz-class').value;
             quiz.password = document.getElementById('quiz-password').value;
             quiz.marksMode = document.getElementById('quiz-marks-mode').value;
-            
             if(quiz.marksMode === 'uniform') {
                 quiz.correctMarks = parseFloat(document.getElementById('quiz-correct-marks').value);
                 quiz.wrongMarks = parseFloat(document.getElementById('quiz-wrong-marks').value);
             }
-
             const subjects = {};
             document.querySelectorAll('#subjects-details .subject-container').forEach(subDiv => {
                 const subjectName = subDiv.querySelector('.subject-name').value.trim();
@@ -421,7 +415,6 @@
                 });
             });
             quiz.subjects = subjects;
-
             try {
                 const res = await fetch('/update-quizzes', {
                     method: 'POST',
@@ -454,11 +447,15 @@
             doc.save(`${quiz.title.replace(/\s+/g, '_')}.pdf`);
         }
 
+        // =================================================================
+        // ===== NEW AND IMPROVED GRADING FUNCTIONS START HERE =============
+        // =================================================================
+
         async function openReviewDashboard() {
             const token = localStorage.getItem('adminToken');
             if (!token) return alert('Please log in again.');
+            const quiz = quizzesData[selectedQuizIndex];
             try {
-                const quiz = quizzesData[selectedQuizIndex];
                 const res = await fetch(`/get-submissions?quizId=${quiz.id}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
@@ -466,15 +463,106 @@
                 const reviewData = await res.json();
                 const dashboard = document.getElementById('review-dashboard');
                 dashboard.style.display = 'block';
-                dashboard.innerHTML = '<h4>Teacher Review Dashboard</h4>';
-                reviewData.forEach(student=>{
+                dashboard.innerHTML = '<h4>Teacher Review Dashboard - Click a student to grade</h4>';
+                
+                if (reviewData.length === 0) {
+                    dashboard.innerHTML += '<p>No submissions yet for this quiz.</p>';
+                    return;
+                }
+
+                reviewData.forEach(student => {
                     const div = document.createElement('div');
-                    div.className='student-card';
-                    div.innerHTML = `<strong>${student.name}</strong> | Score: ${student.totalScore} | Quiz: ${quiz.title}`;
+                    div.className = 'student-card';
+                    div.style.cursor = 'pointer';
+                    div.innerHTML = `<strong>${student.name} (${student.mobile})</strong> | Score: ${student.totalScore}`;
+                    div.onclick = () => renderStudentReview(student, quiz);
                     dashboard.appendChild(div);
                 });
-            } catch (err) { console.error(err); alert(err.message); }
+            } catch (err) {
+                console.error(err);
+                alert(err.message);
+            }
         }
+
+        function renderStudentReview(student, quiz) {
+            const dashboard = document.getElementById('review-dashboard');
+            let reviewHTML = `
+                <h4>Grading: ${student.name}</h4>
+                <button id="back-to-list-btn">Back to Student List</button>
+                <div id="grading-area">`;
+
+            Object.keys(quiz.subjects).forEach(subjectName => {
+                reviewHTML += `<h5>Subject: ${subjectName}</h5>`;
+                quiz.subjects[subjectName].forEach((question, qIndex) => {
+                    if (question.type === 'subjective') {
+                        const studentResponse = student.responses?.[subjectName]?.[qIndex] || { answer: 'Not Attempted', marks: 0 };
+                        const maxMarks = (quiz.marksMode === 'custom' ? question.correctMarks : quiz.correctMarks) || 1;
+                        
+                        reviewHTML += `
+                            <div class="question-container">
+                                <p><strong>Question ${qIndex + 1}:</strong> ${question.text}</p>
+                                <p class="muted"><em>Sample Answer: ${question.rubric || 'N/A'}</em></p>
+                                <p><strong>Student's Answer:</strong></p>
+                                <div class="grading-answer">${studentResponse.answer}</div>
+                                <div class="flex-row" style="max-width: 250px;">
+                                    <label for="marks-${qIndex}">Set Marks:</label>
+                                    <input type="number" class="grade-input" id="marks-${qIndex}"
+                                           value="${studentResponse.marks || 0}" step="0.5" max="${maxMarks}"
+                                           data-subject="${subjectName}" data-qindex="${qIndex}"> 
+                                    <span>/ ${maxMarks}</span>
+                                </div>
+                            </div>
+                        `;
+                    }
+                });
+            });
+
+            reviewHTML += `</div><button id="save-grades-btn" class="btn-save">Save All Grades for ${student.name}</button>`;
+            dashboard.innerHTML = reviewHTML;
+
+            document.getElementById('back-to-list-btn').onclick = () => openReviewDashboard();
+            document.getElementById('save-grades-btn').onclick = () => saveStudentGrades(student);
+        }
+
+        async function saveStudentGrades(student) {
+            // Step 1: Collect updated marks from all input fields
+            document.querySelectorAll('.grade-input').forEach(input => {
+                const subject = input.dataset.subject;
+                const qIndex = parseInt(input.dataset.qindex);
+                const marks = parseFloat(input.value);
+
+                // Ensure the response object path exists
+                if (!student.responses[subject]) student.responses[subject] = {};
+                if (!student.responses[subject][qIndex]) student.responses[subject][qIndex] = {};
+                
+                student.responses[subject][qIndex].marks = marks;
+            });
+
+            // Step 2: Send the updated student data to the server
+            // The server will be responsible for recalculating the totalScore
+            const token = localStorage.getItem('adminToken');
+            if (!token) return alert('Session expired. Please log in again.');
+
+            try {
+                const res = await fetch('/grade-submission', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify(student) // Send the whole student object with updated marks
+                });
+
+                if (!res.ok) {
+                    const errorData = await res.json();
+                    throw new Error(errorData.message || 'Failed to save grades.');
+                }
+
+                alert('Grades saved successfully! The total score has been updated.');
+                openReviewDashboard(); // Refresh the student list to show the new score
+            } catch (err) {
+                console.error(err);
+                alert(err.message);
+            }
+        }
+
     </script>
 </body>
 </html>
