@@ -1,317 +1,419 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Results - Geetham e-Exam</title>
-  <link rel="icon" type="image/jpeg" href="/geetham.jpg" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <style>
-    :root {
-      --bg:#f8f9fa; --card:#fff; --text:#1f2937; --muted:#6b7280; --brand:#0056b3;
-      --brand-2:#007bff; --ok:#28a745; --warn:#f59e0b; --danger:#dc3545; --info:#17a2b8;
-      --border:#e5e7eb; --shadow:0 4px 12px rgba(0,0,0,.08);
-    }
-    body{font-family:Arial,sans-serif;background:var(--bg);color:var(--text);margin:0;padding:16px;}
-    .container{max-width:1400px;margin:auto;background:var(--card);padding:24px;border-radius:12px;box-shadow:var(--shadow);}
-    .header{text-align:center;margin-bottom:16px;}
-    .header img{max-height:64px;}
-    .toolbar{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px;justify-content:space-between;}
-    select,input[type="text"]{padding:8px 12px;font-size:16px;border-radius:8px;border:1px solid var(--border);}
-    button{padding:8px 12px;border:none;border-radius:8px;color:white;cursor:pointer;}
-    .table-wrap{border:1px solid var(--border);border-radius:8px;overflow:auto;}
-    table{width:100%;border-collapse:collapse;}
-    thead th{position:sticky;top:0;background:var(--brand);color:#fff;padding:10px;cursor:pointer;}
-    tbody td{padding:10px;border-top:1px solid var(--border);text-align:center;}
-    .rank{font-weight:800;}
-    .score-low{background-color: #f8d7da;}
-    .score-medium{background-color: #fff3cd;}
-    .score-high{background-color: #d1e7dd;}
-    .modal-backdrop{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:none;align-items:center;justify-content:center;z-index:100;}
-    .modal-content{background:#fff;padding:20px;border-radius:8px;width:90%;max-width:600px;}
-    .modal-header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #ccc;padding-bottom:10px;}
-    .modal-close{font-size:24px;font-weight:bold;cursor:pointer;border:none;background:none;padding:0;color:var(--text);}
-    .modal-body{padding-top:15px;max-height:400px;overflow-y:auto;}
-  </style>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Results - Geetham e-Exam</title>
+    <link rel="icon" type="image/jpeg" href="/geetham.jpg" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg:#f8f9fa; --card:#fff; --text:#1f2937; --muted:#6b7280; --brand:#0056b3;
+            --brand-2:#007bff; --ok:#28a745; --warn:#f59e0b; --danger:#dc3545; --info:#17a2b8;
+            --border:#e5e7eb; --shadow:0 4px 12px rgba(0,0,0,.08);
+        }
+        body{font-family:Arial,sans-serif;background:var(--bg);color:var(--text);margin:0;padding:16px;}
+        .container{max-width:1400px;margin:auto;background:var(--card);padding:24px;border-radius:12px;box-shadow:var(--shadow);}
+        .header{text-align:center;margin-bottom:16px;}
+        .header img{max-height:64px;}
+        .toolbar{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px;justify-content:space-between;}
+        select,input[type="text"]{padding:8px 12px;font-size:16px;border-radius:8px;border:1px solid var(--border);}
+        button{padding:8px 12px;border:none;border-radius:8px;color:white;cursor:pointer;}
+        .table-wrap{border:1px solid var(--border);border-radius:8px;overflow:auto;}
+        table{width:100%;border-collapse:collapse;}
+        thead th{position:sticky;top:0;background:var(--brand);color:#fff;padding:10px;cursor:pointer;}
+        tbody td{padding:10px;border-top:1px solid var(--border);text-align:center;}
+        .rank{font-weight:800;}
+        .score-low{background-color: #f8d7da; color: var(--danger);}
+        .score-medium{background-color: #fff3cd; color: var(--warn);}
+        .score-high{background-color: #d1e7dd; color: var(--ok);}
+        .modal-backdrop{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:none;align-items:center;justify-content:center;z-index:100;}
+        .modal-content{background:#fff;padding:20px;border-radius:8px;width:90%;max-width:600px;box-shadow: 0 5px 15px rgba(0,0,0,0.3);}
+        .modal-header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #ccc;padding-bottom:10px;}
+        .modal-close{font-size:24px;font-weight:bold;cursor:pointer;border:none;background:none;padding:0;color:var(--text);}
+        .modal-body{padding-top:15px;max-height:400px;overflow-y:auto;}
+        .auth-prompt {text-align: center; margin-top: 50px;}
+    </style>
 </head>
 <body>
-<div class="container">
-  <div class="header">
-    <img src="/geetham.jpg" alt="Geetham Logo">
-    <h1>Student Results Dashboard</h1>
-  </div>
-  <div class="toolbar">
-    <div>
-      <label for="quizFilter">Quiz:</label>
-      <select id="quizFilter"><option value="all">All Quizzes</option></select>
-      <label for="gradeFilter">Class:</label>
-      <select id="gradeFilter"><option value="all">All Classes</option></select>
-      <label for="topN">Top N:</label>
-      <select id="topN"><option value="">All</option><option value="5">Top 5</option><option value="10">Top 10</option></select>
-      <label for="search">Search:</label>
-      <input id="search" type="text" placeholder="Name or Mobile…">
+<div id="auth-check" class="auth-prompt">
+    <p>You must be logged in to view this page. Please log in via the <a href="/admin.html">Admin Panel</a> first.</p>
+    <button onclick="window.location.href='/admin.html'">Go to Admin Panel</button>
+</div>
+
+<div class="container" id="main-content" style="display:none;">
+    <div class="header">
+        <img src="/geetham.jpg" alt="Geetham Logo">
+        <h1>Student Results Dashboard</h1>
     </div>
-    <div>
-      <button id="pdfBtn" style="background:var(--brand-2);">⬇ PDF</button>
-      <button id="exportBtn" style="background:var(--info);">⬇ Export CSV</button>
-      <button id="clearBtn" style="background:var(--danger);">🗑 Clear All</button>
-      <button id="refreshBtn" style="background:var(--ok);">⟳ Refresh</button>
+    <div class="toolbar">
+        <div>
+            <label for="quizFilter">Quiz:</label>
+            <select id="quizFilter"><option value="all">All Quizzes</option></select>
+            <label for="gradeFilter">Class:</label>
+            <select id="gradeFilter"><option value="all">All Classes</option></select>
+            <label for="topN">Top N:</label>
+            <select id="topN"><option value="">All</option><option value="5">Top 5</option><option value="10">Top 10</option></select>
+            <label for="search">Search:</label>
+            <input id="search" type="text" placeholder="Name or Mobile…">
+        </div>
+        <div>
+            <button id="pdfBtn" style="background:var(--brand-2);">⬇ PDF</button>
+            <button id="exportBtn" style="background:var(--info);">⬇ Export CSV</button>
+            <button id="clearBtn" style="background:var(--danger);">🗑 Clear All</button>
+            <button id="refreshBtn" style="background:var(--ok);">⟳ Refresh</button>
+        </div>
     </div>
-  </div>
-  <div class="table-wrap">
-    <table id="results-table">
-      <thead></thead>
-      <tbody></tbody>
-    </table>
-  </div>
-  <canvas id="chart" style="margin-top:20px; max-height:300px;"></canvas>
-  <div id="map" style="height:400px; margin-top:20px; border-radius:12px;"></div>
+    <div class="table-wrap">
+        <table id="results-table">
+            <thead></thead>
+            <tbody></tbody>
+        </table>
+    </div>
+    <canvas id="chart" style="margin-top:20px; max-height:300px;"></canvas>
+    <div id="map" style="height:400px; margin-top:20px; border-radius:12px;"></div>
 </div>
 
 <div id="details-modal" class="modal-backdrop" onclick="closeDetailsModal()">
-  <div class="modal-content" onclick="event.stopPropagation()">
-    <div class="modal-header">
-      <h3 id="modal-title">Detailed Report</h3>
-      <button class="modal-close" onclick="closeDetailsModal()">×</button>
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <div class="modal-header">
+            <h3 id="modal-title">Detailed Report</h3>
+            <button class="modal-close" onclick="closeDetailsModal()">×</button>
+        </div>
+        <div id="modal-body" class="modal-body"></div>
     </div>
-    <div id="modal-body" class="modal-body"></div>
-  </div>
 </div>
 
 <div id="ai-modal" class="modal-backdrop" onclick="closeAIModal()">
-  <div class="modal-content" onclick="event.stopPropagation()">
-    <div class="modal-header">
-      <h3 id="ai-modal-title">AI Performance</h3>
-      <button class="modal-close" onclick="closeAIModal()">×</button>
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <div class="modal-header">
+            <h3 id="ai-modal-title">AI Performance</h3>
+            <button class="modal-close" onclick="closeAIModal()">×</button>
+        </div>
+        <div id="ai-modal-body" class="modal-body"></div>
     </div>
-    <div id="ai-modal-body" class="modal-body"></div>
-  </div>
 </div>
 
 <script>
-(function(){
-  let allResults=[], filtered=[], dynamicSubjects=[], sortKey='totalScore', sortDir='desc';
-  const tbody = document.querySelector('#results-table tbody');
-  const thead = document.querySelector('#results-table thead');
-  const gradeFilter = document.getElementById('gradeFilter');
-  const quizFilter = document.getElementById('quizFilter');
-  const topN = document.getElementById('topN');
-  const searchEl = document.getElementById('search');
+    (function(){
+        let allResults=[], filtered=[], dynamicSubjects=[], sortKey='totalScore', sortDir='desc';
+        const tbody = document.querySelector('#results-table tbody');
+        const thead = document.querySelector('#results-table thead');
+        const gradeFilter = document.getElementById('gradeFilter');
+        const quizFilter = document.getElementById('quizFilter');
+        const topN = document.getElementById('topN');
+        const searchEl = document.getElementById('search');
 
-  function normalizeRecord(r){ 
-    return {
-      ...r,
-      studentName: r.studentName||'N/A', 
-      mobile: r.mobile||'N/A', 
-      class: String(r.class||'N/A'), 
-      totalScore: Number(r.totalScore||0), 
-      subjectScores: r.subjectScores||{}, 
-      warnings: Number(r.warnings||0),
-      location: r.location || null,
-      quizTitle: r.quizTitle || "Untitled Quiz"
-    }; 
-  }
+        // Check for admin token before loading
+        const token = localStorage.getItem('adminToken');
+        if (!token) {
+            document.getElementById('auth-check').style.display = 'block';
+            return;
+        } else {
+            document.getElementById('auth-check').style.display = 'none';
+            document.getElementById('main-content').style.display = 'block';
+        }
 
-  function computeRanks(arr){
-    const sorted=[...arr].sort((a,b)=>b.totalScore-a.totalScore);
-    const scoreToRank=new Map();
-    sorted.forEach((item,index)=>{if(!scoreToRank.has(item.totalScore)) scoreToRank.set(item.totalScore,index+1);});
-    return arr.map(it=>({...it, rank: scoreToRank.get(it.totalScore)}));
-  }
+        function normalizeRecord(r){ 
+            let subjectiveScore = 0;
+            if (r.responses) {
+                Object.values(r.responses).forEach(subj => {
+                    Object.values(subj).forEach(q => {
+                        if (q.marks !== undefined && q.marks !== 'pending') {
+                            subjectiveScore += q.marks;
+                        }
+                    });
+                });
+            }
+            const finalScore = (r.totalScore || 0) + subjectiveScore;
+            return {
+                ...r,
+                studentName: r.studentName || 'N/A', 
+                mobile: r.mobile || 'N/A', 
+                class: String(r.class || 'N/A'), 
+                totalScore: Number(r.totalScore || 0), // Autograded score
+                finalTotalScore: finalScore, // Final score with subjective marks
+                subjectiveScore: subjectiveScore,
+                subjectScores: r.subjectScores || {}, 
+                warnings: Number(r.warnings || 0),
+                location: r.location || null,
+                quizTitle: r.quizTitle || "Untitled Quiz"
+            }; 
+        }
 
-  function applyFiltersAndRender(){
-    let rankedResults = computeRanks(allResults);
+        function computeRanks(arr){
+            const sorted = [...arr].sort((a,b) => b.finalTotalScore - a.finalTotalScore);
+            const scoreToRank = new Map();
+            sorted.forEach((item, index) => {
+                if(!scoreToRank.has(item.finalTotalScore)) {
+                    scoreToRank.set(item.finalTotalScore, index + 1);
+                }
+            });
+            return arr.map(it => ({...it, rank: scoreToRank.get(it.finalTotalScore)}));
+        }
 
-    filtered = rankedResults.filter(r=>{
-        let matchGrade = gradeFilter.value === 'all' || r.class === gradeFilter.value;
-        let matchTop = !topN.value || r.rank <= Number(topN.value);
-        let matchSearch = !searchEl.value || r.studentName.toLowerCase().includes(searchEl.value.toLowerCase()) || r.mobile.includes(searchEl.value);
-        let matchQuiz = quizFilter.value === 'all' || r.quizTitle === quizFilter.value;
-        return matchGrade && matchTop && matchSearch && matchQuiz;
-    });
+        function applyFiltersAndRender(){
+            let rankedResults = computeRanks(allResults);
 
-    filtered.sort((a,b)=>a.rank-b.rank);
+            filtered = rankedResults.filter(r => {
+                let matchGrade = gradeFilter.value === 'all' || r.class === gradeFilter.value;
+                let matchTop = !topN.value || r.rank <= Number(topN.value);
+                let matchSearch = !searchEl.value || r.studentName.toLowerCase().includes(searchEl.value.toLowerCase()) || r.mobile.includes(searchEl.value);
+                let matchQuiz = quizFilter.value === 'all' || r.quizTitle === quizFilter.value;
+                return matchGrade && matchTop && matchSearch && matchQuiz;
+            });
 
-    renderTable(filtered);
-    renderChart(filtered);
-    renderMap(filtered);
-  }
+            filtered.sort((a,b) => {
+                if (sortKey === 'rank') return sortDir === 'asc' ? a.rank - b.rank : b.rank - a.rank;
+                let valA = a[sortKey];
+                let valB = b[sortKey];
+                if (typeof valA === 'string') {
+                    valA = valA.toLowerCase();
+                    valB = valB.toLowerCase();
+                }
+                if (valA < valB) return sortDir === 'asc' ? -1 : 1;
+                if (valA > valB) return sortDir === 'asc' ? 1 : -1;
+                return 0;
+            });
+            
+            renderTable(filtered);
+            renderChart(filtered);
+            renderMap(filtered);
+        }
 
-  function renderTable(data){
-    const subjectSet=new Set();
-    allResults.forEach(res=>Object.keys(res.subjectScores||{}).forEach(sub=>subjectSet.add(sub)));
-    dynamicSubjects=Array.from(subjectSet).sort();
+        function renderTable(data){
+            const subjectSet = new Set();
+            allResults.forEach(res => {
+                if (res.subjectScores) {
+                    Object.keys(res.subjectScores).forEach(sub => subjectSet.add(sub));
+                }
+            });
+            dynamicSubjects = Array.from(subjectSet).sort();
 
-    let headerHTML=`<tr>
-      <th data-key="rank">Rank</th>
-      <th data-key="studentName">Name</th>
-      <th data-key="mobile">Mobile</th>
-      <th data-key="class">Class</th>
-      <th data-key="location">Location</th>
-      <th data-key="totalScore">Total</th>`;
-    dynamicSubjects.forEach(sub=>headerHTML+=`<th>${sub}</th>`);
-    headerHTML+='<th data-key="warnings">Warnings</th><th>Details</th><th>AI Analysis</th></tr>';
-    thead.innerHTML=headerHTML;
+            let headerHTML = `<tr>
+                <th data-key="rank">Rank</th>
+                <th data-key="studentName">Name</th>
+                <th data-key="mobile">Mobile</th>
+                <th data-key="class">Class</th>
+                <th data-key="location">Location</th>
+                <th data-key="finalTotalScore">Final Score</th>`;
+            dynamicSubjects.forEach(sub => headerHTML += `<th>${sub}</th>`);
+            headerHTML += `<th data-key="warnings">Warnings</th><th>Details</th><th>AI Analysis</th></tr>`;
+            thead.innerHTML = headerHTML;
 
-    tbody.innerHTML='';
-    data.forEach(res=>{
-      const row=tbody.insertRow();
-      let locationHTML='N/A';
-      if(res.location && typeof res.location === 'object' && res.location.lat && res.location.lon){
-          locationHTML=`<a href="https://www.google.com/maps?q=${res.location.lat},${res.location.lon}" target="_blank">View on Map</a>`;
-      }
-      
-      let rowHTML=`<td>${res.rank}</td>
-        <td>${res.studentName}</td>
-        <td>${res.mobile}</td>
-        <td>${res.class}</td>
-        <td>${locationHTML}</td>
-        <td>${res.totalScore}</td>`;
-        
-      dynamicSubjects.forEach(sub=>{
-        let val=res.subjectScores[sub]||0;
-        // --- THIS IS THE FIX for score coloring ---
-        let colorClass = val > 0 ? 'score-high' : val < 0 ? 'score-low' : '';
-        rowHTML+=`<td class="${colorClass}">${val}</td>`;
-      });
-      
-      let warnClass=res.warnings>=3?'score-low':'';
-      rowHTML+=`<td class="${warnClass}">${res.warnings}</td>
-        <td><button style="background:var(--info)" onclick='showDetailsModal(${JSON.stringify(res)})'>View</button></td>
-        <td><button style="background:var(--warn)" onclick='getAIAnalysis(${JSON.stringify(res)})'>AI</button></td>`;
-      row.innerHTML=rowHTML;
-    });
-    addSortListeners();
-  }
+            tbody.innerHTML = '';
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="'+(7 + dynamicSubjects.length)+'" style="text-align:center;">No results match the filters.</td></tr>';
+                return;
+            }
 
-  function renderChart(data){
-    const ctx=document.getElementById('chart').getContext('2d');
-    const avgScores={}; 
-    dynamicSubjects.forEach(sub=>avgScores[sub]=0);
-    data.forEach(r=>dynamicSubjects.forEach(sub=>avgScores[sub]+=(r.subjectScores[sub]||0)));
-    const labels=Object.keys(avgScores);
-    const scores=labels.map(sub=>data.length>0?Math.round(avgScores[sub]/data.length):0);
-    if(window.chartInstance) window.chartInstance.destroy();
-    window.chartInstance=new Chart(ctx,{type:'bar',data:{labels,datasets:[{label:'Average Scores',data:scores,backgroundColor:'#007bff'}]},options:{responsive:true,plugins:{legend:{display:false}}}});
-  }
+            data.forEach(res => {
+                const row = tbody.insertRow();
+                let locationHTML = 'N/A';
+                if(res.location && res.location.lat && res.location.lon){
+                    locationHTML = `<a href="https://maps.google.com/?q=${res.location.lat},${res.location.lon}" target="_blank">View on Map</a>`;
+                }
+                
+                let scoreClass = '';
+                const scorePercentage = (res.finalTotalScore / (res.totalMaxScore || 1)) * 100;
+                if (scorePercentage >= 75) scoreClass = 'score-high';
+                else if (scorePercentage >= 40) scoreClass = 'score-medium';
+                else scoreClass = 'score-low';
 
-  function renderMap(data){
-    if(window.mapInstance) window.mapInstance.remove();
-    window.mapInstance=L.map('map').setView([20.5937,78.9629],5);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(window.mapInstance);
-    data.forEach(r=>{
-      if(r.location && typeof r.location==='object' && r.location.lat && r.location.lon){
-        L.marker([r.location.lat,r.location.lon]).addTo(window.mapInstance)
-          .bindPopup(`<b>${r.studentName}</b><br>Class: ${r.class}<br>Total: ${r.totalScore}`);
-      }
-    });
-  }
+                let rowHTML = `<td>${res.rank}</td>
+                    <td>${res.studentName}</td>
+                    <td>${res.mobile}</td>
+                    <td>${res.class}</td>
+                    <td>${locationHTML}</td>
+                    <td class="${scoreClass}">${res.finalTotalScore.toFixed(2)}</td>`;
+                
+                dynamicSubjects.forEach(sub => {
+                    let val = res.subjectScores[sub] || 0;
+                    rowHTML += `<td>${val.toFixed(2)}</td>`;
+                });
+                
+                let warnClass = res.warnings >= 3 ? 'score-low' : '';
+                rowHTML += `<td class="${warnClass}">${res.warnings}</td>
+                    <td><button style="background:var(--info)" onclick='showDetailsModal(${JSON.stringify(res)})'>View</button></td>
+                    <td><button style="background:var(--warn)" onclick='getAIAnalysis(${JSON.stringify(res)})'>AI</button></td>`;
+                row.innerHTML = rowHTML;
+            });
+            addSortListeners();
+        }
 
-  function addSortListeners(){
-    document.querySelectorAll('th[data-key]').forEach(th=>{
-      th.onclick=()=>{
-        const key=th.dataset.key;
-        sortDir=(sortKey===key && sortDir==='asc')?'desc':'asc';
-        sortKey=key;
-        applyFiltersAndRender();
-      };
-    });
-  }
+        function renderChart(data){
+            const ctx=document.getElementById('chart').getContext('2d');
+            const avgScores={}; 
+            dynamicSubjects.forEach(sub => avgScores[sub] = 0);
+            data.forEach(r => dynamicSubjects.forEach(sub => avgScores[sub] += (r.subjectScores[sub] || 0)));
+            const labels=Object.keys(avgScores);
+            const scores=labels.map(sub => data.length > 0 ? Math.round(avgScores[sub] / data.length) : 0);
+            if(window.chartInstance) window.chartInstance.destroy();
+            window.chartInstance=new Chart(ctx,{type:'bar',data:{labels,datasets:[{label:'Average Scores',data:scores,backgroundColor:'#007bff'}]},options:{responsive:true,plugins:{legend:{display:false}}}});
+        }
 
-  window.showDetailsModal=function(res){
-    document.getElementById('modal-title').textContent=`Report: ${res.studentName}`;
-    let html='<ul>';
-    Object.keys(res.subjectScores).forEach(sub=>{html+=`<li>${sub}: ${res.subjectScores[sub]}</li>`;});
-    html+='</ul>';
-    document.getElementById('modal-body').innerHTML=html;
-    document.getElementById('details-modal').style.display='flex';
-  };
-  window.closeDetailsModal=function(){document.getElementById('details-modal').style.display='none';}
+        function renderMap(data){
+            if(window.mapInstance) window.mapInstance.remove();
+            const mapData = data.filter(r => r.location && r.location.lat && r.location.lon);
+            if (mapData.length === 0) {
+                document.getElementById('map').innerHTML = "<p style='text-align:center; padding:20px;'>No location data available.</p>";
+                return;
+            }
+            window.mapInstance = L.map('map').setView([mapData[0].location.lat, mapData[0].location.lon], 5);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(window.mapInstance);
+            mapData.forEach(r => {
+                L.marker([r.location.lat, r.location.lon]).addTo(window.mapInstance)
+                    .bindPopup(`<b>${r.studentName}</b><br>Class: ${r.class}<br>Total: ${r.finalTotalScore}`);
+            });
+        }
 
-  window.getAIAnalysis=async function(res){
-    const modal=document.getElementById('ai-modal');
-    document.getElementById('ai-modal-title').textContent=`AI Analysis: ${res.studentName}`;
-    const modalBody=document.getElementById('ai-modal-body');
-    modalBody.innerHTML='<p>Generating report...</p>';
-    modal.style.display='flex';
-    try{
-      const response=await fetch('/ai-analysis',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(res)});
-      const data=await response.json();
-      modalBody.innerHTML=`<p>${data.report}</p>`;
-    }catch(e){modalBody.innerHTML='<p style="color:red;">Failed to generate AI report.</p>'; }
-  };
-  window.closeAIModal=function(){document.getElementById('ai-modal').style.display='none';}
+        function addSortListeners(){
+            document.querySelectorAll('th[data-key]').forEach(th => {
+                th.onclick = () => {
+                    const key = th.dataset.key;
+                    sortDir = (sortKey === key && sortDir === 'asc') ? 'desc' : 'asc';
+                    sortKey = key;
+                    applyFiltersAndRender();
+                };
+            });
+        }
 
-  document.getElementById('pdfBtn').onclick=function(){
-    const {jsPDF}=window.jspdf;
-    const doc=new jsPDF(); let y=20;
-    doc.setFontSize(16); doc.text('Student Results',105,y,{align:'center'}); y+=10;
-    filtered.forEach(r=>{
-      if(y>270){doc.addPage(); y=20;}
-      doc.text(`${r.rank}. ${r.studentName} | ${r.mobile} | Total: ${r.totalScore}`,10,y); y+=7;
-      dynamicSubjects.forEach(sub=>{doc.text(`   ${sub}: ${r.subjectScores[sub]||0}`,15,y); y+=6;});
-      y+=3;
-    });
-    doc.save('student_results.pdf');
-  };
+        window.showDetailsModal = function(res){
+            document.getElementById('modal-title').textContent = `Report: ${res.studentName}`;
+            let html = `
+                <p><strong>Mobile:</strong> ${res.mobile}</p>
+                <p><strong>Quiz:</strong> ${res.quizTitle}</p>
+                <p><strong>Class:</strong> ${res.class}</p>
+                <p><strong>Warnings:</strong> ${res.warnings}</p>
+                <p><strong>Auto-Graded Score:</strong> ${res.totalScore.toFixed(2)}</p>
+                <p><strong>Subjective Score:</strong> ${res.subjectiveScore.toFixed(2)}</p>
+                <p><strong>Final Score:</strong> ${res.finalTotalScore.toFixed(2)}</p>
+                <h4>Subject-wise Breakdown:</h4>
+                <ul>`;
+            Object.keys(res.subjectScores).forEach(sub => {
+                html += `<li><strong>${sub}:</strong> ${res.subjectScores[sub].toFixed(2)}</li>`;
+            });
+            html += '</ul>';
+            
+            document.getElementById('modal-body').innerHTML = html;
+            document.getElementById('details-modal').style.display = 'flex';
+        };
 
-  document.getElementById('exportBtn').onclick=function(){
-    if(filtered.length===0){alert("No results to export."); return;}
-    const headers=["Rank","Student Name","Mobile","Class","Location","Total Score",...dynamicSubjects,"Warnings"];
-    let csvContent="data:text/csv;charset=utf-8,"+headers.join(",")+"\n";
-    filtered.forEach(res=>{
-      const locationStr=(res.location && res.location.lat)?`${res.location.lat},${res.location.lon}`:(res.location||'N/A');
-      const rowData=[res.rank,`"${res.studentName}"`,`"${res.mobile}"`,`"${res.class}"`,`"${locationStr}"`,res.totalScore];
-      dynamicSubjects.forEach(sub=>rowData.push(res.subjectScores[sub]||0));
-      rowData.push(res.warnings);
-      csvContent+=rowData.join(",")+"\n";
-    });
-    const encodedUri=encodeURI(csvContent);
-    const link=document.createElement("a");
-    link.setAttribute("href",encodedUri);
-    link.setAttribute("download","geetham_results.csv");
-    document.body.appendChild(link); link.click(); document.body.removeChild(link);
-  }
+        window.closeDetailsModal = function(){
+            document.getElementById('details-modal').style.display = 'none';
+        }
 
-  document.getElementById('clearBtn').onclick=async function(){
-    if(confirm("Are you sure you want to delete all results? This cannot be undone.")){
-      try{
-        const response=await fetch('/clear-results',{method:'POST'});
-        if(!response.ok) throw new Error('Server error');
-        alert('All results have been cleared successfully.');
+        window.getAIAnalysis = async function(res){
+            const modal = document.getElementById('ai-modal');
+            document.getElementById('ai-modal-title').textContent = `AI Analysis: ${res.studentName}`;
+            const modalBody = document.getElementById('ai-modal-body');
+            modalBody.innerHTML = '<p>Generating report...</p>';
+            modal.style.display = 'flex';
+            try{
+                const response = await fetch('/ai-analysis', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ studentName: res.studentName, subjectScores: res.subjectScores })
+                });
+                if (!response.ok) throw new Error('Failed to generate AI report');
+                const data = await response.json();
+                modalBody.innerHTML = `<p>${data.report}</p>`;
+            } catch(e){
+                modalBody.innerHTML = '<p style="color:red;">Failed to generate AI report. Make sure you are logged in and the API key is valid.</p>'; 
+            }
+        };
+
+        window.closeAIModal = function(){
+            document.getElementById('ai-modal').style.display = 'none';
+        }
+
+        document.getElementById('pdfBtn').onclick = function(){
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF(); 
+            let y = 20;
+            doc.setFontSize(16); doc.text('Student Results', 105, y, { align: 'center' }); y += 10;
+            doc.setFontSize(10); 
+            filtered.forEach(r => {
+                if(y > 270){ doc.addPage(); y = 20; }
+                doc.text(`${r.rank}. ${r.studentName} | ${r.mobile} | Final Score: ${r.finalTotalScore.toFixed(2)}`, 10, y); y += 7;
+                dynamicSubjects.forEach(sub => { doc.text(`   ${sub}: ${r.subjectScores[sub].toFixed(2) || 0}`, 15, y); y += 6; });
+                y += 3;
+            });
+            doc.save('geetham_results.pdf');
+        };
+
+        document.getElementById('exportBtn').onclick = function(){
+            if(filtered.length === 0){ alert("No results to export."); return; }
+            const headers = ["Rank", "Student Name", "Mobile", "Class", "Location", "Final Score", "Auto-graded Score", "Subjective Score", ...dynamicSubjects.map(s => `${s} Score`), "Warnings"];
+            let csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n";
+            filtered.forEach(res => {
+                const locationStr = (res.location && res.location.lat) ? `${res.location.lat},${res.location.lon}` : (res.location || 'N/A');
+                const rowData = [
+                    res.rank,
+                    `"${res.studentName}"`,
+                    `"${res.mobile}"`,
+                    `"${res.class}"`,
+                    `"${locationStr}"`,
+                    res.finalTotalScore.toFixed(2),
+                    res.totalScore.toFixed(2),
+                    res.subjectiveScore.toFixed(2)
+                ];
+                dynamicSubjects.forEach(sub => rowData.push((res.subjectScores[sub] || 0).toFixed(2)));
+                rowData.push(res.warnings);
+                csvContent += rowData.join(",") + "\n";
+            });
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download","geetham_results.csv");
+            document.body.appendChild(link); link.click(); document.body.removeChild(link);
+        }
+
+        document.getElementById('clearBtn').onclick = async function(){
+            if(confirm("Are you sure you want to delete all results? This cannot be undone.")){
+                try{
+                    const response = await fetch('/clear-results', {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if(!response.ok) throw new Error('Server error');
+                    alert('All results have been cleared successfully.');
+                    fetchResults();
+                }catch(e){
+                    alert('Failed to clear results. Make sure you are logged in.');
+                }
+            }
+        }
+
+        document.getElementById('refreshBtn').onclick = fetchResults;
+        gradeFilter.onchange = applyFiltersAndRender;
+        topN.onchange = applyFiltersAndRender;
+        searchEl.oninput = applyFiltersAndRender;
+        quizFilter.onchange = applyFiltersAndRender;
+
+        async function fetchResults(){
+            try{
+                const response = await fetch('/results');
+                const data = await response.json();
+                allResults = data.map(normalizeRecord);
+                
+                const grades = Array.from(new Set(allResults.map(r => r.class))).sort();
+                gradeFilter.innerHTML = '<option value="all">All Classes</option>'+grades.map(g => `<option value="${g}">${g}</option>`).join('');
+                
+                const quizzes = Array.from(new Set(allResults.map(r => r.quizTitle || "Untitled Quiz"))).sort();
+                quizFilter.innerHTML = '<option value="all">All Quizzes</option>' + quizzes.map(q => `<option value="${q}">${q}</option>`).join('');
+
+                applyFiltersAndRender();
+            } catch(e){
+                alert('Failed to fetch results.');
+            }
+        }
+
         fetchResults();
-      }catch(e){alert('Failed to clear results.');}
-    }
-  }
-
-  document.getElementById('refreshBtn').onclick=fetchResults;
-  gradeFilter.onchange=applyFiltersAndRender;
-  topN.onchange=applyFiltersAndRender;
-  searchEl.oninput=applyFiltersAndRender;
-  quizFilter.onchange=applyFiltersAndRender;
-
-  async function fetchResults(){
-    try{
-      const response=await fetch('/results');
-      const data=await response.json();
-      allResults=data.map(normalizeRecord);
-      
-      // --- THIS IS THE FIX for the class filter ---
-      const grades=Array.from(new Set(allResults.map(r=>r.class))).sort();
-      gradeFilter.innerHTML='<option value="all">All Classes</option>'+grades.map(g=>`<option value="${g}">${g}</option>`).join('');
-      
-      const quizzes = Array.from(new Set(allResults.map(r => r.quizTitle || "Untitled Quiz"))).sort();
-      quizFilter.innerHTML = '<option value="all">All Quizzes</option>' + quizzes.map(q => `<option value="${q}">${q}</option>`).join('');
-
-      applyFiltersAndRender();
-    }catch(e){alert('Failed to fetch results.');}
-  }
-
-  fetchResults();
-})();
+    })();
 </script>
 </body>
 </html>
