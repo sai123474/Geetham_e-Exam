@@ -446,11 +446,7 @@
             });
             doc.save(`${quiz.title.replace(/\s+/g, '_')}.pdf`);
         }
-
-        // =================================================================
-        // ===== NEW AND IMPROVED GRADING FUNCTIONS START HERE =============
-        // =================================================================
-
+        
         async function openReviewDashboard() {
             const token = localStorage.getItem('adminToken');
             if (!token) return alert('Please log in again.');
@@ -474,7 +470,8 @@
                     const div = document.createElement('div');
                     div.className = 'student-card';
                     div.style.cursor = 'pointer';
-                    div.innerHTML = `<strong>${student.name} (${student.mobile})</strong> | Score: ${student.totalScore}`;
+                    // CORRECTED: Use student.studentName instead of student.name
+                    div.innerHTML = `<strong>${student.studentName} (${student.mobile})</strong> | Score: ${student.totalScore}`;
                     div.onclick = () => renderStudentReview(student, quiz);
                     dashboard.appendChild(div);
                 });
@@ -487,7 +484,8 @@
         function renderStudentReview(student, quiz) {
             const dashboard = document.getElementById('review-dashboard');
             let reviewHTML = `
-                <h4>Grading: ${student.name}</h4>
+                // CORRECTED: Use student.studentName instead of student.name
+                <h4>Grading: ${student.studentName}</h4>
                 <button id="back-to-list-btn">Back to Student List</button>
                 <div id="grading-area">`;
 
@@ -517,7 +515,7 @@
                 });
             });
 
-            reviewHTML += `</div><button id="save-grades-btn" class="btn-save">Save All Grades for ${student.name}</button>`;
+            reviewHTML += `</div><button id="save-grades-btn" class="btn-save">Save All Grades for ${student.studentName}</button>`;
             dashboard.innerHTML = reviewHTML;
 
             document.getElementById('back-to-list-btn').onclick = () => openReviewDashboard();
@@ -525,44 +523,33 @@
         }
 
         async function saveStudentGrades(student) {
-            // Step 1: Collect updated marks from all input fields
             document.querySelectorAll('.grade-input').forEach(input => {
                 const subject = input.dataset.subject;
                 const qIndex = parseInt(input.dataset.qindex);
                 const marks = parseFloat(input.value);
-
-                // Ensure the response object path exists
                 if (!student.responses[subject]) student.responses[subject] = {};
                 if (!student.responses[subject][qIndex]) student.responses[subject][qIndex] = {};
-                
                 student.responses[subject][qIndex].marks = marks;
             });
-
-            // Step 2: Send the updated student data to the server
-            // The server will be responsible for recalculating the totalScore
             const token = localStorage.getItem('adminToken');
             if (!token) return alert('Session expired. Please log in again.');
-
             try {
                 const res = await fetch('/grade-submission', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify(student) // Send the whole student object with updated marks
+                    body: JSON.stringify(student)
                 });
-
                 if (!res.ok) {
                     const errorData = await res.json();
                     throw new Error(errorData.message || 'Failed to save grades.');
                 }
-
                 alert('Grades saved successfully! The total score has been updated.');
-                openReviewDashboard(); // Refresh the student list to show the new score
+                openReviewDashboard();
             } catch (err) {
                 console.error(err);
                 alert(err.message);
             }
         }
-
     </script>
 </body>
 </html>
