@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Geetham e-Exam</title>
-<link rel="icon" type="image/jpeg" href="/geetham.jpg">
-<link rel="manifest" href="/manifest.json">
+<link rel="icon" type="image/jpeg" href="/geetham.jpg" />
+<link rel="manifest" href="/manifest.json" />
 <script type="module" src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/vision_bundle.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <meta name="theme-color" content="#0056b3"/>
@@ -450,7 +450,6 @@ function handleFullscreenChangeEvent() {
     }
 }
 
-// --- **FIXED** SUBMISSION LOGIC ---
 function submitTest() {
     const submitBtn = document.querySelector('.submit');
     if (submitBtn) submitBtn.disabled = true;
@@ -470,7 +469,6 @@ function submitTest() {
             const response = userResponses[subject]?.[index];
             if (!response || response.answer === undefined || response.answer === '') return;
 
-            // Determine the marks for this question
             let marksCorrect, marksIncorrect;
             if (currentQuiz.marksMode === 'custom') {
                 marksCorrect = question.correctMarks ?? 1;
@@ -492,29 +490,34 @@ function submitTest() {
                 }
             }
             
-            // Apply scoring
             if (isCorrect) {
                 subjectScore += marksCorrect;
             } else {
-                subjectScore += marksIncorrect; // Add incorrect marks (can be negative)
+                subjectScore += marksIncorrect;
             }
         });
         subjectScores[subject] = subjectScore;
         totalScore += subjectScore;
     });
 
+    // --- **THIS IS THE FIX** ---
+    // The function that sends data to the server is now inside submitTest
+    // and has access to all the necessary variables.
     function sendResult(location = null) {
         const resultData = {
             date: new Date().toISOString(),
             studentName: studentDetails.name,
             mobile: studentDetails.mobile,
+            class: currentQuiz.class,
             quizId: currentQuiz.id,
             quizTitle: currentQuiz.title,
             totalScore: totalScore,
             subjectScores: subjectScores,
             warnings: warningCount,
             questionTimes: questionTimes,
-            location: location
+            location: location,
+            // --- THIS IS THE NEWLY ADDED LINE ---
+            responses: userResponses // Send the actual answers to the server
         };
         fetch('/submit-result', {
             method: 'POST',
