@@ -146,7 +146,7 @@ app.get('/get-submissions', authenticateToken, async (req, res) => {
 });
 
 // =================================================================
-// ===== CORRECTED GRADING ENDPOINT STARTS HERE ====================
+// ===== CORRECTED AND FINAL GRADING ENDPOINT STARTS HERE ==========
 // =================================================================
 
 app.post('/grade-submission', authenticateToken, async (req, res) => {
@@ -172,11 +172,13 @@ app.post('/grade-submission', authenticateToken, async (req, res) => {
         let newTotalScore = 0;
         let newSubjectScores = {};
 
-        Object.keys(quiz.subjects).forEach(subjectName => {
-            if (!quiz.subjects || !quiz.subjects[subjectName]) return;
+        // Recalculate the entire score from scratch for accuracy
+        for (const subjectName in quiz.subjects) {
             let currentSubjectScore = 0;
+            if (!quiz.subjects[subjectName]) continue;
 
-            quiz.subjects[subjectName].forEach((question, qIndex) => {
+            for (let qIndex = 0; qIndex < quiz.subjects[subjectName].length; qIndex++) {
+                const question = quiz.subjects[subjectName][qIndex];
                 const updatedResponse = studentSubmission.responses?.[subjectName]?.[qIndex];
                 const originalResponse = originalResult.responses?.[subjectName]?.[qIndex];
                 let marksObtained = 0;
@@ -185,14 +187,17 @@ app.post('/grade-submission', authenticateToken, async (req, res) => {
                 const marksIncorrect = (quiz.marksMode === 'custom' ? question.wrongMarks : quiz.wrongMarks) ?? 0;
 
                 if (question.type === 'subjective') {
+                    // Use the new marks from the teacher's input
                     marksObtained = updatedResponse?.marks || 0;
                 } else if (question.type === 'multiple-choice') {
+                    // Grade based on the student's original answer
                     if (originalResponse && originalResponse.answer !== undefined && originalResponse.answer === originalResponse.shuffledCorrectAnswerIndex) {
                         marksObtained = marksCorrect;
                     } else {
                         marksObtained = marksIncorrect;
                     }
                 } else if (question.type === 'fill-in-the-blank') {
+                    // Grade based on the student's original answer
                     if (originalResponse && originalResponse.answer) {
                         const correctAnswers = (question.answerKey || '').split('|').map(a => a.trim().toLowerCase());
                         const isCorrect = correctAnswers.includes(originalResponse.answer.toString().trim().toLowerCase());
@@ -202,25 +207,21 @@ app.post('/grade-submission', authenticateToken, async (req, res) => {
                     }
                 }
                 currentSubjectScore += marksObtained;
-            });
+            }
             newSubjectScores[subjectName] = currentSubjectScore;
             newTotalScore += currentSubjectScore;
-        });
+        }
 
         const updateResult = await resultsCollection.updateOne(
             { _id: new ObjectId(studentSubmission._id) },
             { 
                 $set: { 
-                    responses: studentSubmission.responses,
-                    totalScore: newTotalScore,
-                    subjectScores: newSubjectScores 
+                    responses: studentSubmission.responses, // Save the new subjective marks
+                    totalScore: newTotalScore,             // Save the new, correct total score
+                    subjectScores: newSubjectScores        // Save the new, correct subject breakdown
                 }
             }
         );
-
-        if (updateResult.modifiedCount === 0) {
-            return res.status(200).json({ message: 'No changes were made, but data is consistent.', newTotalScore });
-        }
 
         res.status(200).json({ message: 'Grades updated successfully!', newTotalScore });
     } catch (err) {
