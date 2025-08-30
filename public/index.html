@@ -897,14 +897,14 @@ function downloadPDFReport() {
 
         // Subject Score
         doc.setTextColor(0, 128, 0);
-        doc.setFontStyle("bold");
+        doc.setFont(undefined, "bold"); // FIXED: Changed setFontStyle to setFont
         if (y + 10 > 280) {
             doc.addPage();
             y = 10;
         }
         doc.text(`Subject Score: ${subjectScore}`, 12, y);
         y += 12;
-        doc.setFontStyle("normal");
+        doc.setFont(undefined, "normal"); // FIXED: Changed setFontStyle to setFont
     });
 
     // Total Score
