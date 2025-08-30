@@ -53,662 +53,680 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
-<script>
-    let quizzesData = [];
-    let selectedQuizIndex = 0;
+    <script>
+        let quizzesData = [];
+        let selectedQuizIndex = 0;
 
-    async function login() {
-        const password = document.getElementById('admin-password').value;
-        try {
-            const response = await fetch('/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ password })
-            });
-            if (!response.ok) throw new Error('Login failed');
-            const { accessToken } = await response.json();
-            localStorage.setItem('adminToken', accessToken);
-            document.getElementById('password-prompt').style.display = 'none';
-            document.getElementById('admin-panel').style.display = 'flex';
-            loadQuizzes();
-        } catch (error) {
-            alert('Incorrect password or server error.');
+        async function login() {
+            const password = document.getElementById('admin-password').value;
+            try {
+                const response = await fetch('/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password })
+                });
+                if (!response.ok) throw new Error('Login failed');
+                const { accessToken } = await response.json();
+                localStorage.setItem('adminToken', accessToken);
+                document.getElementById('password-prompt').style.display = 'none';
+                document.getElementById('admin-panel').style.display = 'flex';
+                loadQuizzes();
+            } catch (error) {
+                alert('Incorrect password or server error.');
+            }
         }
-    }
 
-    async function loadQuizzes() {
-        try {
-            const response = await fetch('/get-quizzes');
-            quizzesData = await response.json();
-            renderQuizList();
-            renderQuizEditor();
-        } catch (error) {
-            alert("Could not load quiz data from the server.");
-        }
-    }
-
-    function renderQuizList() {
-        const listPanel = document.getElementById('quiz-list-panel');
-        listPanel.innerHTML = '<h3>All Quizzes</h3>';
-        quizzesData.forEach((quiz, index) => {
-            const item = document.createElement('div');
-            item.className = 'quiz-list-item' + (index === selectedQuizIndex ? ' active' : '');
-            item.textContent = quiz.title;
-            item.addEventListener('click', () => { // Replaced onclick
-                selectedQuizIndex = index;
+        async function loadQuizzes() {
+            try {
+                const response = await fetch('/get-quizzes');
+                quizzesData = await response.json();
                 renderQuizList();
                 renderQuizEditor();
-            });
-            listPanel.appendChild(item);
-        });
-        const addBtn = document.createElement('button');
-        addBtn.className = 'btn-add';
-        addBtn.textContent = 'Add New Quiz';
-        addBtn.addEventListener('click', addQuiz); // Replaced onclick
-        listPanel.appendChild(addBtn);
-    }
-
-    function renderQuizEditor() {
-        const editor = document.getElementById('quiz-editor-panel');
-        const quiz = quizzesData[selectedQuizIndex];
-        if (!quiz) {
-            editor.innerHTML = '<h3>Select a quiz to edit or add a new one.</h3>';
-            return;
+            } catch (error) {
+                alert("Could not load quiz data from the server.");
+            }
         }
-        editor.innerHTML = `
-            <h3>Editing: ${quiz.title}</h3>
-            <div id="quiz-details"></div>
-            <div id="subjects-details"></div>
-            <button id="btn-add-subject" class="btn-add">Add Subject</button>
 
-            <div class="question-container" style="margin-top: 30px;">
-                <h4>Generate Questions from Text using AI</h4>
-                <textarea id="ai-text-input" rows="8" placeholder="Paste question paper text here..."></textarea>
-                <button id="btn-generate-from-text" class="btn-add">Generate from Text</button>
-            </div>
+        function renderQuizList() {
+            const listPanel = document.getElementById('quiz-list-panel');
+            listPanel.innerHTML = '<h3>All Quizzes</h3>';
+            quizzesData.forEach((quiz, index) => {
+                const item = document.createElement('div');
+                item.className = 'quiz-list-item' + (index === selectedQuizIndex ? ' active' : '');
+                item.textContent = quiz.title;
+                item.addEventListener('click', () => {
+                    selectedQuizIndex = index;
+                    renderQuizList();
+                    renderQuizEditor();
+                });
+                listPanel.appendChild(item);
+            });
+            const addBtn = document.createElement('button');
+            addBtn.className = 'btn-add';
+            addBtn.textContent = 'Add New Quiz';
+            addBtn.addEventListener('click', addQuiz);
+            listPanel.appendChild(addBtn);
+        }
 
-            <div style="margin-top: 20px; display:flex; gap:10px; flex-wrap: wrap;">
-                <div class="flex-row">
-                    <button id="btn-save-quiz" class="btn-save">Save This Quiz</button>
-                    <button id="btn-delete-quiz" class="btn-delete-quiz">Delete This Quiz</button>
-                    <button id="btn-generate-pdf" class="btn-pdf">Download as PDF</button>
-                    <button id="btn-open-review" class="btn-review">Teacher Review Dashboard</button>
+        function renderQuizEditor() {
+            const editor = document.getElementById('quiz-editor-panel');
+            const quiz = quizzesData[selectedQuizIndex];
+            if (!quiz) {
+                editor.innerHTML = '<h3>Select a quiz to edit or add a new one.</h3>';
+                return;
+            }
+            editor.innerHTML = `
+                <h3>Editing: ${quiz.title}</h3>
+                <div id="quiz-details"></div>
+                <div id="subjects-details"></div>
+                <button id="btn-add-subject" class="btn-add">Add Subject</button>
+
+                <div class="question-container" style="margin-top: 30px;">
+                    <h4>Generate Questions from Text using AI</h4>
+                    <textarea id="ai-text-input" rows="8" placeholder="Paste question paper text here..."></textarea>
+                    <button id="btn-generate-from-text" class="btn-add">Generate from Text</button>
                 </div>
-            </div>
-            <div id="review-dashboard"></div>
-        `;
-        // Attach event listeners after rendering the HTML
-        document.getElementById('btn-add-subject').addEventListener('click', addSubject);
-        document.getElementById('btn-generate-from-text').addEventListener('click', generateFromText);
-        document.getElementById('btn-save-quiz').addEventListener('click', saveQuiz);
-        document.getElementById('btn-delete-quiz').addEventListener('click', deleteQuiz);
-        document.getElementById('btn-generate-pdf').addEventListener('click', generatePDF);
-        document.getElementById('btn-open-review').addEventListener('click', openReviewDashboard);
-        
-        renderQuizDetails(quiz);
-        renderSubjects(quiz.subjects);
-        attachMarksListeners();
-        updateAllQuestionBadges();
-        updateTotalMarks();
-    }
 
-    function renderQuizDetails(quiz) {
-        if (!quiz.marksMode) quiz.marksMode = 'uniform';
-        if (quiz.correctMarks === undefined) quiz.correctMarks = 1;
-        if (quiz.wrongMarks === undefined) quiz.wrongMarks = 0;
-
-        document.getElementById('quiz-details').innerHTML = `
-            <label>Title:</label><input type="text" id="quiz-title" value="${quiz.title}">
-            <label>Time Limit (minutes):</label><input type="number" id="quiz-time" value="${quiz.timeLimit}">
-            <label>Class:</label>
-            <select id="quiz-class">
-                ${[6,7,8,9,10,11,12].map(g => `<option value="${g}" ${quiz.class == g ? 'selected' : ''}>${g}th</option>`).join('')}
-            </select>
-            <label>Password:</label><input type="password" id="quiz-password" value="${quiz.password}">
-            <label>Marks Mode:</label>
-            <select id="quiz-marks-mode">
-                <option value="uniform" ${quiz.marksMode !== "custom" ? "selected" : ""}>Uniform for all</option>
-                <option value="custom" ${quiz.marksMode === "custom" ? "selected" : ""}>Custom per question</option>
-            </select>
-            <div id="marks-settings">
-                ${quiz.marksMode === "custom" ? `<p class="muted">Each question has its own marks fields.</p>` : `
-                    <label>Marks for Correct Answer:</label>
-                    <input type="number" id="quiz-correct-marks" value="${quiz.correctMarks ?? 1}">
-                    <label>Marks for Incorrect Answer:</label>
-                    <input type="number" id="quiz-wrong-marks" value="${quiz.wrongMarks ?? 0}" step="0.25">
-                `}
-            </div>
-            <h4>Total Marks: <span id="total-marks-display">0</span></h4>
-        `;
-        document.getElementById('quiz-marks-mode').addEventListener('change', handleMarksModeChange);
-    }
-    
-    function handleMarksModeChange() {
-        const selectedMode = document.getElementById('quiz-marks-mode').value;
-        const quiz = quizzesData[selectedQuizIndex];
-        if (!quiz) return;
-        quiz.marksMode = selectedMode;
-        renderQuizEditor();
-    }
-
-    function renderSubjects(subjects = {}) {
-        const container = document.getElementById('subjects-details');
-        container.innerHTML = '<h4>Subjects</h4>';
-        Object.keys(subjects).forEach(subjectName => {
-            const div = document.createElement('div');
-            div.className = 'subject-container';
-            div.innerHTML = `
-                <div class="flex-row" style="justify-content:space-between;">
-                    <div style="flex:1;">
-                        <label>Subject Name:</label>
-                        <input type="text" class="subject-name" value="${subjectName}">
-                    </div>
-                    <div>
-                        <span class="pill" id="subject-total-${encodeURIComponent(subjectName)}">Total: 0</span>
+                <div style="margin-top: 20px; display:flex; gap:10px; flex-wrap: wrap;">
+                    <div class="flex-row">
+                        <button id="btn-save-quiz" class="btn-save">Save This Quiz</button>
+                        <button id="btn-delete-quiz" class="btn-delete-quiz">Delete This Quiz</button>
+                        <button id="btn-generate-pdf" class="btn-pdf">Download as PDF</button>
+                        <button id="btn-open-review" class="btn-review">Teacher Review Dashboard</button>
                     </div>
                 </div>
-                <div class="question-container">
-                    <h5>Generate Questions for ${subjectName} with AI</h5>
-                    <input type="text" id="topic-${subjectName}" placeholder="Enter topic">
-                    <input type="number" id="num-${subjectName}" value="3" style="width:80px">
-                </div>
+                <div id="review-dashboard"></div>
             `;
+            document.getElementById('btn-add-subject').addEventListener('click', addSubject);
+            document.getElementById('btn-generate-from-text').addEventListener('click', generateFromText);
+            document.getElementById('btn-save-quiz').addEventListener('click', saveQuiz);
+            document.getElementById('btn-delete-quiz').addEventListener('click', deleteQuiz);
+            document.getElementById('btn-generate-pdf').addEventListener('click', generatePDF);
+            document.getElementById('btn-open-review').addEventListener('click', openReviewDashboard);
+            
+            renderQuizDetails(quiz);
+            renderSubjects(quiz.subjects);
+            attachMarksListeners();
+            updateAllQuestionBadges();
+            updateTotalMarks();
+        }
+
+        function renderQuizDetails(quiz) {
+            if (!quiz.marksMode) quiz.marksMode = 'uniform';
+            if (quiz.correctMarks === undefined) quiz.correctMarks = 1;
+            if (quiz.wrongMarks === undefined) quiz.wrongMarks = 0;
+
+            document.getElementById('quiz-details').innerHTML = `
+                <label>Title:</label><input type="text" id="quiz-title" value="${quiz.title}">
+                <label>Time Limit (minutes):</label><input type="number" id="quiz-time" value="${quiz.timeLimit}">
+                <label>Class:</label>
+                <select id="quiz-class">
+                    ${[6,7,8,9,10,11,12].map(g => `<option value="${g}" ${quiz.class == g ? 'selected' : ''}>${g}th</option>`).join('')}
+                </select>
+                <label>Password:</label><input type="password" id="quiz-password" value="${quiz.password}">
+                <label>Marks Mode:</label>
+                <select id="quiz-marks-mode">
+                    <option value="uniform" ${quiz.marksMode !== "custom" ? "selected" : ""}>Uniform for all</option>
+                    <option value="custom" ${quiz.marksMode === "custom" ? "selected" : ""}>Custom per question</option>
+                </select>
+                <div id="marks-settings">
+                    ${quiz.marksMode === "custom" ? `<p class="muted">Each question has its own marks fields.</p>` : `<br>
+                        <label>Marks for Correct Answer:</label><br>
+                        <input type="number" id="quiz-correct-marks" value="${quiz.correctMarks ?? 1}"><br>
+                        <label>Marks for Incorrect Answer:</label><br>
+                        <input type="number" id="quiz-wrong-marks" value="${quiz.wrongMarks ?? 0}" step="0.25"><br>
+                    `}
+                </div>
+                <h4>Total Marks: <span id="total-marks-display">0</span></h4>
+            `;
+            document.getElementById('quiz-marks-mode').addEventListener('change', handleMarksModeChange);
+        }
+        
+        function handleMarksModeChange() {
+            const selectedMode = document.getElementById('quiz-marks-mode').value;
+            const quiz = quizzesData[selectedQuizIndex];
+            if (!quiz) return;
+            quiz.marksMode = selectedMode;
+            renderQuizEditor();
+        }
+
+        function renderSubjects(subjects = {}) {
+            const container = document.getElementById('subjects-details');
+            container.innerHTML = '<h4>Subjects</h4>';
+            Object.keys(subjects).forEach(subjectName => {
+                const div = document.createElement('div');
+                div.className = 'subject-container';
+                div.innerHTML = `
+                    <div class="flex-row" style="justify-content:space-between;">
+                        <div style="flex:1;">
+                            <label>Subject Name:</label>
+                            <input type="text" class="subject-name" value="${subjectName}">
+                        </div>
+                        <div>
+                            <span class="pill" id="subject-total-${encodeURIComponent(subjectName)}">Total: 0</span>
+                        </div>
+                    </div>
+                    <div class="question-container">
+                        <h5>Generate Questions for ${subjectName} with AI</h5>
+                        <input type="text" id="topic-${subjectName}" placeholder="Enter topic">
+                        <input type="number" id="num-${subjectName}" value="3" style="width:80px">
+                    </div>
+                `;
+                const removeBtn = document.createElement('button');
+                removeBtn.className = 'btn-remove';
+                removeBtn.textContent = 'Remove Subject';
+                removeBtn.addEventListener('click', () => removeSubject(div));
+                div.insertBefore(removeBtn, div.querySelector('.question-container'));
+
+                const genAIBtn = document.createElement('button');
+                genAIBtn.className = 'btn-add';
+                genAIBtn.textContent = 'Generate';
+                genAIBtn.addEventListener('click', () => generateWithAI(subjectName));
+                div.querySelector('.question-container').appendChild(genAIBtn);
+
+                subjects[subjectName].forEach((q, i) => div.appendChild(createQuestionElement(i, q)));
+                
+                const addQuestionBtn = document.createElement('button');
+                addQuestionBtn.className = 'btn-add';
+                addQuestionBtn.textContent = 'Add Question';
+                addQuestionBtn.addEventListener('click', () => addQuestion(div));
+                div.appendChild(addQuestionBtn);
+                
+                container.appendChild(div);
+            });
+            updateSubjectTotals();
+        }
+
+        function createQuestionElement(index, question = {}) {
+            const quiz = quizzesData[selectedQuizIndex] || {};
+            const mode = quiz.marksMode || 'uniform';
+            const div = document.createElement('div');
+            div.className = 'question-container';
+            div.innerHTML = `
+                <h5 class="flex-row">
+                    <span>Question ${index + 1}</span>
+                    <span class="marks-badge"></span>
+                </h5>
+                <label>Question Type:</label>
+                <select class="question-type"></select>
+                <label>Question Text:</label>
+                <textarea rows="2">${question.text || ''}</textarea>
+                <div class="answer-fields"></div>
+                ${mode === "custom" ? `
+                    <div class="flex-row" style="gap:15px;">
+                        <div style="min-width:180px;"><label>Marks (Correct):</label><input type="number" class="question-correct-marks" value="${question.correctMarks ?? 1}"></div>
+                        <div style="min-width:180px;"><label>Marks (Wrong):</label><input type="number" class="question-wrong-marks" value="${question.wrongMarks ?? 0}" step="0.25"></div>
+                    </div>` : ``}
+                <div class="muted">${question.type === 'subjective' ? 'Subjective questions are manually graded.' : ''}</div>
+            `;
+            
             const removeBtn = document.createElement('button');
             removeBtn.className = 'btn-remove';
-            removeBtn.textContent = 'Remove Subject';
-            removeBtn.addEventListener('click', () => removeSubject(div));
-            div.insertBefore(removeBtn, div.querySelector('.question-container'));
+            removeBtn.textContent = 'Remove';
+            removeBtn.addEventListener('click', () => removeQuestion(div));
+            div.querySelector('h5').appendChild(removeBtn);
 
-            const genAIBtn = document.createElement('button');
-            genAIBtn.className = 'btn-add';
-            genAIBtn.textContent = 'Generate';
-            genAIBtn.addEventListener('click', () => generateWithAI(subjectName));
-            div.querySelector('.question-container').appendChild(genAIBtn);
-
-            subjects[subjectName].forEach((q, i) => div.appendChild(createQuestionElement(i, q)));
-            
-            const addQuestionBtn = document.createElement('button');
-            addQuestionBtn.className = 'btn-add';
-            addQuestionBtn.textContent = 'Add Question';
-            addQuestionBtn.addEventListener('click', () => addQuestion(div));
-            div.appendChild(addQuestionBtn);
-            
-            container.appendChild(div);
-        });
-        updateSubjectTotals();
-    }
-
-    function createQuestionElement(index, question = {}) {
-        const quiz = quizzesData[selectedQuizIndex] || {};
-        const mode = quiz.marksMode || 'uniform';
-        const div = document.createElement('div');
-        div.className = 'question-container';
-        div.innerHTML = `
-            <h5 class="flex-row">
-                <span>Question ${index + 1}</span>
-                <span class="marks-badge"></span>
-            </h5>
-            <label>Question Type:</label>
-            <select class="question-type"></select>
-            <label>Question Text:</label>
-            <textarea rows="2">${question.text || ''}</textarea>
-            <div class="answer-fields"></div>
-            ${mode === "custom" ? `
-                <div class="flex-row" style="gap:15px;">
-                    <div style="min-width:180px;"><label>Marks (Correct):</label><input type="number" class="question-correct-marks" value="${question.correctMarks ?? 1}"></div>
-                    <div style="min-width:180px;"><label>Marks (Wrong):</label><input type="number" class="question-wrong-marks" value="${question.wrongMarks ?? 0}" step="0.25"></div>
-                </div>` : ``}
-            <div class="muted">${question.type === 'subjective' ? 'Subjective questions are manually graded.' : ''}</div>
-        `;
-        
-        const removeBtn = document.createElement('button');
-        removeBtn.className = 'btn-remove';
-        removeBtn.textContent = 'Remove';
-        removeBtn.addEventListener('click', () => removeQuestion(div));
-        div.querySelector('h5').appendChild(removeBtn);
-
-        const select = div.querySelector('.question-type');
-        select.addEventListener('change', () => toggleAnswerType(select));
-        ['multiple-choice', 'fill-in-the-blank', 'subjective'].forEach(t => {
-            const opt = document.createElement('option');
-            opt.value = t;
-            opt.textContent = t.replace(/-/g, ' ');
-            if (t === (question.type || 'multiple-choice')) opt.selected = true;
-            select.appendChild(opt);
-        });
-        
-        toggleAnswerType(select, div.querySelector('.answer-fields'), question);
-        updateQuestionBadge(div); // Initial update
-        return div;
-    }
-
-    function toggleAnswerType(select, container, question = {}) {
-        if (!container) container = select.closest('.question-container').querySelector('.answer-fields');
-        const type = select.value;
-
-        if (type === 'multiple-choice') {
-            container.innerHTML = '';
-            for (let i = 0; i < 4; i++) {
-                const input = document.createElement('input');
-                input.type = 'text';
-                input.placeholder = `Option ${i+1}`;
-                input.value = question.options?.[i] || '';
-                container.appendChild(input);
-            }
-            const correct = document.createElement('select');
-            correct.className = 'correct-answer-mc';
-            for (let i = 0; i < 4; i++) {
+            const select = div.querySelector('.question-type');
+            select.addEventListener('change', () => toggleAnswerType(select));
+            ['multiple-choice', 'fill-in-the-blank', 'subjective'].forEach(t => {
                 const opt = document.createElement('option');
-                opt.value = i;
-                opt.textContent = 'Option ' + (i + 1);
-                if (question.correctAnswer === i) opt.selected = true;
-                correct.appendChild(opt);
+                opt.value = t;
+                opt.textContent = t.replace(/-/g, ' ');
+                if (t === (question.type || 'multiple-choice')) opt.selected = true;
+                select.appendChild(opt);
+            });
+            
+            toggleAnswerType(select, div.querySelector('.answer-fields'), question);
+            updateQuestionBadge(div);
+            return div;
+        }
+
+        function toggleAnswerType(select, container, question = {}) {
+            if (!container) container = select.closest('.question-container').querySelector('.answer-fields');
+            const type = select.value;
+
+            if (type === 'multiple-choice') {
+                container.innerHTML = '';
+                for (let i = 0; i < 4; i++) {
+                    const input = document.createElement('input');
+                    input.type = 'text';
+                    input.placeholder = `Option ${i+1}`;
+                    input.value = question.options?.[i] || '';
+                    container.appendChild(input);
+                }
+                const correct = document.createElement('select');
+                correct.className = 'correct-answer-mc';
+                for (let i = 0; i < 4; i++) {
+                    const opt = document.createElement('option');
+                    opt.value = i;
+                    opt.textContent = 'Option ' + (i + 1);
+                    if (question.correctAnswer === i) opt.selected = true;
+                    correct.appendChild(opt);
+                }
+                container.appendChild(correct);
+            } else if (type === 'fill-in-the-blank') {
+                container.innerHTML = `<label>Correct Answers (use | to separate synonyms):</label><br>
+                    <input type="text" class="correct-answer-text" placeholder="e.g., Delhi|New Delhi" value="${question.answerKey || ''}">`;
+            } else if (type === 'subjective') {
+                container.innerHTML = `<label>Rubric / Expected Points (optional, for teachers):</label><br>
+                    <textarea class="subjective-rubric" rows="2">${question.rubric || ''}</textarea>`;
             }
-            container.appendChild(correct);
-        } else if (type === 'fill-in-the-blank') {
-            container.innerHTML = `<label>Correct Answers (use | to separate synonyms):</label>
-                <input type="text" class="correct-answer-text" placeholder="e.g., Delhi|New Delhi" value="${question.answerKey || ''}">`;
-        } else if (type === 'subjective') {
-            container.innerHTML = `<label>Rubric / Expected Points (optional, for teachers):</label>
-                <textarea class="subjective-rubric" rows="2">${question.rubric || ''}</textarea>`;
+            attachMarksListeners();
         }
-        attachMarksListeners();
-    }
 
-    function addQuiz() {
-        quizzesData.push({
-            id: Date.now(), title: "New Mock Test", timeLimit: 180, password: "newpassword", class: "12",
-            marksMode: "uniform", correctMarks: 1, wrongMarks: 0, subjects: {}
-        });
-        selectedQuizIndex = quizzesData.length - 1;
-        renderQuizList();
-        renderQuizEditor();
-    }
-
-    function addSubject() {
-        const name = prompt("Enter new subject name:");
-        if (!name || name.trim() === '') return;
-        if (quizzesData[selectedQuizIndex].subjects[name]) {
-            return alert("Subject already exists!");
-        }
-        quizzesData[selectedQuizIndex].subjects[name] = [];
-        renderQuizEditor();
-    }
-
-    function removeSubject(subjectDiv) {
-        if (confirm("Remove this subject and all its questions?")) {
-            const name = subjectDiv.querySelector('.subject-name').value;
-            delete quizzesData[selectedQuizIndex].subjects[name];
-            subjectDiv.remove();
-            updateTotalMarks();
-        }
-    }
-
-    function addQuestion(subjectDiv) {
-        const qIndex = subjectDiv.querySelectorAll('.question-container').length - 1; // Adjust for generator block
-        const newQ = { type: 'multiple-choice', text: '', options: ["", "", "", ""], correctAnswer: 0 };
-        const newEl = createQuestionElement(qIndex, newQ);
-        const addBtn = subjectDiv.querySelector('.btn-add:last-of-type');
-        subjectDiv.insertBefore(newEl, addBtn);
-        attachMarksListeners();
-        updateQuestionBadge(newEl);
-        updateTotalMarks();
-        updateSubjectTotals();
-    }
-
-    function removeQuestion(questionDiv) {
-        questionDiv.remove();
-        updateTotalMarks();
-        updateSubjectTotals();
-    }
-
-    async function generateWithAI(subjectName) {
-        const topic = document.getElementById(`topic-${subjectName}`).value;
-        const num = document.getElementById(`num-${subjectName}`).value;
-        if (!topic) return alert("Enter a topic!");
-        const token = localStorage.getItem('adminToken');
-        if (!token) return alert("Please log in again.");
-        try {
-            const res = await fetch('/generate-questions', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({ topic, numQuestions: num })
+        function addQuiz() {
+            quizzesData.push({
+                id: Date.now(), title: "New Mock Test", timeLimit: 180, password: "newpassword", class: "12",
+                marksMode: "uniform", correctMarks: 1, wrongMarks: 0, subjects: {}
             });
-            if (!res.ok) throw new Error('AI generation failed');
-            const newQs = await res.json();
-            quizzesData[selectedQuizIndex].subjects[subjectName].push(...newQs);
+            selectedQuizIndex = quizzesData.length - 1;
+            renderQuizList();
             renderQuizEditor();
-            alert(`${newQs.length} questions added to ${subjectName}!`);
-        } catch (e) {
-            alert(e.message);
         }
-    }
 
-    async function generateFromText() {
-        const text = document.getElementById('ai-text-input').value.trim();
-        if (!text) return alert("Paste text first!");
-        const token = localStorage.getItem('adminToken');
-        if (!token) return alert("Please log in again.");
-        try {
-            const res = await fetch('/generate-from-text', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({ text })
-            });
-            if (!res.ok) throw new Error('Failed to generate from text');
-            const newQs = await res.json();
-            newQs.forEach(q => {
-                if (quizzesData[selectedQuizIndex].subjects[q.subject]) {
-                    quizzesData[selectedQuizIndex].subjects[q.subject].push(q);
-                } else {
-                    console.warn(`Subject "${q.subject}" not found for an AI-generated question.`);
-                }
-            });
+        function addSubject() {
+            const name = prompt("Enter new subject name:");
+            if (!name || name.trim() === '') return;
+            if (quizzesData[selectedQuizIndex].subjects[name]) {
+                return alert("Subject already exists!");
+            }
+            quizzesData[selectedQuizIndex].subjects[name] = [];
             renderQuizEditor();
-            alert(`${newQs.length} questions added!`);
-        } catch (e) {
-            alert(e.message);
-        }
-    }
-
-    async function deleteQuiz() {
-        if (confirm(`Delete "${quizzesData[selectedQuizIndex].title}"? This is permanent.`)) {
-            quizzesData.splice(selectedQuizIndex, 1);
-            await saveAllQuizzesToServer();
-            selectedQuizIndex = 0;
-            loadQuizzes();
-        }
-    }
-
-    async function saveQuiz() {
-        const quizToSave = quizzesData[selectedQuizIndex];
-        if (!quizToSave) return;
-        
-        quizToSave.title = document.getElementById('quiz-title')?.value;
-        quizToSave.timeLimit = parseInt(document.getElementById('quiz-time')?.value);
-        quizToSave.class = document.getElementById('quiz-class').value;
-        quizToSave.password = document.getElementById('quiz-password')?.value;
-        quizToSave.marksMode = document.getElementById('quiz-marks-mode')?.value;
-
-        if (quizToSave.marksMode === "uniform") {
-            quizToSave.correctMarks = parseFloat(document.getElementById('quiz-correct-marks')?.value);
-            quizToSave.wrongMarks = parseFloat(document.getElementById('quiz-wrong-marks')?.value);
         }
 
-        const newSubjects = {};
-        document.querySelectorAll('#subjects-details .subject-container').forEach(subDiv => {
-            const name = subDiv.querySelector('.subject-name')?.value;
-            if (!name) return;
-            newSubjects[name] = [];
-
-            subDiv.querySelectorAll(':scope > .question-container').forEach(qDiv => {
-                const type = qDiv.querySelector('.question-type')?.value;
-                const qData = { text: qDiv.querySelector('textarea')?.value, type };
-
-                if (type === 'multiple-choice') {
-                    qData.options = Array.from(qDiv.querySelectorAll('.answer-fields input[type="text"]')).map(i => i.value);
-                    qData.correctAnswer = parseInt(qDiv.querySelector('.correct-answer-mc')?.value, 10);
-                } else if (type === 'fill-in-the-blank') {
-                    qData.answerKey = qDiv.querySelector('.correct-answer-text')?.value;
-                } else if (type === 'subjective') {
-                    qData.rubric = qDiv.querySelector('.subjective-rubric')?.value;
-                }
-
-                if (quizToSave.marksMode === "custom") {
-                    qData.correctMarks = parseFloat(qDiv.querySelector('.question-correct-marks')?.value);
-                    qData.wrongMarks = parseFloat(qDiv.querySelector('.question-wrong-marks')?.value);
-                }
-
-                newSubjects[name].push(qData);
-            });
-        });
-
-        quizToSave.subjects = newSubjects;
-        await saveAllQuizzesToServer();
-    }
-
-    async function saveAllQuizzesToServer() {
-        const token = localStorage.getItem('adminToken');
-        if (!token) return alert("Please log in again.");
-        try {
-            const response = await fetch('/update-quizzes', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify(quizzesData)
-            });
-            if (!response.ok) throw new Error('Server error');
-            alert('Changes saved successfully!');
-            await loadQuizzes();
-        } catch (error) {
-            alert('Failed to save changes.');
-        }
-    }
-
-    function updateTotalMarks() {
-        const marksMode = document.getElementById('quiz-marks-mode')?.value || "uniform";
-        let totalMarks = 0;
-
-        if (marksMode === "custom") {
-            document.querySelectorAll('#subjects-details .question-container .question-correct-marks').forEach(input => {
-                totalMarks += parseFloat(input.value || 0);
-            });
-        } else {
-            const correctMarks = parseFloat(document.getElementById('quiz-correct-marks')?.value || 0);
-            let totalQuestions = document.querySelectorAll('#subjects-details > .subject-container > .question-container').length;
-            totalMarks = totalQuestions * correctMarks;
-        }
-
-        const totalMarksDisplay = document.getElementById('total-marks-display');
-        if (totalMarksDisplay) totalMarksDisplay.textContent = totalMarks;
-        updateSubjectTotals();
-    }
-
-    function updateSubjectTotals() {
-        const marksMode = document.getElementById('quiz-marks-mode')?.value || "uniform";
-        const uniformCorrect = parseFloat(document.getElementById('quiz-correct-marks')?.value || 0);
-
-        document.querySelectorAll('#subjects-details .subject-container').forEach(subDiv => {
-            let sum = 0;
-            subDiv.querySelectorAll(':scope > .question-container').forEach(qDiv => {
-                if (marksMode === 'custom') {
-                    const input = qDiv.querySelector('.question-correct-marks');
-                    if (input) sum += parseFloat(input.value || 0);
-                } else {
-                    sum += uniformCorrect;
-                }
-            });
-            const name = subDiv.querySelector('.subject-name')?.value || '';
-            const pill = document.getElementById(`subject-total-${encodeURIComponent(name)}`);
-            if (pill) pill.textContent = `Total: ${sum}`;
-        });
-    }
-
-    function updateQuestionBadge(qDiv) {
-        const marksMode = document.getElementById('quiz-marks-mode')?.value || "uniform";
-        let cm = 1, wm = 0;
-        if (marksMode === 'custom') {
-            cm = parseFloat(qDiv.querySelector('.question-correct-marks')?.value || 1);
-            wm = parseFloat(qDiv.querySelector('.question-wrong-marks')?.value || 0);
-        } else {
-            cm = parseFloat(document.getElementById('quiz-correct-marks')?.value || 1);
-            wm = parseFloat(document.getElementById('quiz-wrong-marks')?.value || 0);
-        }
-        const badge = qDiv.querySelector('.marks-badge');
-        if (badge) {
-            badge.innerHTML = `<span class="positive">+${cm}</span>, <span class="negative">${-wm}</span>`;
-        }
-    }
-
-    function updateAllQuestionBadges() {
-        document.querySelectorAll('#subjects-details > .subject-container > .question-container').forEach(qDiv => {
-            updateQuestionBadge(qDiv);
-        });
-    }
-
-    function attachMarksListeners() {
-        const correctInput = document.getElementById('quiz-correct-marks');
-        if (correctInput) correctInput.addEventListener('input', () => {
-            updateTotalMarks();
-            updateAllQuestionBadges();
-        });
-
-        const wrongInput = document.getElementById('quiz-wrong-marks');
-        if(wrongInput) wrongInput.addEventListener('input', updateAllQuestionBadges);
-
-        document.querySelectorAll('.question-correct-marks, .question-wrong-marks').forEach(inp => {
-            inp.addEventListener('input', (e) => {
-                const qDiv = e.target.closest('.question-container');
-                updateQuestionBadge(qDiv);
+        function removeSubject(subjectDiv) {
+            if (confirm("Remove this subject and all its questions?")) {
+                const name = subjectDiv.querySelector('.subject-name').value;
+                delete quizzesData[selectedQuizIndex].subjects[name];
+                subjectDiv.remove();
                 updateTotalMarks();
+            }
+        }
+
+        function addQuestion(subjectDiv) {
+            const qIndex = subjectDiv.querySelectorAll('.question-container').length - 1;
+            const newQ = { type: 'multiple-choice', text: '', options: ["", "", "", ""], correctAnswer: 0 };
+            const newEl = createQuestionElement(qIndex, newQ);
+            const addBtn = subjectDiv.querySelector('.btn-add:last-of-type');
+            subjectDiv.insertBefore(newEl, addBtn);
+            attachMarksListeners();
+            updateQuestionBadge(newEl);
+            updateTotalMarks();
+            updateSubjectTotals();
+        }
+
+        function removeQuestion(questionDiv) {
+            questionDiv.remove();
+            updateTotalMarks();
+            updateSubjectTotals();
+        }
+
+        async function generateWithAI(subjectName) {
+            const topic = document.getElementById(`topic-${subjectName}`).value;
+            const num = document.getElementById(`num-${subjectName}`).value;
+            if (!topic) return alert("Enter a topic!");
+            const token = localStorage.getItem('adminToken');
+            if (!token) return alert("Please log in again.");
+            try {
+                const res = await fetch('/generate-questions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ topic, numQuestions: num })
+                });
+                if (!res.ok) throw new Error('AI generation failed');
+                const newQs = await res.json();
+                quizzesData[selectedQuizIndex].subjects[subjectName].push(...newQs);
+                renderQuizEditor();
+                alert(`${newQs.length} questions added to ${subjectName}!`);
+            } catch (e) {
+                alert(e.message);
+            }
+        }
+
+        async function generateFromText() {
+            const text = document.getElementById('ai-text-input').value.trim();
+            if (!text) return alert("Paste text first!");
+            const token = localStorage.getItem('adminToken');
+            if (!token) return alert("Please log in again.");
+            try {
+                const res = await fetch('/generate-from-text', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ text })
+                });
+                if (!res.ok) throw new Error('Failed to generate from text');
+                const newQs = await res.json();
+                newQs.forEach(q => {
+                    if (quizzesData[selectedQuizIndex].subjects[q.subject]) {
+                        quizzesData[selectedQuizIndex].subjects[q.subject].push(q);
+                    } else {
+                        console.warn(`Subject "${q.subject}" not found for an AI-generated question.`);
+                    }
+                });
+                renderQuizEditor();
+                alert(`${newQs.length} questions added!`);
+            } catch (e) {
+                alert(e.message);
+            }
+        }
+
+        async function deleteQuiz() {
+            if (confirm(`Delete "${quizzesData[selectedQuizIndex].title}"? This is permanent.`)) {
+                quizzesData.splice(selectedQuizIndex, 1);
+                await saveAllQuizzesToServer();
+                selectedQuizIndex = 0;
+                loadQuizzes();
+            }
+        }
+
+        async function saveQuiz() {
+            const quizToSave = quizzesData[selectedQuizIndex];
+            if (!quizToSave) return;
+            
+            quizToSave.title = document.getElementById('quiz-title')?.value;
+            quizToSave.timeLimit = parseInt(document.getElementById('quiz-time')?.value);
+            quizToSave.class = document.getElementById('quiz-class').value;
+            quizToSave.password = document.getElementById('quiz-password')?.value;
+            quizToSave.marksMode = document.getElementById('quiz-marks-mode')?.value;
+
+            if (quizToSave.marksMode === "uniform") {
+                quizToSave.correctMarks = parseFloat(document.getElementById('quiz-correct-marks')?.value);
+                quizToSave.wrongMarks = parseFloat(document.getElementById('quiz-wrong-marks')?.value);
+            }
+
+            const newSubjects = {};
+            document.querySelectorAll('#subjects-details .subject-container').forEach(subDiv => {
+                const name = subDiv.querySelector('.subject-name')?.value;
+                if (!name) return;
+                newSubjects[name] = [];
+
+                subDiv.querySelectorAll(':scope > .question-container').forEach(qDiv => {
+                    const type = qDiv.querySelector('.question-type')?.value;
+                    const qData = { text: qDiv.querySelector('textarea')?.value, type };
+
+                    if (type === 'multiple-choice') {
+                        qData.options = Array.from(qDiv.querySelectorAll('.answer-fields input[type="text"]')).map(i => i.value);
+                        qData.correctAnswer = parseInt(qDiv.querySelector('.correct-answer-mc')?.value, 10);
+                    } else if (type === 'fill-in-the-blank') {
+                        qData.answerKey = qDiv.querySelector('.correct-answer-text')?.value;
+                    } else if (type === 'subjective') {
+                        qData.rubric = qDiv.querySelector('.subjective-rubric')?.value;
+                    }
+
+                    if (quizToSave.marksMode === "custom") {
+                        qData.correctMarks = parseFloat(qDiv.querySelector('.question-correct-marks')?.value);
+                        qData.wrongMarks = parseFloat(qDiv.querySelector('.question-wrong-marks')?.value);
+                    }
+
+                    newSubjects[name].push(qData);
+                });
             });
-        });
 
-        document.querySelectorAll('.subject-name').forEach(inp => {
-            inp.addEventListener('input', updateSubjectTotals);
-        });
-    }
+            quizToSave.subjects = newSubjects;
+            await saveAllQuizzesToServer();
+        }
 
-    function generatePDF() {
-       const { jsPDF } = window.jspdf;
-        const doc = new jsPDF();
-        const quiz = quizzesData[selectedQuizIndex];
-        
-        saveQuiz(); // Save current state before generating PDF
+        async function saveAllQuizzesToServer() {
+            const token = localStorage.getItem('adminToken');
+            if (!token) return alert("Please log in again.");
+            try {
+                const response = await fetch('/update-quizzes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify(quizzesData)
+                });
+                if (!response.ok) throw new Error('Server error');
+                alert('Changes saved successfully!');
+                await loadQuizzes();
+            } catch (error) {
+                alert('Failed to save changes.');
+            }
+        }
 
-        let y = 20;
-        doc.setFontSize(18);
-        doc.text(quiz.title, 105, y, { align: 'center' });
-        y += 10;
+        function updateTotalMarks() {
+            const marksMode = document.getElementById('quiz-marks-mode')?.value || "uniform";
+            let totalMarks = 0;
 
-        doc.setFontSize(12);
-        const totalQs = Object.values(quiz.subjects).reduce((acc, arr) => acc + arr.length, 0);
-        const totalMarks = Object.values(quiz.subjects).flat().reduce((acc, q) => acc + (q.correctMarks ?? quiz.correctMarks), 0);
-        doc.text(`Total Questions: ${totalQs}`, 14, y);
-        doc.text(`Total Marks: ${totalMarks}`, 196, y, { align: 'right' });
-        y += 12;
+            if (marksMode === "custom") {
+                document.querySelectorAll('#subjects-details .question-container .question-correct-marks').forEach(input => {
+                    totalMarks += parseFloat(input.value || 0);
+                });
+            } else {
+                const correctMarks = parseFloat(document.getElementById('quiz-correct-marks')?.value || 0);
+                let totalQuestions = document.querySelectorAll('#subjects-details > .subject-container > .question-container').length;
+                totalMarks = totalQuestions * correctMarks;
+            }
 
-        let qNo = 1;
-        Object.keys(quiz.subjects).forEach(subject => {
-            if (y > 260) { doc.addPage(); y = 20; }
-            doc.setFontSize(14); doc.text(`Section: ${subject}`, 14, y); y += 10;
+            const totalMarksDisplay = document.getElementById('total-marks-display');
+            if (totalMarksDisplay) totalMarksDisplay.textContent = totalMarks;
+            updateSubjectTotals();
+        }
 
-            quiz.subjects[subject].forEach(q => {
+        function updateSubjectTotals() {
+            const marksMode = document.getElementById('quiz-marks-mode')?.value || "uniform";
+            const uniformCorrect = parseFloat(document.getElementById('quiz-correct-marks')?.value || 0);
+
+            document.querySelectorAll('#subjects-details .subject-container').forEach(subDiv => {
+                let sum = 0;
+                subDiv.querySelectorAll(':scope > .question-container').forEach(qDiv => {
+                    if (marksMode === 'custom') {
+                        const input = qDiv.querySelector('.question-correct-marks');
+                        if (input) sum += parseFloat(input.value || 0);
+                    } else {
+                        sum += uniformCorrect;
+                    }
+                });
+                const name = subDiv.querySelector('.subject-name')?.value || '';
+                const pill = document.getElementById(`subject-total-${encodeURIComponent(name)}`);
+                if (pill) pill.textContent = `Total: ${sum}`;
+            });
+        }
+
+        function updateQuestionBadge(qDiv) {
+            const marksMode = document.getElementById('quiz-marks-mode')?.value || "uniform";
+            let cm = 1, wm = 0;
+            if (marksMode === 'custom') {
+                cm = parseFloat(qDiv.querySelector('.question-correct-marks')?.value || 1);
+                wm = parseFloat(qDiv.querySelector('.question-wrong-marks')?.value || 0);
+            } else {
+                cm = parseFloat(document.getElementById('quiz-correct-marks')?.value || 1);
+                wm = parseFloat(document.getElementById('quiz-wrong-marks')?.value || 0);
+            }
+            const badge = qDiv.querySelector('.marks-badge');
+            if (badge) {
+                badge.innerHTML = `<span class="positive">+${cm}</span>, <span class="negative">${-wm}</span>`;
+            }
+        }
+
+        function updateAllQuestionBadges() {
+            document.querySelectorAll('#subjects-details > .subject-container > .question-container').forEach(qDiv => {
+                updateQuestionBadge(qDiv);
+            });
+        }
+
+        function attachMarksListeners() {
+            const correctInput = document.getElementById('quiz-correct-marks');
+            if (correctInput) correctInput.addEventListener('input', () => {
+                updateTotalMarks();
+                updateAllQuestionBadges();
+            });
+
+            const wrongInput = document.getElementById('quiz-wrong-marks');
+            if(wrongInput) wrongInput.addEventListener('input', updateAllQuestionBadges);
+
+            document.querySelectorAll('.question-correct-marks, .question-wrong-marks').forEach(inp => {
+                inp.addEventListener('input', (e) => {
+                    const qDiv = e.target.closest('.question-container');
+                    updateQuestionBadge(qDiv);
+                    updateTotalMarks();
+                });
+            });
+
+            document.querySelectorAll('.subject-name').forEach(inp => {
+                inp.addEventListener('input', updateSubjectTotals);
+            });
+        }
+
+        function generatePDF() {
+           const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const quiz = quizzesData[selectedQuizIndex];
+            
+            saveQuiz();
+            let y = 20;
+            doc.setFontSize(18);
+            doc.text(quiz.title, 105, y, { align: 'center' });
+            y += 10;
+            doc.setFontSize(12);
+            const totalQs = Object.values(quiz.subjects).reduce((acc, arr) => acc + arr.length, 0);
+            const totalMarks = Object.values(quiz.subjects).flat().reduce((acc, q) => acc + (q.correctMarks ?? quiz.correctMarks), 0);
+            doc.text(`Total Questions: ${totalQs}`, 14, y);
+            doc.text(`Total Marks: ${totalMarks}`, 196, y, { align: 'right' });
+            y += 12;
+            let qNo = 1;
+            Object.keys(quiz.subjects).forEach(subject => {
                 if (y > 260) { doc.addPage(); y = 20; }
-                doc.setFontSize(12);
-
-                const cm = q.correctMarks ?? quiz.correctMarks;
-                const questionText = doc.splitTextToSize(`${qNo}. ${q.text}`, 160);
-                doc.text(questionText, 14, y);
-                doc.text(`[+${cm}]`, 196, y, {align: 'right'});
-                y += (questionText.length * 5) + 3;
-
-                if (q.type === 'multiple-choice') {
-                    q.options.forEach((opt, i) => { 
-                        doc.text(`   (${String.fromCharCode(97 + i)}) ${opt}`, 20, y); 
-                        y += 7; 
-                    });
-                }
-                y += 3;
-                qNo++;
+                doc.setFontSize(14); doc.text(`Section: ${subject}`, 14, y); y += 10;
+                quiz.subjects[subject].forEach(q => {
+                    if (y > 260) { doc.addPage(); y = 20; }
+                    doc.setFontSize(12);
+                    const cm = q.correctMarks ?? quiz.correctMarks;
+                    const questionText = doc.splitTextToSize(`${qNo}. ${q.text}`, 160);
+                    doc.text(questionText, 14, y);
+                    doc.text(`[+${cm}]`, 196, y, {align: 'right'});
+                    y += (questionText.length * 5) + 3;
+                    if (q.type === 'multiple-choice') {
+                        q.options.forEach((opt, i) => { 
+                            doc.text(`   (${String.fromCharCode(97 + i)}) ${opt}`, 20, y); 
+                            y += 7; 
+                        });
+                    }
+                    y += 3;
+                    qNo++;
+                });
             });
-        });
-        doc.save(`${quiz.title.replace(/\s+/g, '_')}.pdf`);
-   
-    }
+            doc.save(`${quiz.title.replace(/\s+/g, '_')}.pdf`);
+        }
 
-    async function openReviewDashboard() {
-        const container = document.getElementById('review-dashboard');
-        const quiz = quizzesData[selectedQuizIndex];
-        const token = localStorage.getItem('adminToken');
+        async function openReviewDashboard() {
+            const container = document.getElementById('review-dashboard');
+            const quiz = quizzesData[selectedQuizIndex];
+            const token = localStorage.getItem('adminToken');
+            container.style.display = 'block';
+            container.innerHTML = `<h3>Teacher Review Dashboard — ${quiz.title}</h3><div id="review-list">Loading…</div>`;
+            try {
+                const res = await fetch(`/get-submissions?quizId=${encodeURIComponent(quiz.id)}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!res.ok) throw new Error('Failed to load submissions');
+                const submissions = await res.json();
+                renderReviewList(submissions);
+            } catch (e) {
+                document.getElementById('review-list').innerHTML = `<div class="muted">${e.message}</div>`;
+            }
+        }
 
-        container.style.display = 'block';
-        container.innerHTML = `<h3>Teacher Review Dashboard — ${quiz.title}</h3><div id="review-list">Loading…</div>`;
+        function renderReviewList(submissions) {
+            const reviewList = document.getElementById('review-list');
+            reviewList.innerHTML = '';
+            if (submissions.length === 0) {
+                reviewList.innerHTML = '<p class="muted">No subjective submissions found for this quiz.</p>';
+                return;
+            }
+            submissions.forEach(sub => {
+                const card = document.createElement('div');
+                card.className = 'student-card';
+                let subjectiveScore = 0;
+                let subjectiveCount = 0;
+                sub.subjectiveAnswers.forEach(a => {
+                    if (a.marks !== 'pending') {
+                        subjectiveScore += parseFloat(a.marks);
+                        subjectiveCount++;
+                    }
+                });
 
-        try {
-            const res = await fetch(`/get-submissions?quizId=${encodeURIComponent(quiz.id)}`, {
+                card.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <h4>${sub.name} <span class="muted" style="font-weight:normal;">(${sub.studentId})</span></h4>
+                            <p class="muted">Auto-graded score: ${sub.totalScore}</p>
+                            <p class="muted">Subjective Score: ${subjectiveScore}/${sub.subjectiveAnswers.reduce((sum, qa) => sum + (qa.correctMarks || 0), 0)}</p>
+                            <p class="muted">Final Score: ${sub.totalScore + subjectiveScore}</p>
+                            <p class="muted">Warnings: ${sub.warnings}</p>
+                        </div>
+                        <button class="btn-review" onclick="toggleDetails('${sub._id}')">Review Answers</button>
+                    </div>
+                    <div id="details-${sub._id}" style="display:none; margin-top:15px; border-top:1px solid #eee; padding-top:15px;"></div>
+                `;
+                reviewList.appendChild(card);
+            });
+        }
+
+        async function toggleDetails(resultId) {
+            const detailsDiv = document.getElementById(`details-${resultId}`);
+            if (detailsDiv.style.display === 'block') {
+                detailsDiv.style.display = 'none';
+                return;
+            }
+
+            const token = localStorage.getItem('adminToken');
+            const res = await fetch(`/get-submissions?quizId=${quizzesData[selectedQuizIndex].id}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            if (!res.ok) throw new Error('Failed to load submissions');
             const submissions = await res.json();
-            renderReviewList(submissions);
-        } catch (e) {
-            document.getElementById('review-list').innerHTML = `<div class="muted">${e.message}</div>`;
-        }
-    }
+            const submission = submissions.find(s => s._id === resultId);
 
-    function renderReviewList(submissions) {
-        const wrap = document.getElementById('review-list');
-        if (!Array.isArray(submissions) || submissions.length === 0) {
-            wrap.innerHTML = `<div class="muted">No subjective submissions found for review.</div>`;
-            return;
-        }
-        wrap.innerHTML = '';
-        submissions.forEach(s => {
-            const card = document.createElement('div');
-            card.className = 'student-card';
-            card.innerHTML = `<h4>${s.name || 'Student'} (ID: ${s.studentId || '-'})</h4>`;
-            s.answers.forEach(ans => {
-                card.innerHTML += `
-                    <div style="border-top:1px dashed #ddd; padding-top:8px; margin-top:8px;">
-                        <div><strong>Q${ans.qIndex + 1} (${ans.subject})</strong></div>
-                        <div style="white-space:pre-wrap; background:#f8f9fa; padding:8px;">${escapeHTML(ans.answer || '')}</div>
-                        <label>Marks:</label>
-                        <input type="number" value="${typeof ans.marks === 'number' ? ans.marks : ''}" class="review-marks-input"
-                               data-student-id="${s.studentId}" data-q-id="${ans.qId}">
-                    </div>`;
-            });
-            wrap.appendChild(card);
-        });
-        
-        wrap.addEventListener('change', event => {
-            if (event.target.classList.contains('review-marks-input')) {
-                const studentId = event.target.dataset.studentId;
-                const qId = event.target.dataset.qId;
-                const marks = parseFloat(event.target.value);
-                if (!isNaN(marks)) {
-                    saveReviewedMarks(studentId, qId, marks);
-                }
+            if (!submission || submission.subjectiveAnswers.length === 0) {
+                detailsDiv.innerHTML = '<p class="muted">No subjective answers for this student.</p>';
+                detailsDiv.style.display = 'block';
+                return;
             }
-        });
-    }
-    
-    function escapeHTML(str) {
-        return (str || '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
-    }
 
-    async function saveReviewedMarks(studentId, qId, marks) {
-        const token = localStorage.getItem('adminToken');
-        try {
-            const res = await fetch('/grade-subjective', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({ studentId, qId, marks })
+            let html = '';
+            submission.subjectiveAnswers.forEach(answer => {
+                html += `
+                    <div style="border-bottom: 1px solid #ccc; padding: 10px 0; margin-bottom: 10px;">
+                        <h5>${answer.subject} - Question ${answer.qIndex + 1}</h5>
+                        <p><strong>Question:</strong> ${answer.questionText}</p>
+                        <p><strong>Student's Answer:</strong></p>
+                        <p style="background:#f0f2f5; padding:8px; border-radius:5px; white-space:pre-wrap;">${answer.studentAnswer}</p>
+                        <p><strong>Rubric:</strong> ${answer.rubric || 'Not provided.'}</p>
+                        <p><strong>Max Marks:</strong> ${answer.correctMarks}</p>
+                        <div style="display:flex; align-items:center; gap:10px; margin-top:10px;">
+                            <label>Awarded Marks:</label>
+                            <input type="number" step="0.5" value="${answer.marks === 'pending' ? '' : answer.marks}" style="width:100px;" id="marks-input-${answer._id}-${answer.subject}-${answer.qIndex}">
+                            <button class="btn-save" onclick="saveSubjectiveMarks('${answer._id}', '${answer.subject}', ${answer.qIndex})">Save</button>
+                        </div>
+                    </div>
+                `;
             });
-            if (!res.ok) throw new Error('Save failed');
-            console.log(`Saved marks for ${studentId}, qId: ${qId}`);
-        } catch (e) {
-            alert('Failed to save marks');
-        }
-    }
 
-    // Attach initial event listener for the login button
-    document.addEventListener('DOMContentLoaded', () => {
-        const loginButton = document.getElementById('login-btn');
-        if(loginButton) {
-            loginButton.addEventListener('click', login);
-        } else {
-            // Fallback for the original HTML
-            const oldLoginButton = document.querySelector('button[onclick="login()"]');
-            if (oldLoginButton) {
-                 const newBtn = oldLoginButton.cloneNode(true);
-                 newBtn.removeAttribute('onclick');
-                 newBtn.id = 'login-btn';
-                 newBtn.addEventListener('click', login);
-                 oldLoginButton.parentNode.replaceChild(newBtn, oldLoginButton);
+            detailsDiv.innerHTML = html;
+            detailsDiv.style.display = 'block';
+        }
+
+        async function saveSubjectiveMarks(resultId, subject, qIndex) {
+            const input = document.getElementById(`marks-input-${resultId}-${subject}-${qIndex}`);
+            const marks = input.value;
+            if (marks === '' || isNaN(parseFloat(marks))) {
+                return alert("Please enter a valid number for marks.");
+            }
+            const token = localStorage.getItem('adminToken');
+            try {
+                const res = await fetch('/grade-subjective', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ resultId, subject, qIndex, marks: parseFloat(marks) })
+                });
+                if (!res.ok) throw new Error('Failed to save marks.');
+                alert("Marks saved!");
+                openReviewDashboard(); // Re-render to show updated scores
+            } catch (e) {
+                alert("Error saving marks: " + e.message);
             }
         }
-    });
 
-</script>
+        document.getElementById('login-btn').addEventListener('click', login);
+    </script>
 </body>
 </html>
