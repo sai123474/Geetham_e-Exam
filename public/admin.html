@@ -321,20 +321,31 @@
         function updateQuestionBadge(qDiv){ const mode = document.getElementById('quiz-marks-mode')?.value||'uniform'; let cm=1, wm=0; if(mode==='custom'){ cm=parseFloat(qDiv.querySelector('.question-correct-marks')?.value||1); wm=parseFloat(qDiv.querySelector('.question-wrong-marks')?.value||0);} else{ cm=parseFloat(document.getElementById('quiz-correct-marks')?.value||1); wm=parseFloat(document.getElementById('quiz-wrong-marks')?.value||0);} const badge=qDiv.querySelector('.marks-badge'); if(badge) badge.innerHTML=`<span class="positive">+${cm}</span>, <span class="negative">-${wm}</span>`;}
         function updateAllQuestionBadges(){ document.querySelectorAll('.question-container').forEach(updateQuestionBadge); }
 
+        // =================================================================
+        // ===== CORRECTED FUNCTIONS START HERE ============================
+        // =================================================================
+
         async function generateWithAI(subjectName) {
             const topic = document.getElementById(`topic-${subjectName}`).value;
-            const num = parseInt(document.getElementById(`num-${subjectName}`).value||3);
-            if(!topic) return alert("Enter a topic!");
-            const token = localStorage.getItem('adminToken'); if(!token) return alert("Please log in again.");
-            try{
-                const res = await fetch('/generate-questions',{method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`}, body:JSON.stringify({topic,numQuestions:num})});
-                if(!res.ok) throw new Error('AI generation failed');
-                const newQs=await res.json();
-                const questionsContainer=document.querySelector(`#subjects-details .subject-container input[value="${subjectName}"]`).closest('.subject-container').querySelector('.questions-container');
-                newQs.forEach(q=>questionsContainer.appendChild(createQuestionElement(questionsContainer.children.length, q)));
+            const num = parseInt(document.getElementById(`num-${subjectName}`).value || 3);
+            if (!topic) return alert("Enter a topic!");
+            const token = localStorage.getItem('adminToken');
+            if (!token) return alert("Please log in again.");
+            try {
+                const res = await fetch('/generate-questions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ topic, numQuestions: num })
+                });
+                if (!res.ok) throw new Error('AI generation failed');
+                const newQs = await res.json();
+                const questionsContainer = document.querySelector(`#subjects-details .subject-container input[value="${subjectName}"]`).closest('.subject-container').querySelector('.questions-container');
+                newQs.forEach(q => questionsContainer.appendChild(createQuestionElement(questionsContainer.children.length, q)));
                 updateTotalMarks();
-                alert(`${newQs.length} questions added to ${subjectName}!`);
-            }catch(e){alert(e.message);}
+                alert(`${newQs.length} questions added to ${subjectName}! Saving quiz...`);
+                // Automatically save all changes after generating
+                await saveQuiz();
+            } catch (e) { alert(e.message); }
         }
 
         async function generateFromText() {
@@ -354,26 +365,9 @@
                 if (!firstSubject) return alert('Add at least one subject first.');
                 questions.forEach(q => firstSubject.appendChild(createQuestionElement(firstSubject.children.length, q)));
                 updateTotalMarks();
-                alert(`${questions.length} questions generated successfully!`);
-            } catch (err) { console.error(err); alert(err.message); }
-        }
-
-        async function deleteQuiz() {
-            if (!confirm('Are you sure you want to delete this quiz?')) return;
-            const quiz = quizzesData[selectedQuizIndex];
-            const token = localStorage.getItem('adminToken');
-            if (!token) return alert('Please log in again.');
-            try {
-                const res = await fetch(`/delete-quiz/${quiz.id}`, {
-                    method: 'DELETE',
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (!res.ok) throw new Error('Failed to delete quiz.');
-                quizzesData.splice(selectedQuizIndex, 1);
-                selectedQuizIndex = Math.max(0, selectedQuizIndex - 1);
-                renderQuizList();
-                renderQuizEditor();
-                alert('Quiz deleted successfully!');
+                alert(`${questions.length} questions generated successfully! Saving quiz...`);
+                // Automatically save all changes after generating
+                await saveQuiz();
             } catch (err) { console.error(err); alert(err.message); }
         }
 
@@ -381,15 +375,21 @@
             const quiz = quizzesData[selectedQuizIndex];
             const token = localStorage.getItem('adminToken');
             if (!token) return alert('Please log in again.');
+
+            // Gather quiz info
             quiz.title = document.getElementById('quiz-title').value;
             quiz.timeLimit = parseInt(document.getElementById('quiz-time').value);
             quiz.class = document.getElementById('quiz-class').value;
             quiz.password = document.getElementById('quiz-password').value;
             quiz.marksMode = document.getElementById('quiz-marks-mode').value;
-            if(quiz.marksMode === 'uniform') {
+
+            // Also gather the uniform marks if that mode is selected
+            if (quiz.marksMode === 'uniform') {
                 quiz.correctMarks = parseFloat(document.getElementById('quiz-correct-marks').value);
                 quiz.wrongMarks = parseFloat(document.getElementById('quiz-wrong-marks').value);
             }
+
+            // Gather subjects & questions
             const subjects = {};
             document.querySelectorAll('#subjects-details .subject-container').forEach(subDiv => {
                 const subjectName = subDiv.querySelector('.subject-name').value.trim();
@@ -415,6 +415,7 @@
                 });
             });
             quiz.subjects = subjects;
+
             try {
                 const res = await fetch('/update-quizzes', {
                     method: 'POST',
@@ -423,6 +424,26 @@
                 });
                 if (!res.ok) throw new Error('Failed to save quiz.');
                 alert('Quiz saved successfully!');
+                // Refresh the list to reflect any title changes
+                renderQuizList();
+            } catch (err) { console.error(err); alert(err.message); }
+        }
+        async function deleteQuiz() {
+            if (!confirm('Are you sure you want to delete this quiz?')) return;
+            const quiz = quizzesData[selectedQuizIndex];
+            const token = localStorage.getItem('adminToken');
+            if (!token) return alert('Please log in again.');
+            try {
+                const res = await fetch(`/delete-quiz/${quiz.id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!res.ok) throw new Error('Failed to delete quiz.');
+                quizzesData.splice(selectedQuizIndex, 1);
+                selectedQuizIndex = Math.max(0, selectedQuizIndex - 1);
+                renderQuizList();
+                renderQuizEditor();
+                alert('Quiz deleted successfully!');
             } catch (err) { console.error(err); alert(err.message); }
         }
 
