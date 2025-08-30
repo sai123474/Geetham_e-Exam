@@ -1,4 +1,4 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -163,7 +163,7 @@
             <label>Password:</label><input type="password" id="quiz-password" value="${quiz.password}">
 
             <label>Marks Mode:</label>
-            <select id="quiz-marks-mode" onchange="renderQuizEditor()">
+            <select id="quiz-marks-mode" onchange="handleMarksModeChange()">
                 <option value="uniform" ${quiz.marksMode !== "custom" ? "selected" : ""}>Uniform for all</option>
                 <option value="custom" ${quiz.marksMode === "custom" ? "selected" : ""}>Custom per question</option>
             </select>
@@ -181,6 +181,21 @@
 
             <h4>Total Marks: <span id="total-marks-display">0</span></h4>
         `;
+    }
+    
+    // --- **FIXED** MARKS MODE CHANGE HANDLER ---
+    function handleMarksModeChange() {
+        const selectedMode = document.getElementById('quiz-marks-mode').value;
+        const quiz = quizzesData[selectedQuizIndex];
+        if (!quiz) return;
+
+        // Update the in-memory state of the quiz object.
+        // This allows the re-render to correctly show/hide custom mark fields.
+        // This change becomes permanent only when the user clicks "Save This Quiz".
+        quiz.marksMode = selectedMode;
+
+        // Re-render the entire editor to reflect the mode change.
+        renderQuizEditor();
     }
 
     function renderSubjects(subjects = {}) {
@@ -290,7 +305,6 @@
             }
             container.appendChild(correct);
         } else if (type === 'fill-in-the-blank') {
-            // Pipe-separated answers for synonyms; case-insensitive match on student side
             container.innerHTML = `
                 <label>Correct Answers (use | to separate synonyms):</label>
                 <input type="text" class="correct-answer-text" placeholder="e.g., Delhi|New Delhi" value="${(typeof question.correctAnswer === 'string' ? question.correctAnswer : '') || ''}">
@@ -301,7 +315,6 @@
                 <textarea class="subjective-rubric" rows="2">${question.rubric || ''}</textarea>
             `;
         }
-        // After type change, re-attach listeners (for badges/marks in custom mode)
         attachMarksListeners();
     }
 
@@ -344,20 +357,15 @@
     }
 
     function addQuestion(subjectDiv) {
-        const questions = subjectDiv.querySelectorAll(':scope > .question-container');
        const qIndex = Array.from(subjectDiv.querySelectorAll(':scope > .question-container'))
                 .filter(q => !q.querySelector('h5')?.textContent.includes('Generate Questions')).length;
 
         const newQ = { type: 'multiple-choice', text: '', options: ["", "", "", ""], correctAnswer: 0, correctMarks: 1, wrongMarks: 0 };
-        const newEl = createQuestionElement(qIndex + 1, newQ);
+        const newEl = createQuestionElement(qIndex, newQ);
 
-        // Insert before the subject-level Add button
         const addBtn = subjectDiv.querySelector(':scope > .btn-add');
-        if (addBtn) {
-            subjectDiv.insertBefore(newEl, addBtn);
-        } else {
-            subjectDiv.appendChild(newEl);
-        }
+        subjectDiv.insertBefore(newEl, addBtn);
+        
         attachMarksListeners();
         updateQuestionBadge(newEl);
         updateTotalMarks();
@@ -428,7 +436,6 @@
         const quizToSave = quizzesData[selectedQuizIndex];
         if (!quizToSave) return;
 
-        // Update quiz details
         quizToSave.title = document.getElementById('quiz-title')?.value || quizToSave.title;
         quizToSave.timeLimit = parseInt(document.getElementById('quiz-time')?.value) || quizToSave.timeLimit;
         quizToSave.class = document.getElementById('quiz-class').value;
@@ -446,9 +453,7 @@
             if (!name) return;
             newSubjects[name] = [];
 
-            // Only direct child question-containers (skip the AI generator block)
             subDiv.querySelectorAll(':scope > .question-container').forEach(qDiv => {
-                // Skip the generator block that contains <h5>Generate Questions ...</h5>
                 const isGenerator = qDiv.querySelector('h5') && qDiv.querySelector('h5').textContent.includes('Generate Questions for');
                 if (isGenerator) return;
 
@@ -459,10 +464,9 @@
                     qData.options = Array.from(qDiv.querySelectorAll('.answer-fields input')).map(i => i.value);
                     qData.correctAnswer = parseInt(qDiv.querySelector('.correct-answer-mc')?.value || 0, 10);
                 } else if (type === 'fill-in-the-blank') {
-                    qData.correctAnswer = qDiv.querySelector('.correct-answer-text')?.value || '';
+                    qData.answerKey = qDiv.querySelector('.correct-answer-text')?.value || '';
                 } else if (type === 'subjective') {
                     qData.rubric = qDiv.querySelector('.subjective-rubric')?.value || '';
-                    qData.correctAnswer = ''; // no automatic key
                 }
 
                 if (quizToSave.marksMode === "custom") {
@@ -477,8 +481,8 @@
         quizToSave.subjects = newSubjects;
 
         await saveAllQuizzesToServer();
-       renderQuizList();
-     renderQuizEditor();
+        renderQuizList();
+        renderQuizEditor();
     }
 
     async function saveAllQuizzesToServer() {
@@ -498,15 +502,12 @@
         }
     }
 
-    // ---- Live totals & badges ----
     function updateTotalMarks() {
-        // Use DOM for live accuracy
         const marksMode = document.getElementById('quiz-marks-mode')?.value || "uniform";
         let totalMarks = 0;
 
         if (marksMode === "custom") {
             document.querySelectorAll('.subject-container').forEach(subDiv => {
-                // Only direct child questions (skip generator)
                 subDiv.querySelectorAll(':scope > .question-container').forEach(qDiv => {
                     const isGenerator = qDiv.querySelector('h5') && qDiv.querySelector('h5').textContent.includes('Generate Questions for');
                     if (isGenerator) return;
@@ -565,7 +566,7 @@
         }
         const badge = qDiv.querySelector('.marks-badge');
         if (badge) {
-            badge.innerHTML = `<span class="positive">+${cm}</span>, <span class="negative">-${wm}</span>`;
+            badge.innerHTML = `<span class="positive">+${cm}</span>, <span class="negative">${wm}</span>`;
         }
     }
 
@@ -577,17 +578,14 @@
     }
 
     function attachMarksListeners() {
-        // Uniform fields
         document.getElementById('quiz-correct-marks')?.addEventListener('input', () => {
             updateTotalMarks();
             updateAllQuestionBadges();
         });
         document.getElementById('quiz-wrong-marks')?.addEventListener('input', () => {
-            updateTotalMarks();
             updateAllQuestionBadges();
         });
 
-        // Custom fields per question
         document.querySelectorAll('.question-correct-marks, .question-wrong-marks').forEach(inp => {
             inp.oninput = (e) => {
                 const qDiv = e.target.closest('.question-container');
@@ -596,35 +594,29 @@
             };
         });
 
-        // Also when subject name changes, keep totals aligned
         document.querySelectorAll('.subject-name').forEach(inp => {
             inp.addEventListener('input', updateSubjectTotals);
         });
     }
 
-    // ---- PDF ----
     function generatePDF() {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
         const quiz = quizzesData[selectedQuizIndex];
+        
+        saveQuiz(); // Save current state before generating PDF
 
         let y = 20;
         doc.setFontSize(18);
         doc.text(quiz.title, 105, y, { align: 'center' });
         y += 10;
 
-        // Marks header
         doc.setFontSize(12);
-        if (quiz.marksMode === "uniform") {
-            doc.text(`Marks per correct: ${quiz.correctMarks ?? 1}, per wrong: ${quiz.wrongMarks ?? 0}`, 14, y); 
-            y += 8;
-            const totalQs = Object.values(quiz.subjects).reduce((acc, arr) => acc + arr.length, 0);
-            doc.text(`Total Marks: ${(quiz.correctMarks ?? 1) * totalQs}`, 14, y);
-            y += 12;
-        } else {
-            doc.text(`Custom Marks Mode Enabled`, 14, y);
-            y += 12;
-        }
+        const totalQs = Object.values(quiz.subjects).reduce((acc, arr) => acc + arr.length, 0);
+        const totalMarks = Object.values(quiz.subjects).flat().reduce((acc, q) => acc + (q.correctMarks ?? quiz.correctMarks), 0);
+        doc.text(`Total Questions: ${totalQs}`, 14, y);
+        doc.text(`Total Marks: ${totalMarks}`, 196, y, { align: 'right' });
+        y += 12;
 
         let qNo = 1;
         Object.keys(quiz.subjects).forEach(subject => {
@@ -635,37 +627,25 @@
                 if (y > 260) { doc.addPage(); y = 20; }
                 doc.setFontSize(12);
 
-                // Question text
-                const lines = doc.splitTextToSize(`${qNo}. ${q.text}`, 180);
-                doc.text(lines, 14, y); 
-                y += (lines.length * 5) + 3;
+                const cm = q.correctMarks ?? quiz.correctMarks;
+                const questionText = doc.splitTextToSize(`${qNo}. ${q.text}`, 160);
+                doc.text(questionText, 14, y);
+                doc.text(`[+${cm}]`, 196, y, {align: 'right'});
+                y += (questionText.length * 5) + 3;
 
-                // Options or placeholders
                 if (q.type === 'multiple-choice') {
                     q.options.forEach((opt, i) => { 
                         doc.text(`   (${String.fromCharCode(97 + i)}) ${opt}`, 20, y); 
                         y += 7; 
                     });
-                } else if (q.type === 'fill-in-the-blank') {
-                    doc.text(`   [Write your answer]`, 20, y);
-                    y += 7;
-                } else if (q.type === 'subjective') {
-                    doc.text(`   [Answer in 3-5 lines]`, 20, y);
-                    y += 7;
                 }
-
-                // Marks badge
-                let cm = (quiz.marksMode === 'custom') ? (q.correctMarks ?? 1) : (quiz.correctMarks ?? 1);
-                let wm = (quiz.marksMode === 'custom') ? (q.wrongMarks ?? 0) : (quiz.wrongMarks ?? 0);
-                doc.text(`   Marks: +${cm}, -${wm}`, 20, y);
-                y += 8;
+                y += 3;
                 qNo++;
             });
         });
         doc.save(`${quiz.title.replace(/\s+/g, '_')}.pdf`);
     }
 
-    // ---- Review Dashboard (basic scaffold) ----
     async function openReviewDashboard() {
         const container = document.getElementById('review-dashboard');
         const quiz = quizzesData[selectedQuizIndex];
@@ -675,18 +655,17 @@
         container.innerHTML = `<h3>Teacher Review Dashboard — ${quiz.title}</h3><p class="muted">Subjective responses pending review.</p><div id="review-list">Loading…</div>`;
 
         try {
-            // Expect backend to return: [{studentId, name, answers:[{qIndex, subject, type, answer, marks}]}]
             const res = await fetch(`/get-submissions?quizId=${encodeURIComponent(quiz.id)}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const submissions = await res.json();
-            renderReviewList(submissions, quiz);
+            renderReviewList(submissions);
         } catch (e) {
             document.getElementById('review-list').innerHTML = `<div class="muted">Failed to load submissions.</div>`;
         }
     }
 
-    function renderReviewList(submissions, quiz) {
+    function renderReviewList(submissions) {
         const wrap = document.getElementById('review-list');
         if (!Array.isArray(submissions) || submissions.length === 0) {
             wrap.innerHTML = `<div class="muted">No submissions found.</div>`;
@@ -696,17 +675,16 @@
         submissions.forEach(s => {
             const card = document.createElement('div');
             card.className = 'student-card';
-            const total = computeStudentTotal(s, quiz);
+            const { total, pending } = computeStudentTotal(s);
             card.innerHTML = `
-                <h4>${s.name || 'Student'} (ID: ${s.studentId || '-'}) — <span class="pill">Total: ${total.total}</span> <span class="pill" style="background:#ffe69c;">Pending: ${total.pending}</span></h4>
-                <div>${renderStudentAnswersHTML(s, quiz)}</div>
+                <h4>${s.name || 'Student'} (ID: ${s.studentId || '-'}) — <span class="pill">Total: ${total}</span> <span class="pill" style="background:#ffe69c;">Pending: ${pending}</span></h4>
+                <div>${renderStudentAnswersHTML(s)}</div>
             `;
             wrap.appendChild(card);
         });
     }
 
-    function renderStudentAnswersHTML(s, quiz) {
-        // Render subjective items editable; others read-only
+    function renderStudentAnswersHTML(s) {
         const rows = [];
         (s.answers || []).forEach((ans, idx) => {
             const label = `Q${(ans.qNumber ?? idx+1)} — ${ans.subject || ''} (${ans.type})`;
@@ -722,12 +700,6 @@
                         <button onclick="saveReviewedMarks('${s.studentId}','${ans.qId}')" class="btn-save">Save</button>
                     </div>
                 `);
-            } else {
-                rows.push(`
-                    <div style="border-top:1px dashed #eee; padding-top:6px; margin-top:6px;">
-                        <div><strong>${label}</strong> — Marks: ${ans.marks}</div>
-                    </div>
-                `);
             }
         });
         return rows.join('');
@@ -737,16 +709,14 @@
         return (str || '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
     }
 
-    function computeStudentTotal(s, quiz) {
+    function computeStudentTotal(s) {
         let total = 0;
         let pending = 0;
         (s.answers || []).forEach(ans => {
-            if (ans.type === 'subjective') {
-                if (typeof ans.marks === 'number') total += ans.marks;
-                else pending++;
-            } else {
-                // MCQ / Fill already evaluated server-side ideally
-                if (typeof ans.marks === 'number') total += ans.marks;
+            if (typeof ans.marks === 'number') {
+                total += ans.marks;
+            } else if (ans.type === 'subjective') {
+                pending++;
             }
         });
         return { total, pending };
@@ -765,14 +735,12 @@
             });
             if (!res.ok) throw new Error('Save failed');
             alert('Marks saved');
-            // refresh dashboard
             openReviewDashboard();
         } catch (e) {
             alert('Failed to save marks');
         }
     }
 
-    // ---- DOM Ready ----
     document.addEventListener('DOMContentLoaded', () => {});
 
 </script>
