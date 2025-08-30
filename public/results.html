@@ -117,32 +117,34 @@
             document.getElementById('main-content').style.display = 'block';
         }
 
-        function normalizeRecord(r){ 
-            let subjectiveScore = 0;
-            if (r.responses) {
-                Object.values(r.responses).forEach(subj => {
-                    Object.values(subj).forEach(q => {
-                        if (q.marks !== undefined && q.marks !== 'pending') {
-                            subjectiveScore += q.marks;
-                        }
-                    });
-                });
-            }
-            const finalScore = (r.totalScore || 0) + subjectiveScore;
-            return {
-                ...r,
-                studentName: r.studentName || 'N/A', 
-                mobile: r.mobile || 'N/A', 
-                class: String(r.class || 'N/A'), 
-                totalScore: Number(r.totalScore || 0), // Autograded score
-                finalTotalScore: finalScore, // Final score with subjective marks
-                subjectiveScore: subjectiveScore,
-                subjectScores: r.subjectScores || {}, 
-                warnings: Number(r.warnings || 0),
-                location: r.location || null,
-                quizTitle: r.quizTitle || "Untitled Quiz"
-            }; 
-        }
+      function normalizeRecord(r){ 
+    let subjectiveScore = 0;
+    if (r.responses) {
+        Object.values(r.responses).forEach(subj => {
+            Object.values(subj).forEach(q => {
+                const marks = Number(q.marks);
+                if (!isNaN(marks)) subjectiveScore += marks;
+            });
+        });
+    }
+
+    const finalScore = (Number(r.totalScore) || 0) + subjectiveScore;
+
+    return {
+        ...r,
+        studentName: r.studentName || 'N/A', 
+        mobile: r.mobile || 'N/A', 
+        class: String(r.class || r.grade || r.className || 'N/A'), 
+        totalScore: Number(r.totalScore || 0), 
+        finalTotalScore: finalScore, 
+        subjectiveScore: subjectiveScore,
+        subjectScores: r.subjectScores || {}, 
+        warnings: Number(r.warnings || 0),
+        location: r.location || null,
+        quizTitle: r.quizTitle || "Untitled Quiz"
+    }; 
+}
+
 
         function computeRanks(arr){
             const sorted = [...arr].sort((a,b) => b.finalTotalScore - a.finalTotalScore);
