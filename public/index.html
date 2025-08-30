@@ -436,6 +436,10 @@ function confirmSubmit() {
     }
 }
 
+// =================================================================
+// ===== CORRECTED FUNCTION STARTS HERE ============================
+// =================================================================
+
 function submitTest() {
     if (!quizInProgress) return;
     quizInProgress = false;
@@ -453,16 +457,34 @@ function submitTest() {
         let subjectScore = 0;
         currentQuiz.subjects[subject].forEach((q, index) => {
             const response = userResponses[subject]?.[index];
-            if (!response || response.answer === undefined || response.answer === '') return;
-            let marksCorrect = currentQuiz.marksMode === 'custom' ? (q.correctMarks ?? 1) : (currentQuiz.correctMarks ?? 1);
-            let marksIncorrect = currentQuiz.marksMode === 'custom' ? (q.wrongMarks ?? 0) : (currentQuiz.wrongMarks ?? 0);
-            let isCorrect = false;
-            if (q.type === "multiple-choice") isCorrect = (response.answer === q.shuffledCorrectAnswerIndex);
-            else if (q.type === "fill-in-the-blank") {
-                const correctAnswers = (q.answerKey || '').split('|').map(a => a.trim().toLowerCase());
-                isCorrect = correctAnswers.includes((response.answer || '').toString().trim().toLowerCase());
+            let marksObtained = 0;
+
+            // Define the marks to be used for this specific question
+            const marksCorrect = currentQuiz.marksMode === 'custom' ? (q.correctMarks ?? 1) : (currentQuiz.correctMarks ?? 1);
+            const marksIncorrect = currentQuiz.marksMode === 'custom' ? (q.wrongMarks ?? 0) : (currentQuiz.wrongMarks ?? 0);
+            
+            // Check if there was an actual answer provided for auto-gradable questions
+            const hasAnswer = response && response.answer !== undefined && response.answer !== '';
+
+            if (q.type === "multiple-choice" || q.type === "fill-in-the-blank") {
+                if (hasAnswer) {
+                    let isCorrect = false;
+                    if (q.type === "multiple-choice") {
+                        isCorrect = (response.answer === q.shuffledCorrectAnswerIndex);
+                    } else { // fill-in-the-blank
+                        const correctAnswers = (q.answerKey || '').split('|').map(a => a.trim().toLowerCase());
+                        isCorrect = correctAnswers.includes((response.answer || '').toString().trim().toLowerCase());
+                    }
+                    marksObtained = isCorrect ? marksCorrect : marksIncorrect;
+                } else {
+                    // If unanswered, it gets the penalty/incorrect marks (which is often 0)
+                    marksObtained = marksIncorrect;
+                }
+            } else if (q.type === "subjective") {
+                // For subjective questions, use the manually graded marks if they exist
+                marksObtained = response?.marks || 0;
             }
-            subjectScore += isCorrect ? marksCorrect : marksIncorrect;
+            subjectScore += marksObtained;
         });
         subjectScores[subject] = subjectScore;
         totalScore += subjectScore;
@@ -513,6 +535,11 @@ function submitTest() {
         sendResult({ lat: null, lon: null });
     }
 }
+
+
+// =================================================================
+// ===== CORRECTED FUNCTION ENDS HERE ==============================
+// =================================================================
 
 
 async function requestFullscreenSafe() {
@@ -836,8 +863,7 @@ function downloadPDFReport() {
     let totalScore = 0;
 
     Object.keys(currentQuiz.subjects).forEach(subject => {
-        // --- Subject Header ---
-        if (y > pageHeight - 40) { // Check for page break before subject header
+        if (y > pageHeight - 40) {
              doc.addPage();
              y = margin + 5;
         }
@@ -849,7 +875,6 @@ function downloadPDFReport() {
         doc.text(subject, margin + 3, y + 6.5);
         y += 15;
 
-        // --- Draw the main table header ---
         y = drawTableHeader(y);
 
         let subjectScore = 0;
@@ -868,18 +893,31 @@ function downloadPDFReport() {
 
             let correctAnswerText = '';
             let marksObtained = 0;
+            
+            // Define the marks to be used for this specific question
+            const marksCorrect = currentQuiz.marksMode === 'custom' ? (q.correctMarks ?? 1) : (currentQuiz.correctMarks ?? 1);
+            const marksIncorrect = currentQuiz.marksMode === 'custom' ? (q.wrongMarks ?? 0) : (currentQuiz.wrongMarks ?? 0);
+
+            const hasAnswer = response && response.answer !== undefined && response.answer !== '';
 
             if (q.type === "multiple-choice") {
                 correctAnswerText = q.options[q.correctAnswer];
-                if (response?.answer === q.shuffledCorrectAnswerIndex) marksObtained = currentQuiz.correctMarks ?? 1;
-                else if (response) marksObtained = currentQuiz.wrongMarks ?? 0;
+                if (hasAnswer && response.answer === q.shuffledCorrectAnswerIndex) {
+                    marksObtained = marksCorrect;
+                } else if (hasAnswer) {
+                    marksObtained = marksIncorrect;
+                } else {
+                    marksObtained = marksIncorrect;
+                }
             } else if (q.type === "fill-in-the-blank") {
                 const correctAnswers = (q.answerKey || '').split('|');
                 correctAnswerText = correctAnswers.join(", ");
-                if (response && correctAnswers.some(ans => ans.trim().toLowerCase() === response.answer.toString().trim().toLowerCase())) {
-                    marksObtained = currentQuiz.correctMarks ?? 1;
-                } else if (response) {
-                    marksObtained = currentQuiz.wrongMarks ?? 0;
+                if (hasAnswer && correctAnswers.some(ans => ans.trim().toLowerCase() === response.answer.toString().trim().toLowerCase())) {
+                    marksObtained = marksCorrect;
+                } else if (hasAnswer) {
+                    marksObtained = marksIncorrect;
+                } else {
+                    marksObtained = marksIncorrect;
                 }
             } else if (q.type === "subjective") {
                 correctAnswerText = q.sampleAnswer || "N/A";
@@ -889,7 +927,6 @@ function downloadPDFReport() {
 
             const timeSpent = Math.round((questionTimes[subject]?.[index] || 0) / 1000);
 
-            // --- Dynamic Row Height Calculation ---
             const lineHeight = 6;
             const colWidths = { question: 70, yourAnswer: 30, correctAnswer: 30 };
             
@@ -898,17 +935,15 @@ function downloadPDFReport() {
             const correctAnswerLines = doc.splitTextToSize(correctAnswerText, colWidths.correctAnswer);
             
             const maxLines = Math.max(questionLines.length, yourAnswerLines.length, correctAnswerLines.length);
-            const rowHeight = maxLines * lineHeight + 4; // Add padding
+            const rowHeight = maxLines * lineHeight + 4;
 
-            // --- Page Break Logic ---
             if (y + rowHeight > pageHeight - margin) {
                 doc.addPage();
                 y = margin + 5;
                 y = drawTableHeader(y);
             }
 
-            // --- Draw Row ---
-            doc.setFillColor(index % 2 === 0 ? 245 : 255); // Alternating row color
+            doc.setFillColor(index % 2 === 0 ? 245 : 255);
             doc.rect(margin, y - 5, 190, rowHeight, 'F');
             doc.setFontSize(10);
             doc.setTextColor(50, 50, 50);
@@ -924,9 +959,8 @@ function downloadPDFReport() {
         });
 
         totalScore += subjectScore;
-        y += 5; // Space after each subject table
+        y += 5;
 
-        // --- Subject Score ---
         doc.setFontSize(12);
         doc.setFont(undefined, "bold");
         doc.setTextColor(0, 128, 0);
@@ -934,8 +968,7 @@ function downloadPDFReport() {
         y += 10;
     });
 
-    // --- Final Summary ---
-    doc.line(margin, y, 200, y); // Separator line
+    doc.line(margin, y, 200, y);
     y += 10;
 
     doc.setFontSize(14);
@@ -949,7 +982,6 @@ function downloadPDFReport() {
     doc.setTextColor(200, 0, 0);
     doc.text(`Warnings Issued: ${warningCount} / ${maxWarnings}`, margin, y);
 
-    // --- Save the PDF ---
     doc.save(`${studentDetails.name}_Exam_Report.pdf`);
 }
 
@@ -961,7 +993,7 @@ Object.assign(window, {
   clearResponse,
   saveAndNext,
   confirmSubmit,
-  downloadPDFReport // Correctly assigned here
+  downloadPDFReport
 });
 </script>
 </body>
