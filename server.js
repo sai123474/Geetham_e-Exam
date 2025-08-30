@@ -89,6 +89,10 @@ app.post('/update-quizzes', authenticateToken, async (req, res) => {
         const quizzesCollection = db.collection('quizzes');
         await quizzesCollection.deleteMany({});
         if (updatedQuizzes.length > 0) {
+            // Ensure all quiz IDs are numbers before inserting
+            updatedQuizzes.forEach(quiz => {
+                if(typeof quiz.id !== 'number') quiz.id = Date.now() + Math.random();
+            });
             await quizzesCollection.insertMany(updatedQuizzes);
         }
         res.status(200).send('Quizzes updated successfully.');
@@ -144,57 +148,11 @@ app.get('/get-submissions', authenticateToken, async (req, res) => {
         if (!quizId) return res.status(400).send('Quiz ID is required');
 
         const resultsCollection = db.collection('results');
-        const quizzesCollection = db.collection('quizzes');
-
-        // Fetch the quiz data to get question details
-        const quiz = await quizzesCollection.findOne({ id: parseInt(quizId) });
-        if (!quiz) {
-            return res.status(404).send('Quiz not found.');
-        }
-
         const submissions = await resultsCollection.find({ quizId: parseInt(quizId) }).toArray();
-
-        const reviewData = submissions.map(sub => {
-            const subjectiveAnswers = [];
-            const subjectiveScore = sub.subjectiveScore || 0; // NEW: Initialize subjective score
-
-            if (sub.responses) {
-                Object.keys(sub.responses).forEach(subjectName => {
-                    const quizSubject = quiz.subjects[subjectName];
-                    if (!quizSubject) return;
-
-                    Object.keys(sub.responses[subjectName]).forEach(qIndex => {
-                        const studentResponse = sub.responses[subjectName][qIndex];
-                        const originalQuestion = quizSubject[qIndex];
-
-                        if (originalQuestion && originalQuestion.type === 'subjective') {
-                            subjectiveAnswers.push({
-                                subject: subjectName,
-                                qIndex: parseInt(qIndex),
-                                questionText: originalQuestion.text,
-                                studentAnswer: studentResponse.answer,
-                                rubric: originalQuestion.rubric,
-                                correctMarks: originalQuestion.correctMarks || quiz.correctMarks,
-                                marks: studentResponse.marks ?? 'pending',
-                                _id: sub._id.toString()
-                            });
-                        }
-                    });
-                });
-            }
-
-            return {
-                _id: sub._id.toString(),
-                studentId: sub.mobile,
-                name: sub.studentName,
-                totalScore: sub.totalScore,
-                subjectiveScore: subjectiveScore,
-                warnings: sub.warnings,
-                subjectiveAnswers: subjectiveAnswers,
-            };
-        });
-
-        res.json(reviewData);
+        
+        // The front-end now has the quiz data, so we can send the raw submissions
+        // This simplifies the backend and ensures the front-end has all necessary data
+        res.json(submissions);
 
     } catch (err) {
         console.error('Error fetching submissions:', err);
@@ -202,55 +160,98 @@ app.get('/get-submissions', authenticateToken, async (req, res) => {
     }
 });
 
-// Teacher grades subjective question
-app.post('/grade-subjective', authenticateToken, async (req, res) => {
+// =================================================================
+// ===== NEW ENDPOINT FOR GRADING DASHBOARD STARTS HERE ============
+// =================================================================
+
+app.post('/grade-submission', authenticateToken, async (req, res) => {
     try {
-        const { resultId, subject, qIndex, marks } = req.body;
-        if (!resultId || !subject || qIndex === undefined || marks === undefined) {
-            return res.status(400).send('Invalid data');
+        const studentSubmission = req.body;
+        if (!studentSubmission || !studentSubmission._id || !studentSubmission.responses) {
+            return res.status(400).json({ message: 'Invalid submission data.' });
         }
 
         const resultsCollection = db.collection('results');
-        const updatePath = `responses.${subject}.${qIndex}.marks`;
+        const quizzesCollection = db.collection('quizzes');
+        
+        // 1. Find the original submission to get the quizId
+        const originalResult = await resultsCollection.findOne({ _id: new ObjectId(studentSubmission._id) });
+        if (!originalResult) {
+            return res.status(404).json({ message: 'Submission not found.' });
+        }
 
+        // 2. Find the corresponding quiz to get question data and marking schemes
+        const quiz = await quizzesCollection.findOne({ id: originalResult.quizId });
+        if (!quiz) {
+            return res.status(404).json({ message: 'Quiz data not found for this submission.' });
+        }
+
+        // 3. Securely recalculate the total score on the server
+        let newTotalScore = 0;
+        Object.keys(quiz.subjects).forEach(subjectName => {
+            if (!quiz.subjects[subjectName]) return;
+
+            quiz.subjects[subjectName].forEach((question, qIndex) => {
+                const response = studentSubmission.responses?.[subjectName]?.[qIndex];
+                let marksObtained = 0;
+                
+                const marksCorrect = (quiz.marksMode === 'custom' ? question.correctMarks : quiz.correctMarks) ?? 1;
+                const marksIncorrect = (quiz.marksMode === 'custom' ? question.wrongMarks : quiz.wrongMarks) ?? 0;
+
+                const hasAnswer = response && response.answer !== undefined && response.answer !== '';
+
+                if (question.type === 'multiple-choice') {
+                    // Note: originalResult must have the shuffledCorrectAnswerIndex saved with it
+                    // For this to work, ensure the `submit-result` endpoint saves this info.
+                    // We'll assume `originalResult.responses` contains this.
+                    const originalResponse = originalResult.responses?.[subjectName]?.[qIndex];
+                    if (hasAnswer && originalResponse && response.answer === originalResponse.shuffledCorrectAnswerIndex) {
+                        marksObtained = marksCorrect;
+                    } else {
+                        marksObtained = marksIncorrect;
+                    }
+                } else if (question.type === 'fill-in-the-blank') {
+                    if (hasAnswer) {
+                        const correctAnswers = (question.answerKey || '').split('|').map(a => a.trim().toLowerCase());
+                        const isCorrect = correctAnswers.includes(response.answer.toString().trim().toLowerCase());
+                        marksObtained = isCorrect ? marksCorrect : marksIncorrect;
+                    } else {
+                        marksObtained = marksIncorrect;
+                    }
+                } else if (question.type === 'subjective') {
+                    marksObtained = response?.marks || 0;
+                }
+                newTotalScore += marksObtained;
+            });
+        });
+
+        // 4. Update the database with new responses and the recalculated total score
         const updateResult = await resultsCollection.updateOne(
-            { _id: new ObjectId(resultId) },
-            { $set: { [updatePath]: parseFloat(marks) } }
+            { _id: new ObjectId(studentSubmission._id) },
+            { 
+                $set: { 
+                    responses: studentSubmission.responses, // Save the teacher's marks
+                    totalScore: newTotalScore // Save the newly calculated score
+                }
+            }
         );
 
         if (updateResult.modifiedCount === 0) {
-            return res.status(404).send('Answer not found or marks were not changed.');
+            return res.status(304).json({ message: 'No changes were made to the submission.' });
         }
 
-        // Recalculate total score
-        const resultDoc = await resultsCollection.findOne({ _id: new ObjectId(resultId) });
-        if (resultDoc) {
-            let newTotalScore = 0;
-            let subjectiveScore = 0;
-
-            Object.keys(resultDoc.responses).forEach(subj => {
-                Object.values(resultDoc.responses[subj]).forEach(qResp => {
-                    if (qResp.marks !== undefined && qResp.marks !== 'pending') {
-                        // This is a subjective question that's been graded
-                        subjectiveScore += qResp.marks;
-                    }
-                });
-            });
-
-            newTotalScore = (resultDoc.totalScore || 0) + subjectiveScore;
-            
-            await resultsCollection.updateOne(
-                { _id: new ObjectId(resultId) },
-                { $set: { subjectiveScore: subjectiveScore, finalTotalScore: newTotalScore } }
-            );
-        }
-
-        res.status(200).send('Subjective marks updated successfully');
+        res.status(200).json({ message: 'Grades updated successfully!', newTotalScore });
     } catch (err) {
-        console.error('Error grading subjective question:', err);
-        res.status(500).send('Error grading subjective question');
+        console.error('Error grading submission:', err);
+        res.status(500).json({ message: 'An error occurred while saving grades.' });
     }
 });
+
+
+// =================================================================
+// ===== NEW ENDPOINT FOR GRADING DASHBOARD ENDS HERE ==============
+// =================================================================
+
 
 // Clear all results (requires authentication)
 app.post('/clear-results', authenticateToken, async (req, res) => {
