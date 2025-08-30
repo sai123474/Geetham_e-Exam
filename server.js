@@ -10,14 +10,13 @@ const bcrypt = require('bcryptjs');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Use environment variables for sensitive data
 const API_KEY ="AIzaSyA3WIHFw2_5E8hYUSlG2rrLdq7J7KKwbe0";
 const MONGO_URI ="mongodb+srv://yamparalasaikrishna6:Tngy9EWjTg1akDXW@saikrishna.dced3fy.mongodb.net/?retryWrites=true&w=majority&appName=SaiKrishna";
 const JWT_SECRET ="Geetham_e_exam2025";
 const ADMIN_PASSWORD = "Geetham@2014";
 
 if (!API_KEY || !MONGO_URI || !JWT_SECRET || !ADMIN_PASSWORD) {
-    console.error("FATAL ERROR: Missing required environment variables. Please check your .env file.");
+    console.error("FATAL ERROR: Missing required environment variables.");
     process.exit(1);
 }
 
@@ -31,7 +30,7 @@ let db;
 // --- MIDDLEWARE ---
 app.use(cors());
 app.use(express.json());
-app.use(express.static('public')); // Serves static files from 'public' directory
+app.use(express.static('public'));
 
 // --- AUTHENTICATION MIDDLEWARE ---
 function authenticateToken(req, res, next) {
@@ -59,8 +58,6 @@ async function connectDB() {
 }
 
 // --- API ENDPOINTS ---
-
-// Admin Login
 app.post('/login', (req, res) => {
     const { password } = req.body;
     if (bcrypt.compareSync(password, ADMIN_PASSWORD_HASH)) {
@@ -71,7 +68,6 @@ app.post('/login', (req, res) => {
     }
 });
 
-// Get all quizzes
 app.get('/get-quizzes', async (req, res) => {
     try {
         const quizzesCollection = db.collection('quizzes');
@@ -82,14 +78,12 @@ app.get('/get-quizzes', async (req, res) => {
     }
 });
 
-// Update all quizzes (Admin Panel)
 app.post('/update-quizzes', authenticateToken, async (req, res) => {
     try {
         const updatedQuizzes = req.body;
         const quizzesCollection = db.collection('quizzes');
         await quizzesCollection.deleteMany({});
         if (updatedQuizzes.length > 0) {
-            // Ensure all quiz IDs are numbers before inserting
             updatedQuizzes.forEach(quiz => {
                 if(typeof quiz.id !== 'number') quiz.id = Date.now() + Math.random();
             });
@@ -101,7 +95,6 @@ app.post('/update-quizzes', authenticateToken, async (req, res) => {
     }
 });
 
-// Check if a student has already attempted a quiz
 app.post('/check-attempt', async (req, res) => {
     try {
         const { mobile, quizId } = req.body;
@@ -117,11 +110,10 @@ app.post('/check-attempt', async (req, res) => {
     }
 });
 
-// Submit a student's result
 app.post('/submit-result', async (req, res) => {
     try {
         const newResult = req.body;
-        newResult.quizId = parseInt(newResult.quizId); // Ensure quizId is a number
+        newResult.quizId = parseInt(newResult.quizId);
         const resultsCollection = db.collection('results');
         await resultsCollection.insertOne(newResult);
         res.status(200).send('Result saved successfully.');
@@ -130,7 +122,6 @@ app.post('/submit-result', async (req, res) => {
     }
 });
 
-// Get all results for the dashboard
 app.get('/results', async (req, res) => {
     try {
         const resultsCollection = db.collection('results');
@@ -141,19 +132,13 @@ app.get('/results', async (req, res) => {
     }
 });
 
-// Get submissions for teacher review
 app.get('/get-submissions', authenticateToken, async (req, res) => {
     try {
         const { quizId } = req.query;
         if (!quizId) return res.status(400).send('Quiz ID is required');
-
         const resultsCollection = db.collection('results');
         const submissions = await resultsCollection.find({ quizId: parseInt(quizId) }).toArray();
-        
-        // The front-end now has the quiz data, so we can send the raw submissions
-        // This simplifies the backend and ensures the front-end has all necessary data
         res.json(submissions);
-
     } catch (err) {
         console.error('Error fetching submissions:', err);
         res.status(500).send('Error fetching submissions.');
@@ -161,7 +146,7 @@ app.get('/get-submissions', authenticateToken, async (req, res) => {
 });
 
 // =================================================================
-// ===== NEW ENDPOINT FOR GRADING DASHBOARD STARTS HERE ============
+// ===== CORRECTED GRADING ENDPOINT STARTS HERE ====================
 // =================================================================
 
 app.post('/grade-submission', authenticateToken, async (req, res) => {
@@ -174,70 +159,67 @@ app.post('/grade-submission', authenticateToken, async (req, res) => {
         const resultsCollection = db.collection('results');
         const quizzesCollection = db.collection('quizzes');
         
-        // 1. Find the original submission to get the quizId
         const originalResult = await resultsCollection.findOne({ _id: new ObjectId(studentSubmission._id) });
         if (!originalResult) {
             return res.status(404).json({ message: 'Submission not found.' });
         }
 
-        // 2. Find the corresponding quiz to get question data and marking schemes
         const quiz = await quizzesCollection.findOne({ id: originalResult.quizId });
         if (!quiz) {
             return res.status(404).json({ message: 'Quiz data not found for this submission.' });
         }
 
-        // 3. Securely recalculate the total score on the server
         let newTotalScore = 0;
+        let newSubjectScores = {};
+
         Object.keys(quiz.subjects).forEach(subjectName => {
-            if (!quiz.subjects[subjectName]) return;
+            if (!quiz.subjects || !quiz.subjects[subjectName]) return;
+            let currentSubjectScore = 0;
 
             quiz.subjects[subjectName].forEach((question, qIndex) => {
-                const response = studentSubmission.responses?.[subjectName]?.[qIndex];
+                const updatedResponse = studentSubmission.responses?.[subjectName]?.[qIndex];
+                const originalResponse = originalResult.responses?.[subjectName]?.[qIndex];
                 let marksObtained = 0;
                 
                 const marksCorrect = (quiz.marksMode === 'custom' ? question.correctMarks : quiz.correctMarks) ?? 1;
                 const marksIncorrect = (quiz.marksMode === 'custom' ? question.wrongMarks : quiz.wrongMarks) ?? 0;
 
-                const hasAnswer = response && response.answer !== undefined && response.answer !== '';
-
-                if (question.type === 'multiple-choice') {
-                    // Note: originalResult must have the shuffledCorrectAnswerIndex saved with it
-                    // For this to work, ensure the `submit-result` endpoint saves this info.
-                    // We'll assume `originalResult.responses` contains this.
-                    const originalResponse = originalResult.responses?.[subjectName]?.[qIndex];
-                    if (hasAnswer && originalResponse && response.answer === originalResponse.shuffledCorrectAnswerIndex) {
+                if (question.type === 'subjective') {
+                    marksObtained = updatedResponse?.marks || 0;
+                } else if (question.type === 'multiple-choice') {
+                    if (originalResponse && originalResponse.answer !== undefined && originalResponse.answer === originalResponse.shuffledCorrectAnswerIndex) {
                         marksObtained = marksCorrect;
                     } else {
                         marksObtained = marksIncorrect;
                     }
                 } else if (question.type === 'fill-in-the-blank') {
-                    if (hasAnswer) {
+                    if (originalResponse && originalResponse.answer) {
                         const correctAnswers = (question.answerKey || '').split('|').map(a => a.trim().toLowerCase());
-                        const isCorrect = correctAnswers.includes(response.answer.toString().trim().toLowerCase());
+                        const isCorrect = correctAnswers.includes(originalResponse.answer.toString().trim().toLowerCase());
                         marksObtained = isCorrect ? marksCorrect : marksIncorrect;
                     } else {
                         marksObtained = marksIncorrect;
                     }
-                } else if (question.type === 'subjective') {
-                    marksObtained = response?.marks || 0;
                 }
-                newTotalScore += marksObtained;
+                currentSubjectScore += marksObtained;
             });
+            newSubjectScores[subjectName] = currentSubjectScore;
+            newTotalScore += currentSubjectScore;
         });
 
-        // 4. Update the database with new responses and the recalculated total score
         const updateResult = await resultsCollection.updateOne(
             { _id: new ObjectId(studentSubmission._id) },
             { 
                 $set: { 
-                    responses: studentSubmission.responses, // Save the teacher's marks
-                    totalScore: newTotalScore // Save the newly calculated score
+                    responses: studentSubmission.responses,
+                    totalScore: newTotalScore,
+                    subjectScores: newSubjectScores 
                 }
             }
         );
 
         if (updateResult.modifiedCount === 0) {
-            return res.status(304).json({ message: 'No changes were made to the submission.' });
+            return res.status(200).json({ message: 'No changes were made, but data is consistent.', newTotalScore });
         }
 
         res.status(200).json({ message: 'Grades updated successfully!', newTotalScore });
@@ -247,13 +229,10 @@ app.post('/grade-submission', authenticateToken, async (req, res) => {
     }
 });
 
-
 // =================================================================
-// ===== NEW ENDPOINT FOR GRADING DASHBOARD ENDS HERE ==============
+// ===== CORRECTED GRADING ENDPOINT ENDS HERE ======================
 // =================================================================
 
-
-// Clear all results (requires authentication)
 app.post('/clear-results', authenticateToken, async (req, res) => {
     try {
         const resultsCollection = db.collection('results');
@@ -263,19 +242,16 @@ app.post('/clear-results', authenticateToken, async (req, res) => {
         res.status(500).send('Error clearing results.');
     }
 });
-// Delete a quiz by ID (Admin only)
+
 app.delete('/delete-quiz/:id', authenticateToken, async (req, res) => {
     try {
         const quizId = parseInt(req.params.id);
         if (isNaN(quizId)) return res.status(400).send('Invalid quiz ID');
-
         const quizzesCollection = db.collection('quizzes');
         const result = await quizzesCollection.deleteOne({ id: quizId });
-
         if (result.deletedCount === 0) {
             return res.status(404).send('Quiz not found');
         }
-
         res.status(200).send('Quiz deleted successfully');
     } catch (err) {
         console.error('Error deleting quiz:', err);
@@ -284,7 +260,6 @@ app.delete('/delete-quiz/:id', authenticateToken, async (req, res) => {
 });
 
 // --- AI Endpoints ---
-
 app.post('/ai-analysis', authenticateToken, async (req, res) => {
     try {
         const { studentName, subjectScores } = req.body;
