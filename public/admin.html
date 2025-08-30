@@ -113,13 +113,11 @@
                 <div id="quiz-details"></div>
                 <div id="subjects-details"></div>
                 <button id="btn-add-subject" class="btn-add">Add Subject</button>
-
                 <div class="question-container" style="margin-top: 30px;">
                     <h4>Generate Questions from Text using AI</h4>
                     <textarea id="ai-text-input" rows="8" placeholder="Paste question paper text here..."></textarea>
                     <button id="btn-generate-from-text" class="btn-add">Generate from Text</button>
                 </div>
-
                 <div style="margin-top: 20px; display:flex; gap:10px; flex-wrap: wrap;">
                     <div class="flex-row">
                         <button id="btn-save-quiz" class="btn-save">Save This Quiz</button>
@@ -321,10 +319,6 @@
         function updateQuestionBadge(qDiv){ const mode = document.getElementById('quiz-marks-mode')?.value||'uniform'; let cm=1, wm=0; if(mode==='custom'){ cm=parseFloat(qDiv.querySelector('.question-correct-marks')?.value||1); wm=parseFloat(qDiv.querySelector('.question-wrong-marks')?.value||0);} else{ cm=parseFloat(document.getElementById('quiz-correct-marks')?.value||1); wm=parseFloat(document.getElementById('quiz-wrong-marks')?.value||0);} const badge=qDiv.querySelector('.marks-badge'); if(badge) badge.innerHTML=`<span class="positive">+${cm}</span>, <span class="negative">-${wm}</span>`;}
         function updateAllQuestionBadges(){ document.querySelectorAll('.question-container').forEach(updateQuestionBadge); }
 
-        // =================================================================
-        // ===== CORRECTED FUNCTIONS START HERE ============================
-        // =================================================================
-
         async function generateWithAI(subjectName) {
             const topic = document.getElementById(`topic-${subjectName}`).value;
             const num = parseInt(document.getElementById(`num-${subjectName}`).value || 3);
@@ -343,7 +337,6 @@
                 newQs.forEach(q => questionsContainer.appendChild(createQuestionElement(questionsContainer.children.length, q)));
                 updateTotalMarks();
                 alert(`${newQs.length} questions added to ${subjectName}! Saving quiz...`);
-                // Automatically save all changes after generating
                 await saveQuiz();
             } catch (e) { alert(e.message); }
         }
@@ -366,7 +359,6 @@
                 questions.forEach(q => firstSubject.appendChild(createQuestionElement(firstSubject.children.length, q)));
                 updateTotalMarks();
                 alert(`${questions.length} questions generated successfully! Saving quiz...`);
-                // Automatically save all changes after generating
                 await saveQuiz();
             } catch (err) { console.error(err); alert(err.message); }
         }
@@ -375,21 +367,15 @@
             const quiz = quizzesData[selectedQuizIndex];
             const token = localStorage.getItem('adminToken');
             if (!token) return alert('Please log in again.');
-
-            // Gather quiz info
             quiz.title = document.getElementById('quiz-title').value;
             quiz.timeLimit = parseInt(document.getElementById('quiz-time').value);
             quiz.class = document.getElementById('quiz-class').value;
             quiz.password = document.getElementById('quiz-password').value;
             quiz.marksMode = document.getElementById('quiz-marks-mode').value;
-
-            // Also gather the uniform marks if that mode is selected
             if (quiz.marksMode === 'uniform') {
                 quiz.correctMarks = parseFloat(document.getElementById('quiz-correct-marks').value);
                 quiz.wrongMarks = parseFloat(document.getElementById('quiz-wrong-marks').value);
             }
-
-            // Gather subjects & questions
             const subjects = {};
             document.querySelectorAll('#subjects-details .subject-container').forEach(subDiv => {
                 const subjectName = subDiv.querySelector('.subject-name').value.trim();
@@ -415,7 +401,6 @@
                 });
             });
             quiz.subjects = subjects;
-
             try {
                 const res = await fetch('/update-quizzes', {
                     method: 'POST',
@@ -424,10 +409,10 @@
                 });
                 if (!res.ok) throw new Error('Failed to save quiz.');
                 alert('Quiz saved successfully!');
-                // Refresh the list to reflect any title changes
                 renderQuizList();
             } catch (err) { console.error(err); alert(err.message); }
         }
+
         async function deleteQuiz() {
             if (!confirm('Are you sure you want to delete this quiz?')) return;
             const quiz = quizzesData[selectedQuizIndex];
@@ -486,12 +471,10 @@
                     dashboard.innerHTML += '<p>No submissions yet for this quiz.</p>';
                     return;
                 }
-
                 reviewData.forEach(student => {
                     const div = document.createElement('div');
                     div.className = 'student-card';
                     div.style.cursor = 'pointer';
-                    // CORRECTED: Use student.studentName instead of student.name
                     div.innerHTML = `<strong>${student.studentName} (${student.mobile})</strong> | Score: ${student.totalScore}`;
                     div.onclick = () => renderStudentReview(student, quiz);
                     dashboard.appendChild(div);
@@ -505,7 +488,6 @@
         function renderStudentReview(student, quiz) {
             const dashboard = document.getElementById('review-dashboard');
             let reviewHTML = `
-                // CORRECTED: Use student.studentName instead of student.name
                 <h4>Grading: ${student.studentName}</h4>
                 <button id="back-to-list-btn">Back to Student List</button>
                 <div id="grading-area">`;
