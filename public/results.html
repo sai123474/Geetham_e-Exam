@@ -99,7 +99,7 @@
 
 <script>
     (function(){
-        let allResults=[], filtered=[], dynamicSubjects=[], sortKey='totalScore', sortDir='desc';
+        let allResults=[], allQuizzes=[], filtered=[], dynamicSubjects=[], sortKey='rank', sortDir='asc';
         const tbody = document.querySelector('#results-table tbody');
         const thead = document.querySelector('#results-table thead');
         const gradeFilter = document.getElementById('gradeFilter');
@@ -107,7 +107,6 @@
         const topN = document.getElementById('topN');
         const searchEl = document.getElementById('search');
 
-        // Check for admin token before loading
         const token = localStorage.getItem('adminToken');
         if (!token) {
             document.getElementById('auth-check').style.display = 'block';
@@ -117,34 +116,52 @@
             document.getElementById('main-content').style.display = 'block';
         }
 
-      function normalizeRecord(r){ 
-    let subjectiveScore = 0;
-    if (r.responses) {
-        Object.values(r.responses).forEach(subj => {
-            Object.values(subj).forEach(q => {
-                const marks = Number(q.marks);
-                if (!isNaN(marks)) subjectiveScore += marks;
+        // Helper to calculate the max possible score for a quiz
+        function calculateMaxScore(quiz) {
+            if (!quiz || !quiz.subjects) return 100; // Default max score
+            let totalMax = 0;
+            Object.values(quiz.subjects).forEach(subjectQuestions => {
+                subjectQuestions.forEach(q => {
+                    if (quiz.marksMode === 'custom') {
+                        totalMax += Number(q.correctMarks || 1);
+                    } else {
+                        totalMax += Number(quiz.correctMarks || 1);
+                    }
+                });
             });
-        });
-    }
+            return totalMax > 0 ? totalMax : 100;
+        }
+        
+        // Normalize and enrich each result record with full quiz data
+        function normalizeRecord(r, quizMap) {
+            const quiz = quizMap.get(r.quizId);
+            let subjectiveScore = 0;
+            if (r.responses) {
+                Object.values(r.responses).forEach(subj => {
+                    Object.values(subj).forEach(q => {
+                        const marks = Number(q.marks);
+                        if (!isNaN(marks)) subjectiveScore += marks;
+                    });
+                });
+            }
 
-    const finalScore = (Number(r.totalScore) || 0) + subjectiveScore;
+            const finalScore = (Number(r.totalScore) || 0) + subjectiveScore;
 
-    return {
-        ...r,
-        studentName: r.studentName || 'N/A', 
-        mobile: r.mobile || 'N/A', 
-        class: String(r.class || r.grade || r.className || 'N/A'), 
-        totalScore: Number(r.totalScore || 0), 
-        finalTotalScore: finalScore, 
-        subjectiveScore: subjectiveScore,
-        subjectScores: r.subjectScores || {}, 
-        warnings: Number(r.warnings || 0),
-        location: r.location || null,
-        quizTitle: r.quizTitle || "Untitled Quiz"
-    }; 
-}
-
+            return {
+                ...r,
+                studentName: r.studentName || 'N/A', 
+                mobile: r.mobile || 'N/A', 
+                class: quiz ? String(quiz.class || 'N/A') : 'N/A',
+                quizTitle: quiz ? quiz.title : (r.quizTitle || "Untitled Quiz"),
+                totalScore: Number(r.totalScore || 0), 
+                finalTotalScore: finalScore, 
+                subjectiveScore: subjectiveScore,
+                subjectScores: r.subjectScores || {}, 
+                warnings: Number(r.warnings || 0),
+                location: r.location || null,
+                totalMaxScore: quiz ? calculateMaxScore(quiz) : 100,
+            }; 
+        }
 
         function computeRanks(arr){
             const sorted = [...arr].sort((a,b) => b.finalTotalScore - a.finalTotalScore);
@@ -169,7 +186,6 @@
             });
 
             filtered.sort((a,b) => {
-                if (sortKey === 'rank') return sortDir === 'asc' ? a.rank - b.rank : b.rank - a.rank;
                 let valA = a[sortKey];
                 let valB = b[sortKey];
                 if (typeof valA === 'string') {
@@ -178,7 +194,7 @@
                 }
                 if (valA < valB) return sortDir === 'asc' ? -1 : 1;
                 if (valA > valB) return sortDir === 'asc' ? 1 : -1;
-                return 0;
+                return a.rank - b.rank; // Secondary sort by rank
             });
             
             renderTable(filtered);
@@ -202,13 +218,13 @@
                 <th data-key="class">Class</th>
                 <th data-key="location">Location</th>
                 <th data-key="finalTotalScore">Final Score</th>`;
-            dynamicSubjects.forEach(sub => headerHTML += `<th>${sub}</th>`);
+            dynamicSubjects.forEach(sub => headerHTML += `<th data-key="subjectScores.${sub}">${sub}</th>`);
             headerHTML += `<th data-key="warnings">Warnings</th><th>Details</th><th>AI Analysis</th></tr>`;
             thead.innerHTML = headerHTML;
 
             tbody.innerHTML = '';
             if (data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="'+(7 + dynamicSubjects.length)+'" style="text-align:center;">No results match the filters.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="'+(9 + dynamicSubjects.length)+'" style="text-align:center;">No results match the filters.</td></tr>';
                 return;
             }
 
@@ -216,7 +232,7 @@
                 const row = tbody.insertRow();
                 let locationHTML = 'N/A';
                 if(res.location && res.location.lat && res.location.lon){
-                    locationHTML = `<a href="https://maps.google.com/?q=${res.location.lat},${res.location.lon}" target="_blank">View on Map</a>`;
+                    locationHTML = `<a href="https://www.google.com/maps?q=${res.location.lat},${res.location.lon}" target="_blank">View Map</a>`;
                 }
                 
                 let scoreClass = '';
@@ -225,7 +241,7 @@
                 else if (scorePercentage >= 40) scoreClass = 'score-medium';
                 else scoreClass = 'score-low';
 
-                let rowHTML = `<td>${res.rank}</td>
+                let rowHTML = `<td><b class="rank">${res.rank}</b></td>
                     <td>${res.studentName}</td>
                     <td>${res.mobile}</td>
                     <td>${res.class}</td>
@@ -238,23 +254,25 @@
                 });
                 
                 let warnClass = res.warnings >= 3 ? 'score-low' : '';
+                // Pass the index to reference the 'filtered' array, avoiding large JSON strings in HTML
+                const resultIndex = filtered.indexOf(res);
                 rowHTML += `<td class="${warnClass}">${res.warnings}</td>
-                    <td><button style="background:var(--info)" onclick='showDetailsModal(${JSON.stringify(res)})'>View</button></td>
-                    <td><button style="background:var(--warn)" onclick='getAIAnalysis(${JSON.stringify(res)})'>AI</button></td>`;
+                    <td><button style="background:var(--info)" onclick='showDetailsModal(${resultIndex})'>View</button></td>
+                    <td><button style="background:var(--warn)" onclick='getAIAnalysis(${resultIndex})'>AI</button></td>`;
                 row.innerHTML = rowHTML;
             });
             addSortListeners();
         }
-
+        
         function renderChart(data){
             const ctx=document.getElementById('chart').getContext('2d');
             const avgScores={}; 
             dynamicSubjects.forEach(sub => avgScores[sub] = 0);
             data.forEach(r => dynamicSubjects.forEach(sub => avgScores[sub] += (r.subjectScores[sub] || 0)));
             const labels=Object.keys(avgScores);
-            const scores=labels.map(sub => data.length > 0 ? Math.round(avgScores[sub] / data.length) : 0);
+            const scores=labels.map(sub => data.length > 0 ? (avgScores[sub] / data.length) : 0);
             if(window.chartInstance) window.chartInstance.destroy();
-            window.chartInstance=new Chart(ctx,{type:'bar',data:{labels,datasets:[{label:'Average Scores',data:scores,backgroundColor:'#007bff'}]},options:{responsive:true,plugins:{legend:{display:false}}}});
+            window.chartInstance=new Chart(ctx,{type:'bar',data:{labels,datasets:[{label:'Average Scores',data:scores,backgroundColor:'#007bff'}]},options:{responsive:true,plugins:{legend:{display:false}}, scales: { y: { beginAtZero: true } }}});
         }
 
         function renderMap(data){
@@ -268,7 +286,7 @@
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(window.mapInstance);
             mapData.forEach(r => {
                 L.marker([r.location.lat, r.location.lon]).addTo(window.mapInstance)
-                    .bindPopup(`<b>${r.studentName}</b><br>Class: ${r.class}<br>Total: ${r.finalTotalScore}`);
+                    .bindPopup(`<b>${r.studentName}</b><br>Class: ${r.class}<br>Score: ${r.finalTotalScore.toFixed(2)}`);
             });
         }
 
@@ -282,8 +300,9 @@
                 };
             });
         }
-
-        window.showDetailsModal = function(res){
+        
+        window.showDetailsModal = function(index){
+            const res = filtered[index];
             document.getElementById('modal-title').textContent = `Report: ${res.studentName}`;
             let html = `
                 <p><strong>Mobile:</strong> ${res.mobile}</p>
@@ -292,11 +311,11 @@
                 <p><strong>Warnings:</strong> ${res.warnings}</p>
                 <p><strong>Auto-Graded Score:</strong> ${res.totalScore.toFixed(2)}</p>
                 <p><strong>Subjective Score:</strong> ${res.subjectiveScore.toFixed(2)}</p>
-                <p><strong>Final Score:</strong> ${res.finalTotalScore.toFixed(2)}</p>
+                <p><strong>Final Score:</strong> ${res.finalTotalScore.toFixed(2)} / ${res.totalMaxScore.toFixed(2)}</p>
                 <h4>Subject-wise Breakdown:</h4>
                 <ul>`;
             Object.keys(res.subjectScores).forEach(sub => {
-                html += `<li><strong>${sub}:</strong> ${res.subjectScores[sub].toFixed(2)}</li>`;
+                html += `<li><strong>${sub}:</strong> ${(res.subjectScores[sub] || 0).toFixed(2)}</li>`;
             });
             html += '</ul>';
             
@@ -307,8 +326,9 @@
         window.closeDetailsModal = function(){
             document.getElementById('details-modal').style.display = 'none';
         }
-
-        window.getAIAnalysis = async function(res){
+        
+        window.getAIAnalysis = async function(index){
+            const res = filtered[index];
             const modal = document.getElementById('ai-modal');
             document.getElementById('ai-modal-title').textContent = `AI Analysis: ${res.studentName}`;
             const modalBody = document.getElementById('ai-modal-body');
@@ -341,7 +361,7 @@
             filtered.forEach(r => {
                 if(y > 270){ doc.addPage(); y = 20; }
                 doc.text(`${r.rank}. ${r.studentName} | ${r.mobile} | Final Score: ${r.finalTotalScore.toFixed(2)}`, 10, y); y += 7;
-                dynamicSubjects.forEach(sub => { doc.text(`   ${sub}: ${r.subjectScores[sub].toFixed(2) || 0}`, 15, y); y += 6; });
+                dynamicSubjects.forEach(sub => { doc.text(`   ${sub}: ${(r.subjectScores[sub] || 0).toFixed(2)}`, 15, y); y += 6; });
                 y += 3;
             });
             doc.save('geetham_results.pdf');
@@ -349,15 +369,16 @@
 
         document.getElementById('exportBtn').onclick = function(){
             if(filtered.length === 0){ alert("No results to export."); return; }
-            const headers = ["Rank", "Student Name", "Mobile", "Class", "Location", "Final Score", "Auto-graded Score", "Subjective Score", ...dynamicSubjects.map(s => `${s} Score`), "Warnings"];
+            const headers = ["Rank", "Student Name", "Mobile", "Class", "Quiz Title", "Location", "Final Score", "Auto-graded Score", "Subjective Score", ...dynamicSubjects.map(s => `${s} Score`), "Warnings"];
             let csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n";
             filtered.forEach(res => {
-                const locationStr = (res.location && res.location.lat) ? `${res.location.lat},${res.location.lon}` : (res.location || 'N/A');
+                const locationStr = (res.location && res.location.lat) ? `${res.location.lat},${res.location.lon}` : 'N/A';
                 const rowData = [
                     res.rank,
                     `"${res.studentName}"`,
                     `"${res.mobile}"`,
                     `"${res.class}"`,
+                    `"${res.quizTitle}"`,
                     `"${locationStr}"`,
                     res.finalTotalScore.toFixed(2),
                     res.totalScore.toFixed(2),
@@ -375,7 +396,7 @@
         }
 
         document.getElementById('clearBtn').onclick = async function(){
-            if(confirm("Are you sure you want to delete all results? This cannot be undone.")){
+            if(confirm("Are you sure you want to delete ALL results? This cannot be undone.")){
                 try{
                     const response = await fetch('/clear-results', {
                         method: 'POST',
@@ -383,38 +404,49 @@
                     });
                     if(!response.ok) throw new Error('Server error');
                     alert('All results have been cleared successfully.');
-                    fetchResults();
+                    fetchAndProcessResults();
                 }catch(e){
                     alert('Failed to clear results. Make sure you are logged in.');
                 }
             }
         }
 
-        document.getElementById('refreshBtn').onclick = fetchResults;
+        document.getElementById('refreshBtn').onclick = fetchAndProcessResults;
         gradeFilter.onchange = applyFiltersAndRender;
         topN.onchange = applyFiltersAndRender;
         searchEl.oninput = applyFiltersAndRender;
         quizFilter.onchange = applyFiltersAndRender;
 
-        async function fetchResults(){
+        async function fetchAndProcessResults(){
             try{
-                const response = await fetch('/results');
-                const data = await response.json();
-                allResults = data.map(normalizeRecord);
+                // Fetch both results and quizzes at the same time
+                const [resultsResponse, quizzesResponse] = await Promise.all([
+                    fetch('/results'),
+                    fetch('/get-quizzes')
+                ]);
+                const resultsData = await resultsResponse.json();
+                allQuizzes = await quizzesResponse.json();
                 
-                const grades = Array.from(new Set(allResults.map(r => r.class))).sort();
+                // Create a Map for quick quiz lookups by ID
+                const quizMap = new Map(allQuizzes.map(q => [q.id, q]));
+
+                // Normalize results and inject quiz data (like class name)
+                allResults = resultsData.map(r => normalizeRecord(r, quizMap));
+                
+                const grades = [...new Set(allResults.map(r => r.class))].filter(g => g !== 'N/A').sort();
                 gradeFilter.innerHTML = '<option value="all">All Classes</option>'+grades.map(g => `<option value="${g}">${g}</option>`).join('');
                 
-                const quizzes = Array.from(new Set(allResults.map(r => r.quizTitle || "Untitled Quiz"))).sort();
+                const quizzes = [...new Set(allResults.map(r => r.quizTitle))].sort();
                 quizFilter.innerHTML = '<option value="all">All Quizzes</option>' + quizzes.map(q => `<option value="${q}">${q}</option>`).join('');
 
                 applyFiltersAndRender();
             } catch(e){
-                alert('Failed to fetch results.');
+                console.error("Failed to fetch results:", e);
+                alert('Failed to fetch results. Check the console for more details.');
             }
         }
 
-        fetchResults();
+        fetchAndProcessResults();
     })();
 </script>
 </body>
