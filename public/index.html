@@ -791,6 +791,167 @@ function confirmSubmit() {
 }
 loadInitialData();
     // ⬇ Add this block near the end of your module, after the function definitions
+    function downloadPDFReport() {
+    if (!currentQuiz || !userResponses) return alert("No exam data available.");
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    let y = 10;
+
+    // Header
+    doc.setFillColor(0, 86, 179);
+    doc.rect(0, 0, 210, 20, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(16);
+    doc.text("Geetham e-Exam Report", 105, 14, { align: "center" });
+    y += 25;
+
+    // Student Info
+    doc.setFontSize(12);
+    doc.setTextColor(0, 0, 0);
+    doc.text(`Student Name: ${studentDetails.name}`, 10, y);
+    y += 7;
+    doc.text(`Mobile: ${studentDetails.mobile}`, 10, y);
+    y += 7;
+    doc.text(`Quiz Title: ${currentQuiz.title}`, 10, y);
+    y += 7;
+    doc.text(`Date: ${new Date().toLocaleString()}`, 10, y);
+    y += 10;
+
+    let totalScore = 0;
+
+    Object.keys(currentQuiz.subjects).forEach(subject => {
+        // Subject Header
+        doc.setFillColor(0, 123, 255);
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(14);
+        doc.rect(10, y - 4, 190, 8, 'F');
+        doc.text(subject, 12, y);
+        y += 10;
+
+        doc.setFontSize(12);
+        doc.setTextColor(0, 0, 0);
+
+        let subjectScore = 0;
+
+        // Table header
+        doc.setFillColor(200, 200, 200);
+        doc.rect(10, y - 4, 190, 8, 'F');
+        doc.setTextColor(0, 0, 0);
+        doc.text("Q#", 12, y);
+        doc.text("Question", 20, y);
+        doc.text("Your Answer", 110, y);
+        doc.text("Correct Answer", 160, y);
+        doc.text("Marks", 190, y, { align: 'right' });
+        doc.text("Time (s)", 170, y, { align: 'right' });
+        y += 8;
+
+        currentQuiz.subjects[subject].forEach((q, index) => {
+            const response = userResponses[subject]?.[index]?.answer ?? "Not answered";
+            let isCorrect = false;
+            let correctAnswerText = '';
+            let marksCorrect = currentQuiz.marksMode === 'custom' ? (q.correctMarks ?? 1) : (currentQuiz.correctMarks ?? 1);
+            let marksIncorrect = currentQuiz.marksMode === 'custom' ? (q.wrongMarks ?? 0) : (currentQuiz.wrongMarks ?? 0);
+            let marksObtained = 0;
+
+            if (q.type === "multiple-choice") {
+                correctAnswerText = q.options[q.correctAnswer];
+                if (response === q.shuffledCorrectAnswerIndex) {
+                    isCorrect = true;
+                    marksObtained = marksCorrect;
+                } else {
+                    marksObtained = marksIncorrect;
+                }
+            } else if (q.type === "fill-in-the-blank") {
+                const correctAnswers = (q.answerKey || '').split('|').map(a => a.trim().toLowerCase());
+                correctAnswerText = correctAnswers.join(", ");
+                if (correctAnswers.includes((response || '').toString().trim().toLowerCase())) {
+                    isCorrect = true;
+                    marksObtained = marksCorrect;
+                } else {
+                    marksObtained = marksIncorrect;
+                }
+            } else if (q.type === "subjective") {
+                correctAnswerText = q.sampleAnswer || "N/A";
+                marksObtained = userResponses[subject][index]?.marks || 0;
+            }
+
+            subjectScore += marksObtained;
+
+            // Alternating row color
+            if (index % 2 === 0) doc.setFillColor(245, 245, 245);
+            else doc.setFillColor(255, 255, 255);
+            doc.rect(10, y - 4, 190, 8, 'F');
+
+            if (y + 10 > 280) {
+                doc.addPage();
+                y = 10;
+            }
+
+            doc.setTextColor(0, 0, 0);
+            doc.text(`${index + 1}`, 12, y);
+            doc.text(q.text.substring(0, 60), 20, y);
+            doc.text(response.toString().substring(0, 40), 110, y);
+            doc.text(correctAnswerText.substring(0, 30), 160, y);
+            doc.text(marksObtained.toString(), 200, y, { align: 'right' });
+
+            // Time spent per question
+            const timeSpent = Math.floor((questionTimes[subject]?.[index] || 0) / 1000);
+            doc.text(timeSpent.toString(), 170, y, { align: 'right' });
+
+            y += 8;
+        });
+
+        totalScore += subjectScore;
+
+        // Subject Score
+        doc.setTextColor(0, 128, 0);
+        doc.setFontStyle("bold");
+        if (y + 10 > 280) {
+            doc.addPage();
+            y = 10;
+        }
+        doc.text(`Subject Score: ${subjectScore}`, 12, y);
+        y += 12;
+        doc.setFontStyle("normal");
+    });
+
+    // Total Score
+    doc.setFontSize(14);
+    doc.setTextColor(0, 0, 128);
+    if (y + 10 > 280) {
+        doc.addPage();
+        y = 10;
+    }
+    doc.text(`Total Score: ${totalScore}`, 12, y);
+    y += 10;
+
+    // Warnings / AI Alerts
+    doc.setFontSize(12);
+    doc.setTextColor(255, 0, 0);
+    if (y + 10 > 280) {
+        doc.addPage();
+        y = 10;
+    }
+    doc.text(`Warnings Issued: ${warningCount} / ${maxWarnings}`, 12, y);
+    y += 7;
+
+    // Optional: add details of each warning if you maintain a warning log
+    if (window.warningLog && warningLog.length > 0) {
+        doc.setFontSize(11);
+        warningLog.forEach((warn, idx) => {
+            if (y + 10 > 280) {
+                doc.addPage();
+                y = 10;
+            }
+            doc.text(`${idx + 1}. ${warn}`, 12, y);
+            y += 6;
+        });
+    }
+
+    doc.save(`${studentDetails.name}_Exam_Report.pdf`);
+}
+
 Object.assign(window, {
   markForReview,
   manualSave,
