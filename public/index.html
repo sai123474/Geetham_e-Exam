@@ -429,64 +429,57 @@ function handleFullscreenChangeEvent() {
         clearInterval(fullscreenCountdownInterval);
     }
 }
+function confirmSubmit() {
+    if (!quizInProgress) return;
+    if (confirm("Are you sure you want to submit the test? You cannot make any changes after this.")) {
+        submitTest();
+    }
+}
 
 function submitTest() {
-    const submitBtn = document.querySelector('.submit');
-    if (submitBtn) submitBtn.disabled = true;
     if (!quizInProgress) return;
     quizInProgress = false;
     clearInterval(timerInterval);
     autoSave("final");
     accumulateTimeForCurrent();
+
+    const submitBtn = document.querySelector('.submit');
+    if (submitBtn) submitBtn.disabled = true;
+
+    // Compute total score (existing logic)
     let totalScore = 0;
     let subjectScores = {};
     Object.keys(currentQuiz.subjects).forEach(subject => {
         let subjectScore = 0;
-        currentQuiz.subjects[subject].forEach((question, index) => {
+        currentQuiz.subjects[subject].forEach((q, index) => {
             const response = userResponses[subject]?.[index];
             if (!response || response.answer === undefined || response.answer === '') return;
-            let marksCorrect, marksIncorrect;
-            if (currentQuiz.marksMode === 'custom') {
-                marksCorrect = question.correctMarks ?? 1;
-                marksIncorrect = question.wrongMarks ?? 0;
-            } else {
-                marksCorrect = currentQuiz.correctMarks ?? 1;
-                marksIncorrect = currentQuiz.wrongMarks ?? 0;
-            }
+            let marksCorrect = currentQuiz.marksMode === 'custom' ? (q.correctMarks ?? 1) : (currentQuiz.correctMarks ?? 1);
+            let marksIncorrect = currentQuiz.marksMode === 'custom' ? (q.wrongMarks ?? 0) : (currentQuiz.wrongMarks ?? 0);
             let isCorrect = false;
-            if (question.type === "multiple-choice") {
-                if (response.answer === question.shuffledCorrectAnswerIndex) {
-                    isCorrect = true;
-                }
-            } else if (question.type === "fill-in-the-blank") {
-                const correctAnswers = (question.answerKey || '').split('|').map(a => a.trim().toLowerCase());
-                if (correctAnswers.includes((response.answer || '').trim().toLowerCase())) {
-                    isCorrect = true;
-                }
+            if (q.type === "multiple-choice") isCorrect = (response.answer === q.shuffledCorrectAnswerIndex);
+            else if (q.type === "fill-in-the-blank") {
+                const correctAnswers = (q.answerKey || '').split('|').map(a => a.trim().toLowerCase());
+                isCorrect = correctAnswers.includes((response.answer || '').toString().trim().toLowerCase());
             }
-            if (isCorrect) {
-                subjectScore += marksCorrect;
-            } else {
-                subjectScore += marksIncorrect;
-            }
+            subjectScore += isCorrect ? marksCorrect : marksIncorrect;
         });
         subjectScores[subject] = subjectScore;
         totalScore += subjectScore;
     });
 
-    function sendResult(location = null) {
+    const sendResult = (location = { lat: null, lon: null }) => {
         const resultData = {
             date: new Date().toISOString(),
             studentName: studentDetails.name,
             mobile: studentDetails.mobile,
-            class: currentQuiz.class,
             quizId: currentQuiz.id,
             quizTitle: currentQuiz.title,
-            totalScore: totalScore,
-            subjectScores: subjectScores,
+            totalScore,
+            subjectScores,
             warnings: warningCount,
-            questionTimes: questionTimes,
-            location: location,
+            questionTimes,
+            location,
             responses: userResponses
         };
         fetch('/submit-result', {
@@ -494,27 +487,33 @@ function submitTest() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(resultData),
         })
-        .then(response => {
-            if (!response.ok) throw new Error('Submission failed');
-            alert(`Test Submitted Successfully!`);
-            const storageKey = `examData_${studentDetails.mobile}_${currentQuiz.id}`;
-            localStorage.removeItem(storageKey);
-            document.getElementById('quiz-screen').innerHTML = `<div style="max-width: 600px; margin: 50px auto; text-align:center;"><h1>Thanks for taking Exam</h1><button onclick="downloadPDFReport()">Download Report</button></div>`;
+        .then(res => {
+            if (!res.ok) throw new Error('Submission failed');
+            alert("Test Submitted Successfully!");
+            localStorage.removeItem(`examData_${studentDetails.mobile}_${currentQuiz.id}`);
+            document.getElementById('quiz-screen').innerHTML = `
+                <div style="text-align:center; margin:50px auto;">
+                    <h1>Thanks for taking Exam</h1>
+                    <button onclick="downloadPDFReport()">Download Report</button>
+                </div>`;
         })
-        .catch(error => {
-            alert('There was an error submitting your test. Your progress is saved, please contact support.');
+        .catch(() => {
+            alert('Submission failed. Your progress is saved, please contact support.');
             if (submitBtn) submitBtn.disabled = false;
         });
-    }
+    };
+
     if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
             pos => sendResult({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
-            () => sendResult(), { timeout: 5000 }
+            () => sendResult({ lat: null, lon: null }),
+            { timeout: 5000 }
         );
     } else {
-        sendResult();
+        sendResult({ lat: null, lon: null });
     }
 }
+
 
 async function requestFullscreenSafe() {
     try {
@@ -784,17 +783,12 @@ function startTimer(durationInSeconds) {
     }, 1000);
 }
 
-function confirmSubmit() {
-    if (confirm("Are you sure you want to submit the test? You cannot make any changes after this.")) {
-        submitTest();
-    }
-}
-loadInitialData();
+
     // ⬇ Add this block near the end of your module, after the function definitions
     function downloadPDFReport() {
     if (!currentQuiz || !userResponses) return alert("No exam data available.");
 
-    const { jsPDF } = window.jspdf;
+    const doc = new window.jspdf.jsPDF();
     const doc = new jsPDF();
     let y = 10;
 
@@ -951,7 +945,7 @@ loadInitialData();
 
     doc.save(`${studentDetails.name}_Exam_Report.pdf`);
 }
-
+loadInitialData();
 Object.assign(window, {
   markForReview,
   manualSave,
