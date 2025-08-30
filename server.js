@@ -1,4 +1,3 @@
-// server.js
 const express = require('express');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const path = require('path');
@@ -7,23 +6,22 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 
-
 // --- CONFIGURATION ---
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Securely load secrets from environment variables
-const API_KEY = "AIzaSyA3WIHFw2_5E8hYUSlG2rrLdq7J7KKwbe0";
-const MONGO_URI = "mongodb+srv://yamparalasaikrishna6:Tngy9EWjTg1akDXW@saikrishna.dced3fy.mongodb.net/?retryWrites=true&w=majority&appName=SaiKrishna";
-const JWT_SECRET = "Geetham_e_exam2025";
-const ADMIN_PASSWORD ="Geetham@2014";
-const ADMIN_PASSWORD_HASH = bcrypt.hashSync(ADMIN_PASSWORD, 10);
+// Use environment variables for sensitive data
+const API_KEY ="AIzaSyA3WIHFw2_5E8hYUSlG2rrLdq7J7KKwbe0";
+const MONGO_URI ="mongodb+srv://yamparalasaikrishna6:Tngy9EWjTg1akDXW@saikrishna.dced3fy.mongodb.net/?retryWrites=true&w=majority&appName=SaiKrishna";
+const JWT_SECRET ="Geetham_e_exam2025";
+const ADMIN_PASSWORD = "Geetham@2014";
 
 if (!API_KEY || !MONGO_URI || !JWT_SECRET || !ADMIN_PASSWORD) {
     console.error("FATAL ERROR: Missing required environment variables. Please check your .env file.");
     process.exit(1);
 }
 
+const ADMIN_PASSWORD_HASH = bcrypt.hashSync(ADMIN_PASSWORD, 10);
 const genAI = new GoogleGenerativeAI(API_KEY);
 const client = new MongoClient(MONGO_URI, {
     serverApi: { version: ServerApiVersion.v1, strict: true, deprecationErrors: true }
@@ -33,12 +31,12 @@ let db;
 // --- MIDDLEWARE ---
 app.use(cors());
 app.use(express.json());
-app.use(express.static('public'));
+app.use(express.static('public')); // Serves static files from 'public' directory
 
 // --- AUTHENTICATION MIDDLEWARE ---
 function authenticateToken(req, res, next) {
     const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+    const token = authHeader && authHeader.split(' ')[1];
     if (token == null) return res.sendStatus(401);
 
     jwt.verify(token, JWT_SECRET, (err, user) => {
@@ -47,16 +45,6 @@ function authenticateToken(req, res, next) {
         next();
     });
 }
-
-app.post('/login', (req, res) => {
-    const { password } = req.body;
-    if (bcrypt.compareSync(password, ADMIN_PASSWORD_HASH)) {
-        const accessToken = jwt.sign({ user: 'admin' }, JWT_SECRET, { expiresIn: '8h' });
-        res.json({ accessToken });
-    } else {
-        res.status(401).send('Incorrect password');
-    }
-});
 
 // --- DATABASE CONNECTION ---
 async function connectDB() {
@@ -72,6 +60,17 @@ async function connectDB() {
 
 // --- API ENDPOINTS ---
 
+// Admin Login
+app.post('/login', (req, res) => {
+    const { password } = req.body;
+    if (bcrypt.compareSync(password, ADMIN_PASSWORD_HASH)) {
+        const accessToken = jwt.sign({ user: 'admin' }, JWT_SECRET, { expiresIn: '8h' });
+        res.json({ accessToken });
+    } else {
+        res.status(401).send('Incorrect password');
+    }
+});
+
 // Get all quizzes
 app.get('/get-quizzes', async (req, res) => {
     try {
@@ -83,7 +82,7 @@ app.get('/get-quizzes', async (req, res) => {
     }
 });
 
-// Update all quizzes (from Admin Panel)
+// Update all quizzes (Admin Panel)
 app.post('/update-quizzes', authenticateToken, async (req, res) => {
     try {
         const updatedQuizzes = req.body;
@@ -103,7 +102,7 @@ app.post('/check-attempt', async (req, res) => {
     try {
         const { mobile, quizId } = req.body;
         const resultsCollection = db.collection('results');
-        const existingAttempt = await resultsCollection.findOne({ mobile, quizId });
+        const existingAttempt = await resultsCollection.findOne({ mobile, quizId: parseInt(quizId) });
         if (existingAttempt) {
             res.json({ canAttempt: false, message: "You have already attempted this quiz." });
         } else {
@@ -118,6 +117,7 @@ app.post('/check-attempt', async (req, res) => {
 app.post('/submit-result', async (req, res) => {
     try {
         const newResult = req.body;
+        newResult.quizId = parseInt(newResult.quizId); // Ensure quizId is a number
         const resultsCollection = db.collection('results');
         await resultsCollection.insertOne(newResult);
         res.status(200).send('Result saved successfully.');
@@ -137,33 +137,48 @@ app.get('/results', async (req, res) => {
     }
 });
 
-// **NEW** Get submissions for teacher review
+// Get submissions for teacher review
 app.get('/get-submissions', authenticateToken, async (req, res) => {
     try {
         const { quizId } = req.query;
         if (!quizId) return res.status(400).send('Quiz ID is required');
 
         const resultsCollection = db.collection('results');
+        const quizzesCollection = db.collection('quizzes');
+
+        // Fetch the quiz data to get question details
+        const quiz = await quizzesCollection.findOne({ id: parseInt(quizId) });
+        if (!quiz) {
+            return res.status(404).send('Quiz not found.');
+        }
+
         const submissions = await resultsCollection.find({ quizId: parseInt(quizId) }).toArray();
-        
+
         const reviewData = submissions.map(sub => {
             const subjectiveAnswers = [];
-            // Iterate through the student's saved responses
+            const subjectiveScore = sub.subjectiveScore || 0; // NEW: Initialize subjective score
+
             if (sub.responses) {
                 Object.keys(sub.responses).forEach(subjectName => {
+                    const quizSubject = quiz.subjects[subjectName];
+                    if (!quizSubject) return;
+
                     Object.keys(sub.responses[subjectName]).forEach(qIndex => {
-                        const questionResponse = sub.responses[subjectName][qIndex];
-                        // Here you might want to look up the question type from the quizzes collection
-                        // For now, we assume if it's not auto-graded, it's subjective
-                        subjectiveAnswers.push({
-                            resultId: sub._id.toString(),
-                            studentId: sub.mobile,
-                            subject: subjectName,
-                            qId: `${subjectName}_${qIndex}`, // Create a unique ID for the question answer
-                            qIndex: parseInt(qIndex),
-                            answer: questionResponse.answer,
-                            marks: questionResponse.marks ?? 'pending' 
-                        });
+                        const studentResponse = sub.responses[subjectName][qIndex];
+                        const originalQuestion = quizSubject[qIndex];
+
+                        if (originalQuestion && originalQuestion.type === 'subjective') {
+                            subjectiveAnswers.push({
+                                subject: subjectName,
+                                qIndex: parseInt(qIndex),
+                                questionText: originalQuestion.text,
+                                studentAnswer: studentResponse.answer,
+                                rubric: originalQuestion.rubric,
+                                correctMarks: originalQuestion.correctMarks || quiz.correctMarks,
+                                marks: studentResponse.marks ?? 'pending',
+                                _id: sub._id.toString()
+                            });
+                        }
                     });
                 });
             }
@@ -172,35 +187,34 @@ app.get('/get-submissions', authenticateToken, async (req, res) => {
                 _id: sub._id.toString(),
                 studentId: sub.mobile,
                 name: sub.studentName,
-                answers: subjectiveAnswers,
+                totalScore: sub.totalScore,
+                subjectiveScore: subjectiveScore,
+                warnings: sub.warnings,
+                subjectiveAnswers: subjectiveAnswers,
             };
-        }).filter(item => item.answers.length > 0);
+        });
 
         res.json(reviewData);
+
     } catch (err) {
         console.error('Error fetching submissions:', err);
         res.status(500).send('Error fetching submissions.');
     }
 });
 
-
-// **FIXED** Teacher grades subjective question
+// Teacher grades subjective question
 app.post('/grade-subjective', authenticateToken, async (req, res) => {
     try {
-        const { studentId, qId, marks } = req.body; // Using qId from the frontend
-        if (!studentId || !qId || marks === undefined) return res.status(400).send('Invalid data');
+        const { resultId, subject, qIndex, marks } = req.body;
+        if (!resultId || !subject || qIndex === undefined || marks === undefined) {
+            return res.status(400).send('Invalid data');
+        }
 
-        const [subject, qIndex] = qId.split('_');
         const resultsCollection = db.collection('results');
-        
-        // Find the specific result document by the student's mobile number (acting as ID)
-        const result = await resultsCollection.findOne({ mobile: studentId });
-        if (!result) return res.status(404).send('Result not found for this student.');
-
-        // Update the marks in the nested response object
         const updatePath = `responses.${subject}.${qIndex}.marks`;
+
         const updateResult = await resultsCollection.updateOne(
-            { _id: result._id },
+            { _id: new ObjectId(resultId) },
             { $set: { [updatePath]: parseFloat(marks) } }
         );
 
@@ -208,15 +222,37 @@ app.post('/grade-subjective', authenticateToken, async (req, res) => {
             return res.status(404).send('Answer not found or marks were not changed.');
         }
 
+        // Recalculate total score
+        const resultDoc = await resultsCollection.findOne({ _id: new ObjectId(resultId) });
+        if (resultDoc) {
+            let newTotalScore = 0;
+            let subjectiveScore = 0;
+
+            Object.keys(resultDoc.responses).forEach(subj => {
+                Object.values(resultDoc.responses[subj]).forEach(qResp => {
+                    if (qResp.marks !== undefined && qResp.marks !== 'pending') {
+                        // This is a subjective question that's been graded
+                        subjectiveScore += qResp.marks;
+                    }
+                });
+            });
+
+            newTotalScore = (resultDoc.totalScore || 0) + subjectiveScore;
+            
+            await resultsCollection.updateOne(
+                { _id: new ObjectId(resultId) },
+                { $set: { subjectiveScore: subjectiveScore, finalTotalScore: newTotalScore } }
+            );
+        }
+
         res.status(200).send('Subjective marks updated successfully');
     } catch (err) {
-        console.error(err);
+        console.error('Error grading subjective question:', err);
         res.status(500).send('Error grading subjective question');
     }
 });
 
-
-// **FIXED** Clear all results (now requires authentication)
+// Clear all results (requires authentication)
 app.post('/clear-results', authenticateToken, async (req, res) => {
     try {
         const resultsCollection = db.collection('results');
