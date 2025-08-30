@@ -116,52 +116,68 @@
             document.getElementById('main-content').style.display = 'block';
         }
 
-        // Helper to calculate the max possible score for a quiz
         function calculateMaxScore(quiz) {
-            if (!quiz || !quiz.subjects) return 100; // Default max score
+            if (!quiz || !quiz.subjects) return 100;
             let totalMax = 0;
             Object.values(quiz.subjects).forEach(subjectQuestions => {
                 subjectQuestions.forEach(q => {
-                    if (quiz.marksMode === 'custom') {
-                        totalMax += Number(q.correctMarks || 1);
+                    if (q.type !== 'subjective') { // Subjective marks are variable, so we only count auto-graded questions for max score
+                        totalMax += Number((quiz.marksMode === 'custom' ? q.correctMarks : quiz.correctMarks) || 1);
                     } else {
-                        totalMax += Number(quiz.correctMarks || 1);
+                        totalMax += Number((quiz.marksMode === 'custom' ? q.correctMarks : quiz.correctMarks) || 1);
                     }
                 });
             });
             return totalMax > 0 ? totalMax : 100;
         }
         
-        // Normalize and enrich each result record with full quiz data
+        // =================================================================
+        // ===== CORRECTED FUNCTION STARTS HERE ============================
+        // =================================================================
         function normalizeRecord(r, quizMap) {
             const quiz = quizMap.get(r.quizId);
             let subjectiveScore = 0;
-            if (r.responses) {
-                Object.values(r.responses).forEach(subj => {
-                    Object.values(subj).forEach(q => {
-                        const marks = Number(q.marks);
-                        if (!isNaN(marks)) subjectiveScore += marks;
+
+            // Calculate subjective score for display purposes by iterating through responses
+            if (r.responses && quiz) {
+                Object.keys(r.responses).forEach(subjectName => {
+                    if (!quiz.subjects[subjectName]) return;
+                    Object.keys(r.responses[subjectName]).forEach(qIndex => {
+                        const question = quiz.subjects[subjectName][qIndex];
+                        if (question && question.type === 'subjective') {
+                            const marks = Number(r.responses[subjectName][qIndex].marks);
+                            if (!isNaN(marks)) {
+                                subjectiveScore += marks;
+                            }
+                        }
                     });
                 });
             }
-
-            const finalScore = (Number(r.totalScore) || 0) + subjectiveScore;
+            
+            // The `totalScore` from the database is now the FINAL, authoritative score.
+            const finalScore = Number(r.totalScore || 0);
+            
+            // The auto-graded score is the final score minus the part that was graded manually.
+            const autoGradedScore = finalScore - subjectiveScore;
 
             return {
                 ...r,
-                studentName: r.studentName || 'N/A', 
-                mobile: r.mobile || 'N/A', 
+                studentName: r.studentName || 'N/A',
+                mobile: r.mobile || 'N/A',
                 class: quiz ? String(quiz.class || 'N/A') : 'N/A',
                 quizTitle: quiz ? quiz.title : (r.quizTitle || "Untitled Quiz"),
-                totalScore: Number(r.totalScore || 0), 
-                finalTotalScore: finalScore, 
+                autoGradedScore: autoGradedScore,
                 subjectiveScore: subjectiveScore,
-                subjectScores: r.subjectScores || {}, 
+                finalTotalScore: finalScore,
+                subjectScores: r.subjectScores || {},
                 warnings: Number(r.warnings || 0),
                 location: r.location || null,
                 totalMaxScore: quiz ? calculateMaxScore(quiz) : 100,
-            }; 
+            };
         }
+        // =================================================================
+        // ===== CORRECTED FUNCTION ENDS HERE ==============================
+        // =================================================================
 
         function computeRanks(arr){
             const sorted = [...arr].sort((a,b) => b.finalTotalScore - a.finalTotalScore);
@@ -232,7 +248,7 @@
                 const row = tbody.insertRow();
                 let locationHTML = 'N/A';
                 if(res.location && res.location.lat && res.location.lon){
-                    locationHTML = `<a href="https://www.google.com/maps?q=${res.location.lat},${res.location.lon}" target="_blank">View Map</a>`;
+                    locationHTML = `<a href="https://maps.google.com/?q=${res.location.lat},${res.location.lon}" target="_blank">View Map</a>`;
                 }
                 
                 let scoreClass = '';
@@ -254,7 +270,6 @@
                 });
                 
                 let warnClass = res.warnings >= 3 ? 'score-low' : '';
-                // Pass the index to reference the 'filtered' array, avoiding large JSON strings in HTML
                 const resultIndex = filtered.indexOf(res);
                 rowHTML += `<td class="${warnClass}">${res.warnings}</td>
                     <td><button style="background:var(--info)" onclick='showDetailsModal(${resultIndex})'>View</button></td>
@@ -309,7 +324,7 @@
                 <p><strong>Quiz:</strong> ${res.quizTitle}</p>
                 <p><strong>Class:</strong> ${res.class}</p>
                 <p><strong>Warnings:</strong> ${res.warnings}</p>
-                <p><strong>Auto-Graded Score:</strong> ${res.totalScore.toFixed(2)}</p>
+                <p><strong>Auto-Graded Score:</strong> ${res.autoGradedScore.toFixed(2)}</p>
                 <p><strong>Subjective Score:</strong> ${res.subjectiveScore.toFixed(2)}</p>
                 <p><strong>Final Score:</strong> ${res.finalTotalScore.toFixed(2)} / ${res.totalMaxScore.toFixed(2)}</p>
                 <h4>Subject-wise Breakdown:</h4>
@@ -381,7 +396,7 @@
                     `"${res.quizTitle}"`,
                     `"${locationStr}"`,
                     res.finalTotalScore.toFixed(2),
-                    res.totalScore.toFixed(2),
+                    res.autoGradedScore.toFixed(2),
                     res.subjectiveScore.toFixed(2)
                 ];
                 dynamicSubjects.forEach(sub => rowData.push((res.subjectScores[sub] || 0).toFixed(2)));
@@ -419,18 +434,18 @@
 
         async function fetchAndProcessResults(){
             try{
-                // Fetch both results and quizzes at the same time
                 const [resultsResponse, quizzesResponse] = await Promise.all([
                     fetch('/results'),
                     fetch('/get-quizzes')
                 ]);
+                if (!resultsResponse.ok || !quizzesResponse.ok) {
+                    throw new Error('Failed to fetch data from server.');
+                }
                 const resultsData = await resultsResponse.json();
                 allQuizzes = await quizzesResponse.json();
                 
-                // Create a Map for quick quiz lookups by ID
                 const quizMap = new Map(allQuizzes.map(q => [q.id, q]));
 
-                // Normalize results and inject quiz data (like class name)
                 allResults = resultsData.map(r => normalizeRecord(r, quizMap));
                 
                 const grades = [...new Set(allResults.map(r => r.class))].filter(g => g !== 'N/A').sort();
