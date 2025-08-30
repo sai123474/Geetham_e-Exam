@@ -786,147 +786,170 @@ function startTimer(durationInSeconds) {
 function downloadPDFReport() {
     if (!currentQuiz || !userResponses) return alert("No exam data available.");
 
-    const doc = new window.jspdf.jsPDF();
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
     let y = 10;
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 10;
 
-    // Header
+    // --- Helper function to draw the table header ---
+    const drawTableHeader = (currentY) => {
+        doc.setFillColor(230, 230, 230); // Light grey background for header
+        doc.rect(margin, currentY, 190, 8, 'F');
+        doc.setFont(undefined, "bold");
+        doc.setTextColor(0);
+        doc.setFontSize(10);
+
+        doc.text("Q#", 13, currentY + 5.5);
+        doc.text("Question", 25, currentY + 5.5);
+        doc.text("Your Answer", 100, currentY + 5.5);
+        doc.text("Correct Answer", 135, currentY + 5.5);
+        doc.text("Time(s)", 170, currentY + 5.5, { align: 'center' });
+        doc.text("Marks", 190, currentY + 5.5, { align: 'center' });
+        
+        doc.setFont(undefined, "normal");
+        return currentY + 12; // Return new y position below header
+    };
+
+    // --- PDF Header ---
     doc.setFillColor(0, 86, 179);
     doc.rect(0, 0, 210, 20, 'F');
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(16);
-    doc.text("Geetham e-Exam Report", 105, 14, { align: "center" });
-    y += 25;
+    doc.setFont(undefined, "bold");
+    doc.text("Geetham e-Exam Report", 105, 13, { align: "center" });
+    y = 30;
 
-    // Student Info
+    // --- Student Info ---
     doc.setFontSize(12);
+    doc.setFont(undefined, "normal");
     doc.setTextColor(0, 0, 0);
-    doc.text(`Student Name: ${studentDetails.name}`, 10, y);
+    doc.text(`Student Name: ${studentDetails.name}`, margin, y);
     y += 7;
-    doc.text(`Mobile: ${studentDetails.mobile}`, 10, y);
+    doc.text(`Mobile: ${studentDetails.mobile}`, margin, y);
     y += 7;
-    doc.text(`Quiz Title: ${currentQuiz.title}`, 10, y);
+    doc.text(`Quiz Title: ${currentQuiz.title}`, margin, y);
     y += 7;
-    doc.text(`Date: ${new Date().toLocaleString()}`, 10, y);
-    y += 10;
+    doc.text(`Date: ${new Date().toLocaleString()}`, margin, y);
+    y += 12;
 
     let totalScore = 0;
 
     Object.keys(currentQuiz.subjects).forEach(subject => {
-        // Subject Header
+        // --- Subject Header ---
+        if (y > pageHeight - 40) { // Check for page break before subject header
+             doc.addPage();
+             y = margin + 5;
+        }
         doc.setFillColor(0, 123, 255);
         doc.setTextColor(255, 255, 255);
         doc.setFontSize(14);
-        doc.rect(10, y - 4, 190, 8, 'F');
-        doc.text(subject, 12, y);
-        y += 10;
+        doc.setFont(undefined, "bold");
+        doc.roundedRect(margin, y, 190, 9, 2, 2, 'F');
+        doc.text(subject, margin + 3, y + 6.5);
+        y += 15;
 
-        doc.setFontSize(12);
-        doc.setTextColor(0, 0, 0);
+        // --- Draw the main table header ---
+        y = drawTableHeader(y);
 
         let subjectScore = 0;
 
-        // Table header
-        doc.setFillColor(200, 200, 200);
-        doc.rect(10, y - 4, 190, 8, 'F');
-        doc.setTextColor(0, 0, 0);
-        doc.text("Q#", 12, y);
-        doc.text("Question", 20, y);
-        doc.text("Your Answer", 110, y);
-        doc.text("Correct Answer", 160, y);
-        doc.text("Marks", 190, y, { align: 'right' });
-        doc.text("Time (s)", 170, y, { align: 'right' });
-        y += 8;
-
         currentQuiz.subjects[subject].forEach((q, index) => {
-            const response = userResponses[subject]?.[index]?.answer ?? "Not answered";
-            let isCorrect = false;
+            let yourAnswerText = "Not Answered";
+            const response = userResponses[subject]?.[index];
+
+            if (response?.answer !== undefined && response?.answer !== "") {
+                 if (q.type === "multiple-choice") {
+                    yourAnswerText = q.shuffledOptions[response.answer] || "Invalid Option";
+                } else {
+                    yourAnswerText = response.answer.toString();
+                }
+            }
+
             let correctAnswerText = '';
-            let marksCorrect = currentQuiz.marksMode === 'custom' ? (q.correctMarks ?? 1) : (currentQuiz.correctMarks ?? 1);
-            let marksIncorrect = currentQuiz.marksMode === 'custom' ? (q.wrongMarks ?? 0) : (currentQuiz.wrongMarks ?? 0);
             let marksObtained = 0;
 
             if (q.type === "multiple-choice") {
                 correctAnswerText = q.options[q.correctAnswer];
-                if (response === q.shuffledCorrectAnswerIndex) {
-                    isCorrect = true;
-                    marksObtained = marksCorrect;
-                } else {
-                    marksObtained = marksIncorrect;
-                }
+                if (response?.answer === q.shuffledCorrectAnswerIndex) marksObtained = currentQuiz.correctMarks ?? 1;
+                else if (response) marksObtained = currentQuiz.wrongMarks ?? 0;
             } else if (q.type === "fill-in-the-blank") {
-                const correctAnswers = (q.answerKey || '').split('|').map(a => a.trim().toLowerCase());
+                const correctAnswers = (q.answerKey || '').split('|');
                 correctAnswerText = correctAnswers.join(", ");
-                if (correctAnswers.includes((response || '').toString().trim().toLowerCase())) {
-                    isCorrect = true;
-                    marksObtained = marksCorrect;
-                } else {
-                    marksObtained = marksIncorrect;
+                if (response && correctAnswers.some(ans => ans.trim().toLowerCase() === response.answer.toString().trim().toLowerCase())) {
+                    marksObtained = currentQuiz.correctMarks ?? 1;
+                } else if (response) {
+                    marksObtained = currentQuiz.wrongMarks ?? 0;
                 }
             } else if (q.type === "subjective") {
                 correctAnswerText = q.sampleAnswer || "N/A";
-                marksObtained = userResponses[subject][index]?.marks || 0;
+                marksObtained = response?.marks || 0;
             }
-
             subjectScore += marksObtained;
 
-            // Alternating row color
-            if (index % 2 === 0) doc.setFillColor(245, 245, 245);
-            else doc.setFillColor(255, 255, 255);
-            doc.rect(10, y - 4, 190, 8, 'F');
+            const timeSpent = Math.round((questionTimes[subject]?.[index] || 0) / 1000);
 
-            if (y + 10 > 280) {
+            // --- Dynamic Row Height Calculation ---
+            const lineHeight = 6;
+            const colWidths = { question: 70, yourAnswer: 30, correctAnswer: 30 };
+            
+            const questionLines = doc.splitTextToSize(q.text, colWidths.question);
+            const yourAnswerLines = doc.splitTextToSize(yourAnswerText, colWidths.yourAnswer);
+            const correctAnswerLines = doc.splitTextToSize(correctAnswerText, colWidths.correctAnswer);
+            
+            const maxLines = Math.max(questionLines.length, yourAnswerLines.length, correctAnswerLines.length);
+            const rowHeight = maxLines * lineHeight + 4; // Add padding
+
+            // --- Page Break Logic ---
+            if (y + rowHeight > pageHeight - margin) {
                 doc.addPage();
-                y = 10;
+                y = margin + 5;
+                y = drawTableHeader(y);
             }
 
-            doc.setTextColor(0, 0, 0);
-            doc.text(`${index + 1}`, 12, y);
-            doc.text(q.text.substring(0, 60), 20, y);
-            doc.text(response.toString().substring(0, 40), 110, y);
-            doc.text(correctAnswerText.substring(0, 30), 160, y);
-            doc.text(marksObtained.toString(), 200, y, { align: 'right' });
+            // --- Draw Row ---
+            doc.setFillColor(index % 2 === 0 ? 245 : 255); // Alternating row color
+            doc.rect(margin, y - 5, 190, rowHeight, 'F');
+            doc.setFontSize(10);
+            doc.setTextColor(50, 50, 50);
 
-            // Time spent per question
-            const timeSpent = Math.floor((questionTimes[subject]?.[index] || 0) / 1000);
-            doc.text(timeSpent.toString(), 170, y, { align: 'right' });
+            doc.text(`${index + 1}`, 13, y);
+            doc.text(questionLines, 25, y);
+            doc.text(yourAnswerLines, 100, y);
+            doc.text(correctAnswerLines, 135, y);
+            doc.text(timeSpent.toString(), 170, y, { align: 'center' });
+            doc.text(marksObtained.toString(), 190, y, { align: 'center' });
 
-            y += 8;
+            y += rowHeight;
         });
 
         totalScore += subjectScore;
+        y += 5; // Space after each subject table
 
-        // Subject Score
+        // --- Subject Score ---
+        doc.setFontSize(12);
+        doc.setFont(undefined, "bold");
         doc.setTextColor(0, 128, 0);
-        doc.setFont(undefined, "bold"); // FIXED: Changed setFontStyle to setFont
-        if (y + 10 > 280) {
-            doc.addPage();
-            y = 10;
-        }
-        doc.text(`Subject Score: ${subjectScore}`, 12, y);
-        y += 12;
-        doc.setFont(undefined, "normal"); // FIXED: Changed setFontStyle to setFont
+        doc.text(`Subject Score: ${subjectScore}`, margin, y);
+        y += 10;
     });
 
-    // Total Score
-    doc.setFontSize(14);
-    doc.setTextColor(0, 0, 128);
-    if (y + 10 > 280) {
-        doc.addPage();
-        y = 10;
-    }
-    doc.text(`Total Score: ${totalScore}`, 12, y);
+    // --- Final Summary ---
+    doc.line(margin, y, 200, y); // Separator line
     y += 10;
 
-    // Warnings / AI Alerts
-    doc.setFontSize(12);
-    doc.setTextColor(255, 0, 0);
-    if (y + 10 > 280) {
-        doc.addPage();
-        y = 10;
-    }
-    doc.text(`Warnings Issued: ${warningCount} / ${maxWarnings}`, 12, y);
-    y += 7;
+    doc.setFontSize(14);
+    doc.setFont(undefined, "bold");
+    doc.setTextColor(0, 0, 128);
+    doc.text(`Total Score: ${totalScore}`, margin, y);
+    y += 8;
 
+    doc.setFontSize(12);
+    doc.setFont(undefined, "normal");
+    doc.setTextColor(200, 0, 0);
+    doc.text(`Warnings Issued: ${warningCount} / ${maxWarnings}`, margin, y);
+
+    // --- Save the PDF ---
     doc.save(`${studentDetails.name}_Exam_Report.pdf`);
 }
 
