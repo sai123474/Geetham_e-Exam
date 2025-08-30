@@ -21,19 +21,19 @@
     .header img{max-height:64px;}
     .toolbar{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px;justify-content:space-between;}
     select,input[type="text"]{padding:8px 12px;font-size:16px;border-radius:8px;border:1px solid var(--border);}
-    button{padding:8px 12px;border:none;border-radius:8px;color:black;cursor:pointer;}
+    button{padding:8px 12px;border:none;border-radius:8px;color:white;cursor:pointer;}
     .table-wrap{border:1px solid var(--border);border-radius:8px;overflow:auto;}
     table{width:100%;border-collapse:collapse;}
     thead th{position:sticky;top:0;background:var(--brand);color:#fff;padding:10px;cursor:pointer;}
     tbody td{padding:10px;border-top:1px solid var(--border);text-align:center;}
     .rank{font-weight:800;}
-    .color-low{background:#ffcccc;}
-    .color-medium{background:#fff3cd;}
-    .color-high{background:#d4edda;}
+    .score-low{background-color: #f8d7da;}
+    .score-medium{background-color: #fff3cd;}
+    .score-high{background-color: #d1e7dd;}
     .modal-backdrop{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:none;align-items:center;justify-content:center;z-index:100;}
     .modal-content{background:#fff;padding:20px;border-radius:8px;width:90%;max-width:600px;}
     .modal-header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #ccc;padding-bottom:10px;}
-    .modal-close{font-size:24px;font-weight:bold;cursor:pointer;border:none;background:none;padding:0;}
+    .modal-close{font-size:24px;font-weight:bold;cursor:pointer;border:none;background:none;padding:0;color:var(--text);}
     .modal-body{padding-top:15px;max-height:400px;overflow-y:auto;}
   </style>
 </head>
@@ -55,10 +55,10 @@
       <input id="search" type="text" placeholder="Name or Mobile…">
     </div>
     <div>
-      <button id="pdfBtn" style="background:#007bff;">⬇ PDF</button>
-      <button id="exportBtn" style="background:#17a2b8;">⬇ Export CSV</button>
-      <button id="clearBtn" style="background:#dc3545;">🗑 Clear All</button>
-      <button id="refreshBtn" style="background:#28a745;">⟳ Refresh</button>
+      <button id="pdfBtn" style="background:var(--brand-2);">⬇ PDF</button>
+      <button id="exportBtn" style="background:var(--info);">⬇ Export CSV</button>
+      <button id="clearBtn" style="background:var(--danger);">🗑 Clear All</button>
+      <button id="refreshBtn" style="background:var(--ok);">⟳ Refresh</button>
     </div>
   </div>
   <div class="table-wrap">
@@ -71,35 +71,33 @@
   <div id="map" style="height:400px; margin-top:20px; border-radius:12px;"></div>
 </div>
 
-<!-- Modals -->
-<div id="details-modal" class="modal-backdrop">
+<div id="details-modal" class="modal-backdrop" onclick="closeDetailsModal()">
   <div class="modal-content" onclick="event.stopPropagation()">
     <div class="modal-header">
       <h3 id="modal-title">Detailed Report</h3>
-      <button class="modal-close" onclick="closeDetailsModal()">&times;</button>
+      <button class="modal-close" onclick="closeDetailsModal()">×</button>
     </div>
     <div id="modal-body" class="modal-body"></div>
   </div>
 </div>
 
-<div id="ai-modal" class="modal-backdrop">
+<div id="ai-modal" class="modal-backdrop" onclick="closeAIModal()">
   <div class="modal-content" onclick="event.stopPropagation()">
     <div class="modal-header">
       <h3 id="ai-modal-title">AI Performance</h3>
-      <button class="modal-close" onclick="closeAIModal()">&times;</button>
+      <button class="modal-close" onclick="closeAIModal()">×</button>
     </div>
     <div id="ai-modal-body" class="modal-body"></div>
   </div>
 </div>
 
 <script>
-const quizFilter = document.getElementById('quizFilter');
-
 (function(){
   let allResults=[], filtered=[], dynamicSubjects=[], sortKey='totalScore', sortDir='desc';
   const tbody = document.querySelector('#results-table tbody');
   const thead = document.querySelector('#results-table thead');
   const gradeFilter = document.getElementById('gradeFilter');
+  const quizFilter = document.getElementById('quizFilter');
   const topN = document.getElementById('topN');
   const searchEl = document.getElementById('search');
 
@@ -125,24 +123,22 @@ const quizFilter = document.getElementById('quizFilter');
   }
 
   function applyFiltersAndRender(){
-  let rankedResults = computeRanks(allResults);
+    let rankedResults = computeRanks(allResults);
 
-  filtered = rankedResults.filter(r=>{
-    let matchGrade = gradeFilter.value === 'all' || r.class === gradeFilter.value;
-    let matchTop = !topN.value || r.rank <= Number(topN.value);
-    let matchSearch = !searchEl.value || r.studentName.toLowerCase().includes(searchEl.value.toLowerCase()) || r.mobile.includes(searchEl.value);
-    let matchQuiz = quizFilter.value === 'all' || r.quizTitle === quizFilter.value;
-    return matchGrade && matchTop && matchSearch && matchQuiz;
-  });
+    filtered = rankedResults.filter(r=>{
+        let matchGrade = gradeFilter.value === 'all' || r.class === gradeFilter.value;
+        let matchTop = !topN.value || r.rank <= Number(topN.value);
+        let matchSearch = !searchEl.value || r.studentName.toLowerCase().includes(searchEl.value.toLowerCase()) || r.mobile.includes(searchEl.value);
+        let matchQuiz = quizFilter.value === 'all' || r.quizTitle === quizFilter.value;
+        return matchGrade && matchTop && matchSearch && matchQuiz;
+    });
 
-  // ✅ ensure rank order in table
-  filtered.sort((a,b)=>a.rank-b.rank);
+    filtered.sort((a,b)=>a.rank-b.rank);
 
-  renderTable(filtered);
-  renderChart(filtered);
-  renderMap(filtered);
-}
-
+    renderTable(filtered);
+    renderChart(filtered);
+    renderMap(filtered);
+  }
 
   function renderTable(data){
     const subjectSet=new Set();
@@ -164,28 +160,28 @@ const quizFilter = document.getElementById('quizFilter');
     data.forEach(res=>{
       const row=tbody.insertRow();
       let locationHTML='N/A';
-      if(res.location){
-        if(typeof res.location === 'object' && res.location.lat && res.location.lon){
+      if(res.location && typeof res.location === 'object' && res.location.lat && res.location.lon){
           locationHTML=`<a href="https://www.google.com/maps?q=${res.location.lat},${res.location.lon}" target="_blank">View on Map</a>`;
-        }else{
-          locationHTML=res.location;
-        }
       }
+      
       let rowHTML=`<td>${res.rank}</td>
         <td>${res.studentName}</td>
         <td>${res.mobile}</td>
         <td>${res.class}</td>
         <td>${locationHTML}</td>
         <td>${res.totalScore}</td>`;
+        
       dynamicSubjects.forEach(sub=>{
         let val=res.subjectScores[sub]||0;
-        let colorClass=val>=75?'color-high':val>=50?'color-medium':'color-low';
+        // --- THIS IS THE FIX for score coloring ---
+        let colorClass = val > 0 ? 'score-high' : val < 0 ? 'score-low' : '';
         rowHTML+=`<td class="${colorClass}">${val}</td>`;
       });
-      let warnClass=res.warnings>=3?'warn-high':'';
+      
+      let warnClass=res.warnings>=3?'score-low':'';
       rowHTML+=`<td class="${warnClass}">${res.warnings}</td>
-        <td><button onclick='showDetailsModal(${JSON.stringify(res)})'>View</button></td>
-        <td><button onclick='getAIAnalysis(${JSON.stringify(res)})'>AI</button></td>`;
+        <td><button style="background:var(--info)" onclick='showDetailsModal(${JSON.stringify(res)})'>View</button></td>
+        <td><button style="background:var(--warn)" onclick='getAIAnalysis(${JSON.stringify(res)})'>AI</button></td>`;
       row.innerHTML=rowHTML;
     });
     addSortListeners();
@@ -193,7 +189,8 @@ const quizFilter = document.getElementById('quizFilter');
 
   function renderChart(data){
     const ctx=document.getElementById('chart').getContext('2d');
-    const avgScores={}; dynamicSubjects.forEach(sub=>avgScores[sub]=0);
+    const avgScores={}; 
+    dynamicSubjects.forEach(sub=>avgScores[sub]=0);
     data.forEach(r=>dynamicSubjects.forEach(sub=>avgScores[sub]+=(r.subjectScores[sub]||0)));
     const labels=Object.keys(avgScores);
     const scores=labels.map(sub=>data.length>0?Math.round(avgScores[sub]/data.length):0);
@@ -225,13 +222,12 @@ const quizFilter = document.getElementById('quizFilter');
   }
 
   window.showDetailsModal=function(res){
-    const modal=document.getElementById('details-modal');
     document.getElementById('modal-title').textContent=`Report: ${res.studentName}`;
     let html='<ul>';
     Object.keys(res.subjectScores).forEach(sub=>{html+=`<li>${sub}: ${res.subjectScores[sub]}</li>`;});
     html+='</ul>';
     document.getElementById('modal-body').innerHTML=html;
-    modal.style.display='flex';
+    document.getElementById('details-modal').style.display='flex';
   };
   window.closeDetailsModal=function(){document.getElementById('details-modal').style.display='none';}
 
@@ -302,14 +298,13 @@ const quizFilter = document.getElementById('quizFilter');
       const response=await fetch('/results');
       const data=await response.json();
       allResults=data.map(normalizeRecord);
+      
+      // --- THIS IS THE FIX for the class filter ---
       const grades=Array.from(new Set(allResults.map(r=>r.class))).sort();
       gradeFilter.innerHTML='<option value="all">All Classes</option>'+grades.map(g=>`<option value="${g}">${g}</option>`).join('');
-      const quizzes = Array.from(
-  new Set(allResults.map(r => r.quizTitle || "Untitled Quiz"))
-).sort();
-
-quizFilter.innerHTML = '<option value="all">All Quizzes</option>' +
-  quizzes.map((q, i) => `<option value="${q}">${q || "Quiz " + (i+1)}</option>`).join('');
+      
+      const quizzes = Array.from(new Set(allResults.map(r => r.quizTitle || "Untitled Quiz"))).sort();
+      quizFilter.innerHTML = '<option value="all">All Quizzes</option>' + quizzes.map(q => `<option value="${q}">${q}</option>`).join('');
 
       applyFiltersAndRender();
     }catch(e){alert('Failed to fetch results.');}
