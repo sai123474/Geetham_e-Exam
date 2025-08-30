@@ -463,8 +463,9 @@
                 if (type === 'multiple-choice') {
                     qData.options = Array.from(qDiv.querySelectorAll('.answer-fields input')).map(i => i.value);
                     qData.correctAnswer = parseInt(qDiv.querySelector('.correct-answer-mc')?.value || 0, 10);
-                } else if (type === 'fill-in-the-blank') {
-                    qData.answerKey = qDiv.querySelector('.correct-answer-text')?.value || '';
+                } } else if (type === 'fill-in-the-blank') {
+    qData.answerKey = qDiv.querySelector('.correct-answer-text')?.value || '';
+}
                 } else if (type === 'subjective') {
                     qData.rubric = qDiv.querySelector('.subjective-rubric')?.value || '';
                 }
