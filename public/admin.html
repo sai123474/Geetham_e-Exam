@@ -344,27 +344,32 @@
         }
 
         function addQuestion(subjectDiv) {
-    const qIndex = subjectDiv.querySelectorAll('.question-container').length; // Corrected: Use length directly
-    const newQ = { type: 'multiple-choice', text: '', options: ["", "", "", ""], correctAnswer: 0 };
+    // Find the dedicated container for questions within the subjectDiv
+    const questionsContainer = subjectDiv.querySelector('.questions-container');
+
+    // Get the number of existing questions to use as the new question's index
+    const qIndex = questionsContainer.children.length;
+
+    // Define the new question's default data
+    const newQ = { 
+        type: 'multiple-choice', 
+        text: '', 
+        options: ["", "", "", ""], 
+        correctAnswer: 0 
+    };
+
+    // Create the new question element with the correct index
     const newEl = createQuestionElement(qIndex, newQ);
 
-    // Get the container for questions
-    const questionsContainer = subjectDiv.querySelector('.questions-container'); 
-    
-    // Check if the container exists before appending
-    if (questionsContainer) {
-        questionsContainer.appendChild(newEl); // Changed from insertBefore to appendChild
-    } else {
-        // Fallback or error handling if the container is not found
-        console.error("Could not find '.questions-container' to add the new question.");
-    }
-    
+    // Append the new question to the questions container
+    questionsContainer.appendChild(newEl);
+
+    // After adding the new question, update all UI elements
     attachMarksListeners();
-    updateQuestionBadges(); // Changed to a function that updates all badges
+    updateQuestionBadges();
     updateTotalMarks();
     updateSubjectTotals();
 }
-
         function removeQuestion(questionDiv) {
             questionDiv.remove();
             updateTotalMarks();
@@ -578,45 +583,59 @@
         }
 
         function generatePDF() {
-           const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
-            const quiz = quizzesData[selectedQuizIndex];
-            
-            saveQuiz();
-            let y = 20;
-            doc.setFontSize(18);
-            doc.text(quiz.title, 105, y, { align: 'center' });
-            y += 10;
-            doc.setFontSize(12);
-            const totalQs = Object.values(quiz.subjects).reduce((acc, arr) => acc + arr.length, 0);
-            const totalMarks = Object.values(quiz.subjects).flat().reduce((acc, q) => acc + (q.correctMarks ?? quiz.correctMarks), 0);
-            doc.text(`Total Questions: ${totalQs}`, 14, y);
-            doc.text(`Total Marks: ${totalMarks}`, 196, y, { align: 'right' });
-            y += 12;
-            let qNo = 1;
-            Object.keys(quiz.subjects).forEach(subject => {
-                if (y > 260) { doc.addPage(); y = 20; }
-                doc.setFontSize(14); doc.text(`Section: ${subject}`, 14, y); y += 10;
-                quiz.subjects[subject].forEach(q => {
-                    if (y > 260) { doc.addPage(); y = 20; }
-                    doc.setFontSize(12);
-                    const cm = q.correctMarks ?? quiz.correctMarks;
-                    const questionText = doc.splitTextToSize(`${qNo}. ${q.text}`, 160);
-                    doc.text(questionText, 14, y);
-                    doc.text(`[+${cm}]`, 196, y, {align: 'right'});
-                    y += (questionText.length * 5) + 3;
-                    if (q.type === 'multiple-choice') {
-                        q.options.forEach((opt, i) => { 
-                            doc.text(`   (${String.fromCharCode(97 + i)}) ${opt}`, 20, y); 
-                            y += 7; 
-                        });
-                    }
-                    y += 3;
-                    qNo++;
-                });
-            });
-            doc.save(`${quiz.title.replace(/\s+/g, '_')}.pdf`);
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    const quiz = quizzesData[selectedQuizIndex];
+    
+    let y = 20;
+    const pageHeight = doc.internal.pageSize.height;
+    
+    // ... [Header text, etc. as you had before] ...
+    
+    doc.setFontSize(10);
+    // Loop through subjects and questions
+    Object.keys(quiz.subjects).forEach(subjectName => {
+        // Check if a new page is needed for the subject header
+        if (y > pageHeight - 20) {
+            doc.addPage();
+            y = 20;
         }
+        doc.text(`Subject: ${subjectName}`, 14, y);
+        y += 10;
+
+        quiz.subjects[subjectName].forEach((q, i) => {
+            const questionText = `${i + 1}. ${q.text}`;
+            const questionLines = doc.splitTextToSize(questionText, 180);
+            
+            // Check if a new page is needed for the question
+            if (y + (questionLines.length * 6) > pageHeight - 20) {
+                doc.addPage();
+                y = 20;
+            }
+            
+            doc.text(questionLines, 14, y);
+            y += (questionLines.length * 6) + 3;
+
+            if (q.type === 'multiple-choice' && q.options) {
+                q.options.forEach((opt, optIndex) => {
+                    const optionText = `   ${String.fromCharCode(97 + optIndex)}) ${opt}`;
+                    const optionLines = doc.splitTextToSize(optionText, 170);
+
+                    if (y + (optionLines.length * 6) > pageHeight - 20) {
+                        doc.addPage();
+                        y = 20;
+                    }
+
+                    doc.text(optionLines, 18, y);
+                    y += (optionLines.length * 6);
+                });
+                y += 3;
+            }
+        });
+    });
+    
+    doc.save('quiz.pdf');
+}
 
         async function openReviewDashboard() {
             const container = document.getElementById('review-dashboard');
