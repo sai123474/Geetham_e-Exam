@@ -262,6 +262,25 @@ app.post('/clear-results', authenticateToken, async (req, res) => {
         res.status(500).send('Error clearing results.');
     }
 });
+// Delete a quiz by ID (Admin only)
+app.delete('/delete-quiz/:id', authenticateToken, async (req, res) => {
+    try {
+        const quizId = parseInt(req.params.id);
+        if (isNaN(quizId)) return res.status(400).send('Invalid quiz ID');
+
+        const quizzesCollection = db.collection('quizzes');
+        const result = await quizzesCollection.deleteOne({ id: quizId });
+
+        if (result.deletedCount === 0) {
+            return res.status(404).send('Quiz not found');
+        }
+
+        res.status(200).send('Quiz deleted successfully');
+    } catch (err) {
+        console.error('Error deleting quiz:', err);
+        res.status(500).send('Failed to delete quiz');
+    }
+});
 
 // --- AI Endpoints ---
 
