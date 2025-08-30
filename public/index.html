@@ -65,7 +65,6 @@
     <div id="camera-header"><span>Camera</span></div>
     <video id="camera-view" autoplay playsinline muted></video>
 </div>
-
 <div id="student-details-screen" style="display: block;">
     <div style="max-width: 500px; margin: 50px auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
         <div style="text-align: center; margin-bottom: 15px;">
@@ -83,7 +82,6 @@
     </div>
 </div>
 <div id="warningBanner" style="display:none; background:#ff4d4d; color:white; padding:10px; text-align:center; font-weight:bold;">Last 5 minutes remaining! Please finish your quiz.</div>
-
 <div class="main-container" id="quiz-screen">
     <div class="quiz-panel">
         <h1 style="margin-top: 0;" id="quiz-title-main"></h1>
@@ -114,7 +112,6 @@
         <div style="display:flex; align-items: center; margin-top: 10px;"><div class="palette-item status-not-answered"></div><span style="margin-left: 10px;">Not Answered</span></div>
     </div>
 </div>
-
 <script type="module">
 import { FaceLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/vision_bundle.js";
 
@@ -181,10 +178,8 @@ async function handleProceed() {
     const mobile = document.getElementById('student-mobile').value.trim();
     const quizSelect = document.getElementById('quiz-select');
     currentQuiz = allQuizzes[quizSelect ? quizSelect.value : 0];
-
     if (!name || !mobile) return alert("Please fill in all details.");
     studentDetails = { name, mobile };
-
     const storageKey = `examData_${studentDetails.mobile}_${currentQuiz.id}`;
     const savedData = localStorage.getItem(storageKey);
     if (savedData) {
@@ -192,7 +187,6 @@ async function handleProceed() {
             stateToResume = JSON.parse(savedData);
         }
     }
-
     const response = await fetch('/check-attempt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -253,9 +247,7 @@ function initializeQuiz() {
     document.getElementById('quiz-title-main').textContent = currentQuiz.title;
     const subjectTabsContainer = document.querySelector('.subject-tabs');
     subjectTabsContainer.innerHTML = '';
-
     let firstSubject = Object.keys(currentQuiz.subjects)[0];
-
     Object.keys(currentQuiz.subjects).forEach(subject => {
         const tab = document.createElement('button');
         tab.className = 'subject-tab';
@@ -263,7 +255,6 @@ function initializeQuiz() {
         tab.onclick = (e) => switchSubject(subject, e.currentTarget);
         subjectTabsContainer.appendChild(tab);
     });
-
     let shouldResetIndex = true;
     if (stateToResume) {
         userResponses = stateToResume.userResponses;
@@ -281,7 +272,6 @@ function initializeQuiz() {
         });
         currentSubject = firstSubject;
     }
-
     setupProctoringListeners();
     const activeTab = [...subjectTabsContainer.querySelectorAll('.subject-tab')].find(t => t.textContent === firstSubject);
     switchSubject(firstSubject, activeTab, shouldResetIndex);
@@ -303,7 +293,6 @@ function autoSave(trigger = "auto") {
     const examState = getExamState();
     const storageKey = `examData_${studentDetails.mobile}_${currentQuiz.id}`;
     localStorage.setItem(storageKey, JSON.stringify(examState));
-
     const now = new Date();
     const timeString = now.toLocaleTimeString();
     const saveStatus = document.getElementById('save-status');
@@ -331,7 +320,6 @@ function loadQuestion() {
     `;
     const optionsContainer = document.getElementById('options-container');
     const response = userResponses[currentSubject]?.[currentQuestionIndex] || {};
-
     if (question.type === "multiple-choice") {
         if (!question.shuffledOptions) {
             const originalCorrectAnswerText = question.options[question.correctAnswer];
@@ -364,21 +352,18 @@ function loadQuestion() {
         textarea.oninput = (e) => selectOption(e.target.value);
         optionsContainer.appendChild(textarea);
     }
-
     lastQuestionStart = Date.now();
     updatePalette();
 }
 
 function selectOption(answer) {
     if (!userResponses[currentSubject]) userResponses[currentSubject] = {};
-    const currentResponse = userResponses[currentSubject][currentQuestionIndex] || {};
+    const currentResponse = userResponses[currentSubject]?.[currentQuestionIndex] || {};
     currentResponse.answer = answer;
-    
     if (currentResponse.status !== 'review') {
         currentResponse.status = 'answered';
     }
     userResponses[currentSubject][currentQuestionIndex] = currentResponse;
-
     if (currentQuiz.subjects[currentSubject][currentQuestionIndex].type === "multiple-choice") {
         document.querySelectorAll('.option').forEach((opt, optIndex) => {
             opt.classList.toggle('selected', optIndex === answer);
@@ -401,25 +386,21 @@ function switchSubject(subject, clickedTab, resetQuestionIndex = true) {
 
 function setupProctoringListeners() {
     document.addEventListener('fullscreenchange', handleFullscreenChangeEvent);
-    
     document.addEventListener('visibilitychange', () => {
         if (document.hidden && quizInProgress) {
             handleWarning("You have switched tabs.");
             autoSave("tab switch");
         }
     });
-    
     window.addEventListener("blur", () => {
         if (quizInProgress) handleWarning("You have switched to another application.");
     });
-    
     document.addEventListener('contextmenu', e => {
         if (quizInProgress) {
             e.preventDefault();
             handleWarning("Right-click is disabled.");
         }
     });
-    
     document.addEventListener('keydown', e => {
         if (!quizInProgress) return;
         if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && ['I', 'J', 'C'].includes(e.key.toUpperCase()))) {
@@ -427,7 +408,6 @@ function setupProctoringListeners() {
             handleWarning("Developer tools are disabled.");
         }
     });
-
     const resumeBtn = document.getElementById('resume-fullscreen-btn');
     if (resumeBtn) {
         resumeBtn.addEventListener('click', () => {
@@ -454,21 +434,17 @@ function submitTest() {
     const submitBtn = document.querySelector('.submit');
     if (submitBtn) submitBtn.disabled = true;
     if (!quizInProgress) return;
-
     quizInProgress = false;
     clearInterval(timerInterval);
     autoSave("final");
     accumulateTimeForCurrent();
-
     let totalScore = 0;
     let subjectScores = {};
-
     Object.keys(currentQuiz.subjects).forEach(subject => {
         let subjectScore = 0;
         currentQuiz.subjects[subject].forEach((question, index) => {
             const response = userResponses[subject]?.[index];
             if (!response || response.answer === undefined || response.answer === '') return;
-
             let marksCorrect, marksIncorrect;
             if (currentQuiz.marksMode === 'custom') {
                 marksCorrect = question.correctMarks ?? 1;
@@ -477,7 +453,6 @@ function submitTest() {
                 marksCorrect = currentQuiz.correctMarks ?? 1;
                 marksIncorrect = currentQuiz.wrongMarks ?? 0;
             }
-
             let isCorrect = false;
             if (question.type === "multiple-choice") {
                 if (response.answer === question.shuffledCorrectAnswerIndex) {
@@ -489,7 +464,6 @@ function submitTest() {
                     isCorrect = true;
                 }
             }
-            
             if (isCorrect) {
                 subjectScore += marksCorrect;
             } else {
@@ -500,9 +474,6 @@ function submitTest() {
         totalScore += subjectScore;
     });
 
-    // --- **THIS IS THE FIX** ---
-    // The function that sends data to the server is now inside submitTest
-    // and has access to all the necessary variables.
     function sendResult(location = null) {
         const resultData = {
             date: new Date().toISOString(),
@@ -516,8 +487,7 @@ function submitTest() {
             warnings: warningCount,
             questionTimes: questionTimes,
             location: location,
-            // --- THIS IS THE NEWLY ADDED LINE ---
-            responses: userResponses // Send the actual answers to the server
+            responses: userResponses
         };
         fetch('/submit-result', {
             method: 'POST',
@@ -536,7 +506,6 @@ function submitTest() {
             if (submitBtn) submitBtn.disabled = false;
         });
     }
-
     if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
             pos => sendResult({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
@@ -665,159 +634,162 @@ function accumulateTimeForCurrent() {
 }
 
 function goPrevious() {
+    accumulateTimeForCurrent();
+    const subjects = Object.keys(currentQuiz.subjects);
     if (currentQuestionIndex > 0) {
-        accumulateTimeForCurrent();
         currentQuestionIndex--;
-        loadQuestion();
-    }
-}
-
-function saveAndNext() {
-    accumulateTimeForCurrent();
-    const response = userResponses[currentSubject]?.[currentQuestionIndex];
-    if (response && response.answer !== undefined && response.status !== 'review') {
-        response.status = 'answered';
-    }
-    if (currentQuestionIndex < currentQuiz.subjects[currentSubject].length - 1) {
-        currentQuestionIndex++;
-        loadQuestion();
-    }
-    updatePalette();
-}
-
-function markForReview() {
-    accumulateTimeForCurrent();
-    const response = userResponses[currentSubject]?.[currentQuestionIndex] || {};
-    response.status = 'review';
-    userResponses[currentSubject][currentQuestionIndex] = response;
-    if (currentQuestionIndex < currentQuiz.subjects[currentSubject].length - 1) {
-        currentQuestionIndex++;
-        loadQuestion();
-    }
-    updatePalette();
-}
-
-function clearResponse() {
-    if (userResponses[currentSubject]?.[currentQuestionIndex]) {
-        delete userResponses[currentSubject][currentQuestionIndex].answer;
-        delete userResponses[currentSubject][currentQuestionIndex].status;
+    } else {
+        const currentSubjectIndex = subjects.indexOf(currentSubject);
+        if (currentSubjectIndex > 0) {
+            const prevSubject = subjects[currentSubjectIndex - 1];
+            currentSubject = prevSubject;
+            currentQuestionIndex = currentQuiz.subjects[prevSubject].length - 1;
+            document.querySelectorAll('.subject-tab').forEach(tab => tab.classList.remove('active'));
+            const newActiveTab = [...document.querySelectorAll('.subject-tab')].find(t => t.textContent === currentSubject);
+            if (newActiveTab) newActiveTab.classList.add('active');
+        } else {
+            return; // At the very first question, do nothing
+        }
     }
     loadQuestion();
 }
 
+function goNext() {
+    accumulateTimeForCurrent();
+    const subjects = Object.keys(currentQuiz.subjects);
+    const currentSubjectIndex = subjects.indexOf(currentSubject);
+    if (currentQuestionIndex < currentQuiz.subjects[currentSubject].length - 1) {
+        currentQuestionIndex++;
+    } else if (currentSubjectIndex < subjects.length - 1) {
+        const nextSubject = subjects[currentSubjectIndex + 1];
+        currentSubject = nextSubject;
+        currentQuestionIndex = 0;
+        document.querySelectorAll('.subject-tab').forEach(tab => tab.classList.remove('active'));
+        const newActiveTab = [...document.querySelectorAll('.subject-tab')].find(t => t.textContent === currentSubject);
+        if (newActiveTab) newActiveTab.classList.add('active');
+    } else {
+        showToast("You are at the last question. Click submit to finish.", "info");
+        return;
+    }
+    loadQuestion();
+}
+
+function saveAndNext() {
+    const question = currentQuiz.subjects[currentSubject][currentQuestionIndex];
+    const response = userResponses[currentSubject]?.[currentQuestionIndex] || {};
+    let isAnswered = true;
+    if (question.type === 'multiple-choice') {
+        if (response.answer === undefined) isAnswered = false;
+    } else if (question.type === 'fill-in-the-blank' || question.type === 'subjective') {
+        if (!response.answer || response.answer.trim() === '') isAnswered = false;
+    }
+    if (!isAnswered) {
+        userResponses[currentSubject][currentQuestionIndex] = { ...response, status: 'not-answered' };
+    } else {
+        userResponses[currentSubject][currentQuestionIndex] = { ...response, status: 'answered' };
+    }
+    goNext();
+}
+
+function markForReview() {
+    if (!userResponses[currentSubject]) userResponses[currentSubject] = {};
+    userResponses[currentSubject][currentQuestionIndex] = {
+        ...(userResponses[currentSubject][currentQuestionIndex] || {}),
+        status: 'review'
+    };
+    goNext();
+}
+
+function clearResponse() {
+    if (userResponses[currentSubject] && userResponses[currentSubject][currentQuestionIndex]) {
+        delete userResponses[currentSubject][currentQuestionIndex];
+    }
+    const question = currentQuiz.subjects[currentSubject][currentQuestionIndex];
+    if (question.type === "multiple-choice") {
+        document.querySelectorAll('.option.selected').forEach(el => el.classList.remove('selected'));
+    } else if (question.type === "fill-in-the-blank" || question.type === "subjective") {
+        const input = document.querySelector('#options-container input, #options-container textarea');
+        if (input) input.value = '';
+    }
+    updatePalette();
+}
+
 function updatePalette() {
     const palette = document.getElementById('question-palette');
-    palette.innerHTML = '';
-    currentQuiz.subjects[currentSubject].forEach((question, index) => {
-        const response = userResponses[currentSubject]?.[index] || {};
-        const item = document.createElement('div');
-        item.className = 'palette-item';
-        item.textContent = index + 1;
-        if (response.status === 'answered') item.classList.add('status-answered');
-        else if (response.status === 'review') item.classList.add('status-review');
-        else item.classList.add('status-not-answered');
-        item.onclick = () => {
-            accumulateTimeForCurrent();
-            currentQuestionIndex = index;
-            loadQuestion();
-        };
-        palette.appendChild(item);
+    let totalQuestions = 0;
+    Object.values(currentQuiz.subjects).forEach(s => totalQuestions += s.length);
+    if (palette.childElementCount !== totalQuestions) {
+        palette.innerHTML = '';
+        const allSubjects = Object.keys(currentQuiz.subjects);
+        let qNum = 1;
+        allSubjects.forEach(subjectName => {
+            const subjectQuestions = currentQuiz.subjects[subjectName];
+            subjectQuestions.forEach((_, qIndex) => {
+                const item = document.createElement('div');
+                item.className = 'palette-item status-not-answered';
+                item.textContent = qNum;
+                item.dataset.qIndex = qIndex;
+                item.dataset.subject = subjectName;
+                item.onclick = () => {
+                    accumulateTimeForCurrent();
+                    currentSubject = subjectName;
+                    currentQuestionIndex = qIndex;
+                    const activeTab = [...document.querySelectorAll('.subject-tab')].find(t => t.textContent === subjectName);
+                    if (activeTab) {
+                        document.querySelectorAll('.subject-tab').forEach(t => t.classList.remove('active'));
+                        activeTab.classList.add('active');
+                    }
+                    loadQuestion();
+                };
+                palette.appendChild(item);
+                qNum++;
+            });
+        });
+    }
+    let globalIndex = 0;
+    Object.keys(currentQuiz.subjects).forEach(subjectName => {
+        const questions = currentQuiz.subjects[subjectName];
+        questions.forEach((q, qIndex) => {
+            const status = userResponses[subjectName]?.[qIndex]?.status || 'not-answered';
+            const item = palette.children[globalIndex];
+            if (item) {
+                item.className = 'palette-item';
+                if (status === 'answered') item.classList.add('status-answered');
+                else if (status === 'review') item.classList.add('status-review');
+                else item.classList.add('status-not-answered');
+            }
+            globalIndex++;
+        });
     });
 }
 
-function startTimer(duration) {
-    let timeLeft = duration;
+function startTimer(durationInSeconds) {
+    let timer = durationInSeconds;
+    const display = document.getElementById('timer');
     timerInterval = setInterval(() => {
-        if (timeLeft <= 0) {
+        let hours = Math.floor(timer / 3600);
+        let minutes = Math.floor((timer % 3600) / 60);
+        let seconds = timer % 60;
+        hours = hours < 10 ? "0" + hours : hours;
+        minutes = minutes < 10 ? "0" + minutes : minutes;
+        seconds = seconds < 10 ? "0" + seconds : seconds;
+        display.textContent = `${hours}:${minutes}:${seconds}`;
+        if (timer <= 300) {
+            document.getElementById('warningBanner').style.display = 'block';
+        }
+        if (--timer < 0) {
             clearInterval(timerInterval);
-            showToast("Time's up! Submitting your test.", 'warning');
             submitTest();
-            return;
         }
-        if (timeLeft === 300) {
-            document.getElementById("warningBanner").style.display = "block";
-        }
-        timeLeft--;
-        const hours = Math.floor(timeLeft / 3600);
-        const minutes = Math.floor((timeLeft % 3600) / 60);
-        const seconds = timeLeft % 60;
-        document.getElementById('timer').textContent = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
     }, 1000);
 }
 
 function confirmSubmit() {
-    if (confirm("Are you sure you want to submit the test?")) submitTest();
+    if (confirm("Are you sure you want to submit the test? You cannot make any changes after this.")) {
+        submitTest();
+    }
 }
-
-function downloadPDFReport() {
-    if (typeof window.jspdf === 'undefined') return alert("Error: PDF library is not available.");
-    if (!studentDetails.name || !currentQuiz.title) return alert("Error: Student or quiz data is missing.");
-
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-    let y = 20;
-
-    doc.setFontSize(20);
-    doc.setFont("helvetica", "bold");
-    doc.text("Geetham e-Exam - Performance Report", 105, y, { align: 'center' });
-    y += 15;
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Student: ${studentDetails.name}`, 14, y);
-    doc.text(`Quiz: ${currentQuiz.title}`, 105, y, { align: 'center' });
-    y += 15;
-    doc.line(14, y, 196, y);
-    y += 10;
-
-    Object.keys(userResponses).forEach(subject => {
-        if (y > 270) { doc.addPage(); y = 20; }
-        doc.setFontSize(14);
-        doc.setFont("helvetica", "bold");
-        doc.text(`Subject: ${subject}`, 14, y);
-        y += 10;
-        currentQuiz.subjects[subject].forEach((q, i) => {
-            if (y > 270) { doc.addPage(); y = 20; }
-            const resp = userResponses[subject]?.[i] || {};
-            doc.setFontSize(11);
-            doc.setFont("helvetica", "bold");
-            const questionText = doc.splitTextToSize(`Q${i + 1}: ${q.text}`, 180);
-            doc.text(questionText, 14, y);
-            y += (questionText.length * 5) + 2;
-            doc.setFont("helvetica", "normal");
-            let userAnswer = "Not Answered";
-            let correctAnswer = "N/A";
-
-            if (q.type === "multiple-choice") {
-                userAnswer = resp.answer !== undefined && q.shuffledOptions ? q.shuffledOptions[resp.answer] : "Not Answered";
-                correctAnswer = q.shuffledCorrectAnswerIndex !== undefined && q.shuffledOptions ? q.shuffledOptions[q.shuffledCorrectAnswerIndex] : "N/A";
-            } else if (q.type === "fill-in-the-blank" || q.type === "subjective") {
-                userAnswer = resp.answer || (q.type === "subjective" ? "Pending Review" : "Not Answered");
-                correctAnswer = q.answerKey || (q.type === "subjective" ? "Manual Grading Required" : "N/A");
-            }
-            doc.text(`Your Answer: ${userAnswer}`, 18, y);
-            y += 6;
-            doc.text(`Correct Answer: ${correctAnswer}`, 18, y);
-            y += 10;
-        });
-    });
-    doc.save(`${studentDetails.name}_Report.pdf`);
-}
-
-// --- INITIALIZATION ---
-window.goPrevious = goPrevious;
-window.saveAndNext = saveAndNext;
-window.markForReview = markForReview;
-window.clearResponse = clearResponse;
-window.confirmSubmit = confirmSubmit;
-window.downloadPDFReport = downloadPDFReport;
-window.manualSave = manualSave;
-
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/service-worker.js');
-    });
-}
-document.addEventListener('DOMContentLoaded', loadInitialData);
+loadInitialData();
 </script>
 </body>
 </html>
