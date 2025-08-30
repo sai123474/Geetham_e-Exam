@@ -14,7 +14,7 @@ const PORT = process.env.PORT || 3000;
 
 // Securely load secrets from environment variables
 const API_KEY = process.env.API_KEY;
-const MONGO_URI = process.env.MONGO_URI;
+const MONGO_URI = "mongodb+srv://yamparalasaikrishna6:Tngy9EWjTg1akDXW@saikrishna.dced3fy.mongodb.net/?retryWrites=true&w=majority&appName=SaiKrishna";
 const JWT_SECRET = process.env.JWT_SECRET;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 const ADMIN_PASSWORD_HASH = bcrypt.hashSync(ADMIN_PASSWORD, 10);
