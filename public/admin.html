@@ -344,16 +344,26 @@
         }
 
         function addQuestion(subjectDiv) {
-            const qIndex = subjectDiv.querySelectorAll('.question-container').length - 1;
-            const newQ = { type: 'multiple-choice', text: '', options: ["", "", "", ""], correctAnswer: 0 };
-            const newEl = createQuestionElement(qIndex, newQ);
-            const addBtn = subjectDiv.querySelector('.btn-add:last-of-type');
-            subjectDiv.insertBefore(newEl, addBtn);
-            attachMarksListeners();
-            updateQuestionBadge(newEl);
-            updateTotalMarks();
-            updateSubjectTotals();
-        }
+    const qIndex = subjectDiv.querySelectorAll('.question-container').length; // Corrected: Use length directly
+    const newQ = { type: 'multiple-choice', text: '', options: ["", "", "", ""], correctAnswer: 0 };
+    const newEl = createQuestionElement(qIndex, newQ);
+
+    // Get the container for questions
+    const questionsContainer = subjectDiv.querySelector('.questions-container'); 
+    
+    // Check if the container exists before appending
+    if (questionsContainer) {
+        questionsContainer.appendChild(newEl); // Changed from insertBefore to appendChild
+    } else {
+        // Fallback or error handling if the container is not found
+        console.error("Could not find '.questions-container' to add the new question.");
+    }
+    
+    attachMarksListeners();
+    updateQuestionBadges(); // Changed to a function that updates all badges
+    updateTotalMarks();
+    updateSubjectTotals();
+}
 
         function removeQuestion(questionDiv) {
             questionDiv.remove();
