@@ -43,7 +43,6 @@
     #ai-status.loading { background: #ffc107; color: #333; }
     #ai-status.ready { background: #28a745; color: white; }
     #ai-status.error { background: #dc3545; color: white; }
-    /* --- New Auto-Save Styles --- */
     #save-status { text-align: right; padding: 10px 0 5px; font-size: 12px; font-weight: 500; color: green; height: 15px; }
     #save-status.flash { animation: flashGreen 1s ease; }
     @keyframes flashGreen {
@@ -126,7 +125,7 @@ const maxWarnings = 3;
 let faceLandmarker, isGazeDetectionRunning = false, lookAwayStartTime = null;
 const LOOK_AWAY_THRESHOLD = 3000;
 let questionTimes = {}, lastQuestionStart = null, fullscreenCountdownInterval;
-let stateToResume = null; // Holds data if a session is found to be resumed
+let stateToResume = null; 
 
 // --- UTILITY FUNCTIONS ---
 function showToast(message, type = 'warning') {
@@ -186,7 +185,6 @@ async function handleProceed() {
     if (!name || !mobile) return alert("Please fill in all details.");
     studentDetails = { name, mobile };
 
-    // --- Check for saved session to resume ---
     const storageKey = `examData_${studentDetails.mobile}_${currentQuiz.id}`;
     const savedData = localStorage.getItem(storageKey);
     if (savedData) {
@@ -271,12 +269,11 @@ function initializeQuiz() {
         userResponses = stateToResume.userResponses;
         currentSubject = stateToResume.currentSubject;
         currentQuestionIndex = stateToResume.currentQuestionIndex;
-        shouldResetIndex = false; // Don't reset index on first load
-        firstSubject = currentSubject; // Set the starting subject
-        stateToResume = null; // Clear after use
+        shouldResetIndex = false;
+        firstSubject = currentSubject;
+        stateToResume = null;
         showToast("Resumed your previous session!", "success");
     } else {
-        // Initialize fresh state
         Object.keys(currentQuiz.subjects).forEach(subject => {
             shuffleArray(currentQuiz.subjects[subject]);
             userResponses[subject] = {};
@@ -290,10 +287,9 @@ function initializeQuiz() {
     switchSubject(firstSubject, activeTab, shouldResetIndex);
     startTimer(currentQuiz.timeLimit * 60);
     setTimeout(startGazeDetection, 2000);
-    setInterval(() => autoSave("interval"), 30000); // Auto-save every 30 seconds
+    setInterval(() => autoSave("interval"), 30000);
 }
 
-// --- NEW AUTO-SAVE FUNCTIONALITY ---
 function getExamState() {
     return {
         userResponses: userResponses,
@@ -314,7 +310,7 @@ function autoSave(trigger = "auto") {
     if (saveStatus) {
         saveStatus.textContent = `✔ Last saved: ${timeString} (${trigger})`;
         saveStatus.classList.remove("flash");
-        void saveStatus.offsetWidth; // Trigger reflow to restart animation
+        void saveStatus.offsetWidth;
         saveStatus.classList.add("flash");
     }
 }
@@ -323,16 +319,14 @@ function manualSave() {
     autoSave("manual");
     showToast("Progress Saved Manually!", "success");
 }
-// --- END NEW AUTO-SAVE ---
-
 
 function loadQuestion() {
     const question = currentQuiz.subjects[currentSubject][currentQuestionIndex];
     const questionArea = document.getElementById('question-area');
     questionArea.innerHTML = `
-        <h3 id="question-number">Question ${currentQuestionIndex + 1}</h3>
-        <p id="question-text">${question.text}</p>
-        <img id="question-image" class="question-image" style="display:${question.imageUrl ? 'block' : 'none'}; max-width:100%;" src="${question.imageUrl || ''}">
+        <h3>Question ${currentQuestionIndex + 1}</h3>
+        <p>${question.text}</p>
+        <img style="display:${question.imageUrl ? 'block' : 'none'}; max-width:100%;" src="${question.imageUrl || ''}">
         <div id="options-container"></div>
     `;
     const optionsContainer = document.getElementById('options-container');
@@ -385,14 +379,13 @@ function selectOption(answer) {
     }
     userResponses[currentSubject][currentQuestionIndex] = currentResponse;
 
-    const question = currentQuiz.subjects[currentSubject][currentQuestionIndex];
-    if (question.type === "multiple-choice") {
+    if (currentQuiz.subjects[currentSubject][currentQuestionIndex].type === "multiple-choice") {
         document.querySelectorAll('.option').forEach((opt, optIndex) => {
             opt.classList.toggle('selected', optIndex === answer);
         });
     }
     updatePalette();
-    autoSave("instant"); // Save instantly on any selection
+    autoSave("instant");
 }
 
 function switchSubject(subject, clickedTab, resetQuestionIndex = true) {
@@ -406,7 +399,6 @@ function switchSubject(subject, clickedTab, resetQuestionIndex = true) {
     loadQuestion();
 }
 
-// --- PROCTORING & EVENT LISTENERS ---
 function setupProctoringListeners() {
     document.addEventListener('fullscreenchange', handleFullscreenChangeEvent);
     
@@ -436,8 +428,6 @@ function setupProctoringListeners() {
         }
     });
 
-    // --- **FIXED** RESUME BUTTON LISTENER ---
-    // Attaching the listener here ensures it's ready when the quiz starts.
     const resumeBtn = document.getElementById('resume-fullscreen-btn');
     if (resumeBtn) {
         resumeBtn.addEventListener('click', () => {
@@ -460,8 +450,7 @@ function handleFullscreenChangeEvent() {
     }
 }
 
-
-// --- SUBMISSION LOGIC ---
+// --- **FIXED** SUBMISSION LOGIC ---
 function submitTest() {
     const submitBtn = document.querySelector('.submit');
     if (submitBtn) submitBtn.disabled = true;
@@ -469,7 +458,7 @@ function submitTest() {
 
     quizInProgress = false;
     clearInterval(timerInterval);
-    autoSave("final"); // Make one final save before submitting
+    autoSave("final");
     accumulateTimeForCurrent();
 
     let totalScore = 0;
@@ -481,12 +470,33 @@ function submitTest() {
             const response = userResponses[subject]?.[index];
             if (!response || response.answer === undefined || response.answer === '') return;
 
+            // Determine the marks for this question
+            let marksCorrect, marksIncorrect;
+            if (currentQuiz.marksMode === 'custom') {
+                marksCorrect = question.correctMarks ?? 1;
+                marksIncorrect = question.wrongMarks ?? 0;
+            } else {
+                marksCorrect = currentQuiz.correctMarks ?? 1;
+                marksIncorrect = currentQuiz.wrongMarks ?? 0;
+            }
+
+            let isCorrect = false;
             if (question.type === "multiple-choice") {
-                if (response.answer === question.shuffledCorrectAnswerIndex) subjectScore += 4;
-                else subjectScore -= 1;
+                if (response.answer === question.shuffledCorrectAnswerIndex) {
+                    isCorrect = true;
+                }
             } else if (question.type === "fill-in-the-blank") {
-                if (response.answer?.trim().toLowerCase() === question.answerKey?.trim().toLowerCase()) subjectScore += 4;
-                else subjectScore -= 1;
+                const correctAnswers = (question.answerKey || '').split('|').map(a => a.trim().toLowerCase());
+                if (correctAnswers.includes((response.answer || '').trim().toLowerCase())) {
+                    isCorrect = true;
+                }
+            }
+            
+            // Apply scoring
+            if (isCorrect) {
+                subjectScore += marksCorrect;
+            } else {
+                subjectScore += marksIncorrect; // Add incorrect marks (can be negative)
             }
         });
         subjectScores[subject] = subjectScore;
@@ -514,7 +524,6 @@ function submitTest() {
         .then(response => {
             if (!response.ok) throw new Error('Submission failed');
             alert(`Test Submitted Successfully!`);
-            // --- Clear saved data from localStorage on successful submission ---
             const storageKey = `examData_${studentDetails.mobile}_${currentQuiz.id}`;
             localStorage.removeItem(storageKey);
             document.getElementById('quiz-screen').innerHTML = `<div style="max-width: 600px; margin: 50px auto; text-align:center;"><h1>Thanks for taking Exam</h1><button onclick="downloadPDFReport()">Download Report</button></div>`;
@@ -534,9 +543,6 @@ function submitTest() {
         sendResult();
     }
 }
-
-
-// --- [No changes needed for the functions below, but they are included for completeness] ---
 
 async function requestFullscreenSafe() {
     try {
@@ -801,7 +807,7 @@ window.markForReview = markForReview;
 window.clearResponse = clearResponse;
 window.confirmSubmit = confirmSubmit;
 window.downloadPDFReport = downloadPDFReport;
-window.manualSave = manualSave; // Expose manual save to global scope
+window.manualSave = manualSave;
 
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
