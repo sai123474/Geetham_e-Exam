@@ -13,10 +13,10 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Securely load secrets from environment variables
-const API_KEY = process.env.API_KEY;
+const API_KEY = "AIzaSyA3WIHFw2_5E8hYUSlG2rrLdq7J7KKwbe0";
 const MONGO_URI = "mongodb+srv://yamparalasaikrishna6:Tngy9EWjTg1akDXW@saikrishna.dced3fy.mongodb.net/?retryWrites=true&w=majority&appName=SaiKrishna";
-const JWT_SECRET = process.env.JWT_SECRET;
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+const JWT_SECRET = "Geetham_e_exam2025";
+const ADMIN_PASSWORD ="Geetham@2014";
 const ADMIN_PASSWORD_HASH = bcrypt.hashSync(ADMIN_PASSWORD, 10);
 
 if (!API_KEY || !MONGO_URI || !JWT_SECRET || !ADMIN_PASSWORD) {
