@@ -1,56 +1,56 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Geetham e-Exam</title>
-<link rel="icon" type="image/jpeg" href="/geetham.jpg" />
-<link rel="manifest" href="/manifest.json" />
-<script type="module" src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/vision_bundle.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<meta name="theme-color" content="#0056b3"/>
-<style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f0f2f5; color: #333; margin: 0; padding: 10px; }
-    .main-container, #student-details-screen { display: none; }
-    .quiz-panel { flex-grow: 1; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-    .sidebar { width: 300px; margin-left: 20px; background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-    h1, h2 { color: #0056b3; text-align: center; }
-    input, select { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
-    #timer { font-size: 20px; font-weight: bold; color: #d9534f; text-align: center; margin-bottom: 15px; }
-    .subject-tabs { display: flex; border-bottom: 2px solid #ddd; margin-bottom: 20px; gap: 10px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-    .subject-tab { padding: 10px 20px; cursor: pointer; font-weight: 600; border: none; background-color: #f0f2f5; color: #333; font-size: 16px; border-radius: 8px 8px 0 0; }
-    .subject-tab.active { background-color: #007bff; color: white; }
-    .question-area { min-height: 300px; }
-    .option { display: block; margin: 10px 0; padding: 12px; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; }
-    .option.selected { background-color: #007bff; color: white; border-color: #007bff; }
-    .nav-buttons { margin-top: 20px; display: flex; justify-content: space-between; }
-    button { background-color: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 14px; }
-    button:disabled { background-color: #a0a0a0; }
-    .palette-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
-    .palette-item { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 50%; cursor: pointer; font-weight: bold; }
-    .status-not-answered { background-color: #f0f0f0; }
-    .status-answered { background-color: #28a745; color: white; }
-    .status-review { background-color: #ffc107; }
-    #camera-wrapper { position: fixed; bottom: 10px; left: 10px; width: 160px; height: 120px; border: 2px solid #0056b3; border-radius: 6px; background: #000; overflow: hidden; display: none; z-index: 9998; resize: both; }
-    #camera-header { height: 22px; background: rgba(0,86,179,0.9); color: #fff; display:flex; align-items:center; justify-content:center; padding: 0 6px; cursor: move; font-size: 12px; }
-    #camera-view { width:100%; height: calc(100% - 22px); object-fit: cover; display:block; }
-    .toast { position: fixed; top: -100px; left: 50%; transform: translateX(-50%); padding: 15px 25px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); font-size: 16px; font-weight: bold; z-index: 100000; opacity: 0; transition: opacity 0.5s, top 0.5s; }
-    .toast.show { top: 40px; opacity: 1; }
-    .toast.warning { background-color: #dc3545; color: white; }
-    .toast.success { background-color: #28a745; color: white; }
-    #warnings-indicator { position: fixed; top: 14px; right: 14px; background: #ffc107; color: #333; padding: 6px 10px; border-radius: 18px; font-weight: 700; z-index: 9999; }
-    #ai-status { position: fixed; top: 14px; left: 14px; padding: 6px 10px; border-radius: 18px; font-weight: 700; z-index: 9999; font-size: 12px; }
-    #ai-status.loading { background: #ffc107; color: #333; }
-    #ai-status.ready { background: #28a745; color: white; }
-    #ai-status.error { background: #dc3545; color: white; }
-    #save-status { text-align: right; padding: 10px 0 5px; font-size: 12px; font-weight: 500; color: green; height: 15px; }
-    #save-status.flash { animation: flashGreen 1s ease; }
-    @keyframes flashGreen {
-        0%   { opacity: 0.3; }
-        50%  { opacity: 1; }
-        100% { opacity: 0.8; }
-    }
-</style>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Geetham e-Exam</title>
+    <link rel="icon" type="image/jpeg" href="/geetham.jpg" />
+    <link rel="manifest" href="/manifest.json" />
+    <script type="module" src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/vision_bundle.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <meta name="theme-color" content="#0056b3"/>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f0f2f5; color: #333; margin: 0; padding: 10px; }
+        .main-container, #student-details-screen { display: none; }
+        .quiz-panel { flex-grow: 1; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .sidebar { width: 300px; margin-left: 20px; background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        h1, h2 { color: #0056b3; text-align: center; }
+        input, select { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
+        #timer { font-size: 20px; font-weight: bold; color: #d9534f; text-align: center; margin-bottom: 15px; }
+        .subject-tabs { display: flex; border-bottom: 2px solid #ddd; margin-bottom: 20px; gap: 10px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .subject-tab { padding: 10px 20px; cursor: pointer; font-weight: 600; border: none; background-color: #f0f2f5; color: #333; font-size: 16px; border-radius: 8px 8px 0 0; }
+        .subject-tab.active { background-color: #007bff; color: white; }
+        .question-area { min-height: 300px; }
+        .option { display: block; margin: 10px 0; padding: 12px; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; }
+        .option.selected { background-color: #007bff; color: white; border-color: #007bff; }
+        .nav-buttons { margin-top: 20px; display: flex; justify-content: space-between; }
+        button { background-color: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 14px; }
+        button:disabled { background-color: #a0a0a0; }
+        .palette-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+        .palette-item { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 50%; cursor: pointer; font-weight: bold; }
+        .status-not-answered { background-color: #f0f0f0; }
+        .status-answered { background-color: #28a745; color: white; }
+        .status-review { background-color: #ffc107; }
+        #camera-wrapper { position: fixed; bottom: 10px; left: 10px; width: 160px; height: 120px; border: 2px solid #0056b3; border-radius: 6px; background: #000; overflow: hidden; display: none; z-index: 9998; resize: both; }
+        #camera-header { height: 22px; background: rgba(0,86,179,0.9); color: #fff; display:flex; align-items:center; justify-content:center; padding: 0 6px; cursor: move; font-size: 12px; }
+        #camera-view { width:100%; height: calc(100% - 22px); object-fit: cover; display:block; }
+        .toast { position: fixed; top: -100px; left: 50%; transform: translateX(-50%); padding: 15px 25px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); font-size: 16px; font-weight: bold; z-index: 100000; opacity: 0; transition: opacity 0.5s, top 0.5s; }
+        .toast.show { top: 40px; opacity: 1; }
+        .toast.warning { background-color: #dc3545; color: white; }
+        .toast.success { background-color: #28a745; color: white; }
+        #warnings-indicator { position: fixed; top: 14px; right: 14px; background: #ffc107; color: #333; padding: 6px 10px; border-radius: 18px; font-weight: 700; z-index: 9999; }
+        #ai-status { position: fixed; top: 14px; left: 14px; padding: 6px 10px; border-radius: 18px; font-weight: 700; z-index: 9999; font-size: 12px; }
+        #ai-status.loading { background: #ffc107; color: #333; }
+        #ai-status.ready { background: #28a745; color: white; }
+        #ai-status.error { background: #dc3545; color: white; }
+        #save-status { text-align: right; padding: 10px 0 5px; font-size: 12px; font-weight: 500; color: green; height: 15px; }
+        #save-status.flash { animation: flashGreen 1s ease; }
+        @keyframes flashGreen {
+            0%   { opacity: 0.3; }
+            50%  { opacity: 1; }
+            100% { opacity: 0.8; }
+        }
+    </style>
 </head>
 <body>
 <div id="fullscreen-warning" style="display:none; flex-direction: column; justify-content: center; align-items: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); color: white; z-index: 10000;">
@@ -446,7 +446,7 @@ function submitTest() {
     const submitBtn = document.querySelector('.submit');
     if (submitBtn) submitBtn.disabled = true;
 
-    // Compute total score (existing logic)
+    // Compute total score
     let totalScore = 0;
     let subjectScores = {};
     Object.keys(currentQuiz.subjects).forEach(subject => {
@@ -783,9 +783,7 @@ function startTimer(durationInSeconds) {
     }, 1000);
 }
 
-
-    // ⬇ Add this block near the end of your module, after the function definitions
-    function downloadPDFReport() {
+function downloadPDFReport() {
     if (!currentQuiz || !userResponses) return alert("No exam data available.");
 
     const doc = new window.jspdf.jsPDF();
@@ -929,21 +927,9 @@ function startTimer(durationInSeconds) {
     doc.text(`Warnings Issued: ${warningCount} / ${maxWarnings}`, 12, y);
     y += 7;
 
-    // Optional: add details of each warning if you maintain a warning log
-    if (window.warningLog && warningLog.length > 0) {
-        doc.setFontSize(11);
-        warningLog.forEach((warn, idx) => {
-            if (y + 10 > 280) {
-                doc.addPage();
-                y = 10;
-            }
-            doc.text(`${idx + 1}. ${warn}`, 12, y);
-            y += 6;
-        });
-    }
-
     doc.save(`${studentDetails.name}_Exam_Report.pdf`);
 }
+
 loadInitialData();
 Object.assign(window, {
   markForReview,
@@ -952,10 +938,8 @@ Object.assign(window, {
   clearResponse,
   saveAndNext,
   confirmSubmit,
+  downloadPDFReport // Correctly assigned here
 });
-    window.downloadPDFReport = downloadPDFReport;
-
-
 </script>
 </body>
 </html>
