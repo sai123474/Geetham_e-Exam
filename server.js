@@ -6,7 +6,7 @@ const cors = require('cors');
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-require('dotenv').config(); // Loads variables from .env file
+
 
 // --- CONFIGURATION ---
 const app = express();
