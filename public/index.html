@@ -790,6 +790,16 @@ function confirmSubmit() {
     }
 }
 loadInitialData();
+    // ⬇ Add this block near the end of your module, after the function definitions
+Object.assign(window, {
+  markForReview,
+  manualSave,
+  goPrevious,
+  clearResponse,
+  saveAndNext,
+  confirmSubmit,
+});
+
 </script>
 </body>
 </html>
