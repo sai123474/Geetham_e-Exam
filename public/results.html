@@ -166,7 +166,7 @@ const quizFilter = document.getElementById('quizFilter');
       let locationHTML='N/A';
       if(res.location){
         if(typeof res.location === 'object' && res.location.lat && res.location.lon){
-          locationHTML=`<a href="https://www.google.com/maps?q=${res.location.lat},${res.location.lon}" target="_blank">${res.location.lat}, ${res.location.lon}</a>`;
+          locationHTML=`<a href="https://www.google.com/maps?q=${res.location.lat},${res.location.lon}" target="_blank">View on Map</a>`;
         }else{
           locationHTML=res.location;
         }
