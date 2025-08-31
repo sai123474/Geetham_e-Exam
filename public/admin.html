@@ -310,7 +310,8 @@
                 const subjectName = subDiv.querySelector('.subject-name').value.trim();
                 if (!subjectName) return;
                 newSubjects[subjectName] = [];
-                subDiv.querySelectorAll('.question-container').forEach(qDiv => {
+               // CORRECT
+subDiv.querySelectorAll('.questions-list .question-container').forEach(qDiv => {
                     const qType = qDiv.querySelector('.question-type').value;
                     const question = {
                         type: qType,
