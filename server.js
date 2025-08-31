@@ -1,3 +1,4 @@
+// server.js
 const express = require('express');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const path = require('path');
@@ -8,10 +9,13 @@ const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const pdf = require('pdf-parse');
 const fs = require('fs');
+<<<<<<< HEAD
 const CryptoJS = require('crypto-js');
 const rateLimit = require('express-rate-limit');
 const NodeCache = require('node-cache');
 const { QuestionRecommender } = require('./ml/questionRecommender');
+=======
+>>>>>>> 761cab15c09089f9c5c8c73355c293d0d06a5f27
 
 // --- CONFIGURATION ---
 const app = express();
@@ -24,6 +28,7 @@ const JWT_SECRET = "Geetham_e_exam2025";
 const ADMIN_PASSWORD = "Geetham@2014";
 const ENCRYPTION_KEY = "Geetham_secure_encryption_key_2025"; // Key for encrypting sensitive data
 
+<<<<<<< HEAD
 // Rate limiting configuration
 const loginLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
@@ -41,13 +46,16 @@ const apiLimiter = rateLimit({
     legacyHeaders: false
 });
 
+=======
+>>>>>>> 761cab15c09089f9c5c8c73355c293d0d06a5f27
 const ADMIN_PASSWORD_HASH = bcrypt.hashSync(ADMIN_PASSWORD, 10);
 const genAI = new GoogleGenerativeAI(API_KEY);
 const client = new MongoClient(MONGO_URI, {
-    serverApi: { version: ServerApiVersion.v1, strict: true, deprecationErrors: true }
+  serverApi: { version: ServerApiVersion.v1, strict: true, deprecationErrors: true }
 });
 let db;
 
+<<<<<<< HEAD
 // Initialize cache with TTL of 5 minutes (300 seconds)
 const cache = new NodeCache({ stdTTL: 300, checkperiod: 60 });
 
@@ -58,6 +66,11 @@ const questionRecommender = new QuestionRecommender();
 // In production, use a dedicated Vector Database (Pinecone, ChromaDB, etc.)
 let knowledgeBase = []; 
 const upload = multer({ dest: 'uploads/' }); // Temp folder for uploads
+=======
+// --- KNOWLEDGE LIBRARY (In-memory for simplicity) ---
+let knowledgeBase = [];
+const upload = multer({ dest: 'uploads/' });
+>>>>>>> 761cab15c09089f9c5c8c73355c293d0d06a5f27
 
 // --- MIDDLEWARE ---
 app.use(cors());
@@ -114,6 +127,7 @@ function decryptSensitiveData(obj) {
 }
 
 function authenticateToken(req, res, next) {
+<<<<<<< HEAD
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
     if (token == null) return res.sendStatus(401);
@@ -149,10 +163,31 @@ async function connectDB() {
         console.error("Failed to connect to MongoDB or create indexes", err);
         process.exit(1);
     }
+=======
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  if (!token) return res.sendStatus(401);
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) return res.sendStatus(403);
+    req.user = user; next();
+  });
+}
+
+async function connectDB() {
+  try {
+    await client.connect();
+    db = client.db("GeethamQuizDB");
+    console.log("Successfully connected to MongoDB Atlas!");
+  } catch (err) {
+    console.error("Failed to connect to MongoDB", err);
+    process.exit(1);
+  }
+>>>>>>> 761cab15c09089f9c5c8c73355c293d0d06a5f27
 }
 
 // --- API ENDPOINTS ---
 
+<<<<<<< HEAD
 app.post('/login', loginLimiter, (req, res) => {
     const { password } = req.body;
     if (bcrypt.compareSync(password, ADMIN_PASSWORD_HASH)) {
@@ -164,9 +199,21 @@ app.post('/login', loginLimiter, (req, res) => {
     } else {
         res.status(401).json({ success: false, message: 'Incorrect password' });
     }
+=======
+// Admin login -> JWT
+app.post('/login', (req, res) => {
+  const { password } = req.body;
+  if (bcrypt.compareSync(password, ADMIN_PASSWORD_HASH)) {
+    res.json({ accessToken: jwt.sign({ user: 'admin' }, JWT_SECRET, { expiresIn: '8h' }) });
+  } else {
+    res.status(401).send('Incorrect password');
+  }
+>>>>>>> 761cab15c09089f9c5c8c73355c293d0d06a5f27
 });
 
+// Quizzes
 app.get('/get-quizzes', async (req, res) => {
+<<<<<<< HEAD
     try {
         // Check if quizzes are in cache
         const cachedQuizzes = cache.get('all_quizzes');
@@ -191,9 +238,17 @@ app.get('/get-quizzes', async (req, res) => {
             error: err.message
         });
     }
+=======
+  try {
+    const quizzes = await db.collection('quizzes').find({}).toArray();
+    res.json(quizzes);
+  } catch (err) { res.status(500).send('Error fetching quizzes.'); }
+>>>>>>> 761cab15c09089f9c5c8c73355c293d0d06a5f27
 });
 
+// Save (replace-all) quizzes array
 app.post('/update-quizzes', authenticateToken, async (req, res) => {
+<<<<<<< HEAD
     try {
         const updatedQuizzes = req.body;
         
@@ -425,10 +480,97 @@ app.delete('/delete-quiz/:id', authenticateToken, async (req, res) => {
         console.error('Error deleting quiz:', err);
         res.status(500).send('Error deleting quiz.');
     }
+=======
+  try {
+    const updatedQuizzes = req.body;
+    const col = db.collection('quizzes');
+
+    // Ensure each quiz has a numeric "id" (stable for references)
+    const seen = new Set();
+    for (const q of updatedQuizzes) {
+      if (typeof q.id !== 'number') {
+        // assign a deterministic-ish id if missing
+        q.id = Math.floor(Math.random() * 1e9);
+      }
+      if (seen.has(q.id)) q.id = Math.floor(Math.random() * 1e9);
+      seen.add(q.id);
+    }
+
+    await col.deleteMany({});
+    if (updatedQuizzes.length > 0) await col.insertMany(updatedQuizzes);
+    res.status(200).send('Quizzes updated successfully.');
+  } catch (err) { res.status(500).send('Error saving quizzes.'); }
+});
+
+// NEW: delete a quiz + cascade delete its results
+app.delete('/delete-quiz/:id', authenticateToken, async (req, res) => {
+  try {
+    const quizId = parseInt(req.params.id);
+    if (Number.isNaN(quizId)) return res.status(400).send('Invalid quiz id');
+
+    const quizzesCol = db.collection('quizzes');
+    const resultsCol = db.collection('results');
+
+    const delQuiz = await quizzesCol.deleteOne({ id: quizId });
+    // cascade: delete results for this quiz
+    await resultsCol.deleteMany({ quizId });
+
+    if (delQuiz.deletedCount === 0) return res.status(404).send('Quiz not found');
+    res.status(200).send('Quiz and related results deleted.');
+  } catch (err) { res.status(500).send('Failed to delete quiz.'); }
+});
+
+// Attempts guard
+app.post('/check-attempt', async (req, res) => {
+  try {
+    const { mobile, quizId } = req.body;
+    const attempt = await db.collection('results').findOne({ mobile, quizId: parseInt(quizId) });
+    res.json({ canAttempt: !attempt, message: attempt ? "You have already attempted this quiz." : "" });
+  } catch (err) { res.status(500).send('Error checking attempt.'); }
+});
+
+// Student submission
+app.post('/submit-result', async (req, res) => {
+  try {
+    const newResult = req.body;
+    newResult.quizId = parseInt(newResult.quizId);
+    await db.collection('results').insertOne(newResult);
+    res.status(200).send('Result saved successfully.');
+  } catch (err) { res.status(500).send('Error saving result.'); }
+});
+
+// Results fetch (no auth; results page self-gates with token in UI)
+app.get('/results', async (req, res) => {
+  try {
+    const results = await db.collection('results').find({}).toArray();
+    res.json(results);
+  } catch (err) { res.status(500).send('Error fetching results.'); }
+});
+
+// NEW: clear results by quiz (admin only)
+app.delete('/results', authenticateToken, async (req, res) => {
+  try {
+    const quizId = parseInt(req.query.quizId);
+    if (Number.isNaN(quizId)) return res.status(400).send('quizId query param required and numeric');
+    const out = await db.collection('results').deleteMany({ quizId });
+    res.json({ deleted: out.deletedCount });
+  } catch (err) { res.status(500).send('Failed to clear results.'); }
+});
+
+// Teacher review – pull submissions for a quiz (auth)
+app.get('/get-submissions', authenticateToken, async (req, res) => {
+  try {
+    const { quizId } = req.query;
+    if (!quizId) return res.status(400).send('Quiz ID is required');
+    const submissions = await db.collection('results').find({ quizId: parseInt(quizId) }).toArray();
+    res.json(submissions);
+  } catch (err) { res.status(500).send('Error fetching submissions.'); }
+>>>>>>> 761cab15c09089f9c5c8c73355c293d0d06a5f27
 });
 
 // FINAL, AUTHORITATIVE SCORE RECALCULATION LOGIC
 app.post('/grade-submission', authenticateToken, async (req, res) => {
+<<<<<<< HEAD
     try {
         const studentSubmission = req.body;
         if (!studentSubmission?._id || !studentSubmission.responses) {
@@ -509,10 +651,95 @@ app.post('/upload-pdfs', authenticateToken, upload.array('pdfs'), async (req, re
         res.status(200).send(`Knowledge library updated with content from ${req.files.length} PDF(s).`);
     } catch (error) {
         res.status(500).send("Failed to process PDFs.");
+=======
+  try {
+    const studentSubmission = req.body;
+    if (!studentSubmission?._id || !studentSubmission.responses) {
+      return res.status(400).json({ message: 'Invalid submission data.' });
     }
+
+    const resultsCollection = db.collection('results');
+    const quizzesCollection = db.collection('quizzes');
+
+    const originalResult = await resultsCollection.findOne({ _id: new ObjectId(studentSubmission._id) });
+    if (!originalResult) return res.status(404).json({ message: 'Submission not found.' });
+
+    const quiz = await quizzesCollection.findOne({ id: originalResult.quizId });
+    if (!quiz) return res.status(404).json({ message: 'Quiz data not found.' });
+
+    let newTotalScore = 0;
+    let newSubjectScores = {};
+
+    for (const subjectName in quiz.subjects) {
+      let currentSubjectScore = 0;
+      if (!quiz.subjects[subjectName]) continue;
+
+      for (let qIndex = 0; qIndex < quiz.subjects[subjectName].length; qIndex++) {
+        const question = quiz.subjects[subjectName][qIndex];
+        const updatedResponse = studentSubmission.responses?.[subjectName]?.[qIndex];
+        const originalResponse = originalResult.responses?.[subjectName]?.[qIndex];
+        let marksObtained = 0;
+
+        const marksCorrect = (quiz.marksMode === 'custom' ? question.correctMarks : quiz.correctMarks) ?? 1;
+        const marksIncorrect = (quiz.marksMode === 'custom' ? question.wrongMarks : quiz.wrongMarks) ?? 0;
+
+        if (question.type === 'subjective') {
+          // manual entry from teacher UI expected in updatedResponse.marks
+          marksObtained = updatedResponse?.marks || 0;
+        } else if (question.type === 'multiple-choice') {
+          if (originalResponse?.answer !== undefined && originalResponse.answer === originalResponse.shuffledCorrectAnswerIndex) {
+            marksObtained = marksCorrect;
+          } else {
+            marksObtained = marksIncorrect;
+          }
+        } else if (question.type === 'fill-in-the-blank') {
+          if (originalResponse?.answer) {
+            const correctAnswers = (question.answerKey || '').split('|').map(a => a.trim().toLowerCase());
+            const isCorrect = correctAnswers.includes(originalResponse.answer.toString().trim().toLowerCase());
+            marksObtained = isCorrect ? marksCorrect : marksIncorrect;
+          } else {
+            marksObtained = marksIncorrect;
+          }
+        }
+        currentSubjectScore += marksObtained;
+      }
+      newSubjectScores[subjectName] = currentSubjectScore;
+      newTotalScore += currentSubjectScore;
+    }
+
+    await resultsCollection.updateOne(
+      { _id: new ObjectId(studentSubmission._id) },
+      { $set: { responses: studentSubmission.responses, totalScore: newTotalScore, subjectScores: newSubjectScores } }
+    );
+
+    res.status(200).json({ message: 'Grades updated successfully!', newTotalScore });
+  } catch (err) {
+    console.error('Error grading submission:', err);
+    res.status(500).json({ message: 'An error occurred while saving grades.' });
+  }
 });
 
+// KNOWLEDGE LIBRARY & AI ENDPOINTS
+app.post('/upload-pdfs', authenticateToken, upload.array('pdfs'), async (req, res) => {
+  try {
+    knowledgeBase = [];
+    for (const file of req.files) {
+      const dataBuffer = fs.readFileSync(file.path);
+      const data = await pdf(dataBuffer);
+      const chunks = data.text.split(/\n\s*\n/);
+      knowledgeBase.push(...chunks.map(chunk => chunk.trim()).filter(chunk => chunk.length > 50));
+      fs.unlinkSync(file.path);
+>>>>>>> 761cab15c09089f9c5c8c73355c293d0d06a5f27
+    }
+    res.status(200).send(`Knowledge library updated with content from ${req.files.length} PDF(s).`);
+  } catch (error) {
+    res.status(500).send("Failed to process PDFs.");
+  }
+});
+
+// AI question generation from uploaded PDFs
 app.post('/generate-questions', authenticateToken, async (req, res) => {
+<<<<<<< HEAD
     try {
         const { topic, numQuestions, questionType, difficulty } = req.body;
 
@@ -705,12 +932,39 @@ app.post('/api/predict-difficulty', authenticateToken, async (req, res) => {
             message: 'Error predicting difficulty',
             error: err.message
         });
+=======
+  try {
+    const { topic, numQuestions, questionType, difficulty } = req.body;
+
+    const contextChunks = knowledgeBase.filter(chunk => chunk.toLowerCase().includes(topic.toLowerCase())).slice(0, 5);
+    if (contextChunks.length === 0) {
+      return res.status(404).json({ message: `No information found on "${topic}" in the uploaded books.` });
+>>>>>>> 761cab15c09089f9c5c8c73355c293d0d06a5f27
     }
+    const context = contextChunks.join("\n\n");
+
+    let prompt;
+    const baseInstruction = `Based ONLY on the following context from the official textbook, generate exactly ${numQuestions} questions for a ${difficulty} level MPC exam (JEE/EAMCET standards) on the topic of "${topic}". Output only a raw, valid JSON array. The array must contain exactly ${numQuestions} objects.`;
+
+    switch (questionType) {
+      case 'fill-in-the-blank':
+        prompt = `${baseInstruction} Each object must have keys "text" (with a blank as "____") and "answerKey". For answerKey, provide answers separated by '|'. CONTEXT: """${context}"""`;
+        break;
+      default:
+        prompt = `${baseInstruction} Each object must have keys "text", "options" (an array of 4 strings), and "correctAnswer" (a 0-based index). CONTEXT: """${context}"""`;
+        break;
+    }
+
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+    const result = await model.generateContent(prompt);
+    const text = result.response.text().replace(/```json|```/g, '').trim();
+    res.json(JSON.parse(text));
+  } catch (error) {
+    res.status(500).send("Failed to generate questions with AI.");
+  }
 });
 
 // --- START SERVER ---
 connectDB().then(() => {
-    app.listen(PORT, () => {
-        console.log(`Server running at http://localhost:${PORT}`);
-    });
+  app.listen(PORT, () => console.log(`Server running at http://localhost:${PORT}`));
 });
