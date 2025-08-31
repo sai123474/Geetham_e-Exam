@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Geetham e-Exam</title>
-    <link rel="icon" type="image/jpeg" href="/geetham.jpg">
-    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" type="image/jpeg" href="/geetham.jpg" />
+    <link rel="manifest" href="/manifest.json" />
     <script type="module" src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/vision_bundle.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <meta name="theme-color" content="#0056b3"/>
@@ -43,13 +43,20 @@
         #ai-status.loading { background: #ffc107; color: #333; }
         #ai-status.ready { background: #28a745; color: white; }
         #ai-status.error { background: #dc3545; color: white; }
-        #fullscreen-warning { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); color: white; z-index: 999999; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+        #save-status { text-align: right; padding: 10px 0 5px; font-size: 12px; font-weight: 500; color: green; height: 15px; }
+        #save-status.flash { animation: flashGreen 1s ease; }
+        @keyframes flashGreen {
+            0%   { opacity: 0.3; }
+            50%  { opacity: 1; }
+            100% { opacity: 0.8; }
+        }
     </style>
 </head>
 <body>
-    <div id="fullscreen-warning" style="display:none;">
+    <div id="fullscreen-warning" style="display:none; flex-direction: column; justify-content: center; align-items: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); color: white; z-index: 10000;">
         <h1>You Exited Full-Screen!</h1>
         <p>Please return to full-screen to continue the test.</p>
+        <p>Resuming automatically in <span id="fullscreen-countdown">5</span> seconds...</p>
         <button id="resume-fullscreen-btn">Resume Full-Screen</button>
     </div>
     <div id="ai-status" class="loading" style="display:none;">AI Proctor Loading...</div>
@@ -58,7 +65,6 @@
         <div id="camera-header"><span>Camera</span></div>
         <video id="camera-view" autoplay playsinline muted></video>
     </div>
-
     <div id="student-details-screen" style="display: block;">
         <div style="max-width: 500px; margin: 50px auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
             <div style="text-align: center; margin-bottom: 15px;">
@@ -75,7 +81,7 @@
             </div>
         </div>
     </div>
-    
+    <div id="warningBanner" style="display:none; background:#ff4d4d; color:white; padding:10px; text-align:center; font-weight:bold;">Last 5 minutes remaining! Please finish your quiz.</div>
     <div class="main-container" id="quiz-screen">
         <div class="quiz-panel">
             <h1 style="margin-top: 0;" id="quiz-title-main"></h1>
@@ -85,6 +91,7 @@
             <div class="nav-buttons">
                 <button class="secondary" onclick="markForReview()">Mark for Review & Next</button>
                 <div>
+                    <button id="manual-save-btn" class="secondary" onclick="manualSave()">Save Progress</button>
                     <button onclick="goPrevious()">Previous</button>
                     <button class="secondary" onclick="clearResponse()">Clear Response</button>
                     <button onclick="saveAndNext()">Save & Next</button>
@@ -95,6 +102,7 @@
             </div>
         </div>
         <div class="sidebar">
+            <div id="save-status"></div>
             <h4>Question Palette</h4>
             <div id="question-palette" class="palette-grid"></div>
             <hr>
@@ -104,335 +112,223 @@
             <div style="display:flex; align-items: center; margin-top: 10px;"><div class="palette-item status-not-answered"></div><span style="margin-left: 10px;">Not Answered</span></div>
         </div>
     </div>
-
 <script type="module">
-    import { FaceLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/vision_bundle.js";
+import { FaceLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/vision_bundle.js";
 
-    // --- GLOBAL VARIABLES ---
-    let allQuizzes = [], currentQuiz = {}, currentSubject = "", currentQuestionIndex = 0;
-    let userResponses = {}, studentDetails = {}, timerInterval, quizInProgress = false, warningCount = 0;
-    const maxWarnings = 3;
-    let faceLandmarker, isGazeDetectionRunning = false, lookAwayStartTime = null;
-    const LOOK_AWAY_THRESHOLD = 3000;
-    let questionTimes = {};
-    let lastQuestionStart = null;
-    let fullscreenCountdownInterval;
+// --- GLOBAL VARIABLES ---
+let allQuizzes = [], currentQuiz = {}, currentSubject = "", currentQuestionIndex = 0;
+let userResponses = {}, studentDetails = {}, timerInterval, quizInProgress = false, warningCount = 0;
+const maxWarnings = 3;
+let faceLandmarker, isGazeDetectionRunning = false, lookAwayStartTime = null;
+const LOOK_AWAY_THRESHOLD = 3000;
+let questionTimes = {}, lastQuestionStart = null, fullscreenCountdownInterval;
+let stateToResume = null; 
 
-    // --- UTILITY FUNCTIONS ---
-    function showToast(message, type = 'warning') {
-        const toast = document.createElement('div');
-        toast.className = `toast ${type}`;
-        toast.textContent = message;
-        document.body.appendChild(toast);
-        setTimeout(() => { toast.classList.add('show'); }, 100);
-        setTimeout(() => {
-            toast.classList.remove('show');
-            setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 500);
-        }, 4000);
+// --- UTILITY FUNCTIONS ---
+function showToast(message, type = 'warning') {
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    setTimeout(() => { toast.classList.add('show'); }, 100);
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 500);
+    }, 4000);
+}
+
+function updateAIStatus(status, message) {
+    const aiStatus = document.getElementById('ai-status');
+    aiStatus.className = status;
+    aiStatus.textContent = message;
+    aiStatus.style.display = 'block';
+    if (status === 'ready') setTimeout(() => { aiStatus.style.display = 'none'; }, 3000);
+}
+
+function shuffleArray(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
     }
+}
 
-    function updateAIStatus(status, message) {
-        const aiStatus = document.getElementById('ai-status');
-        aiStatus.className = status;
-        aiStatus.textContent = message;
-        aiStatus.style.display = 'block';
-        if (status === 'ready') {
-            setTimeout(() => { aiStatus.style.display = 'none'; }, 3000);
+// --- QUIZ FLOW ---
+async function loadInitialData() {
+    try {
+        const response = await fetch('/get-quizzes');
+        allQuizzes = await response.json();
+        displayInitialScreen();
+    } catch (error) {
+        document.body.innerHTML = "<h1>Error: Could not load quiz data.</h1>";
+    }
+}
+
+function displayInitialScreen() {
+    document.getElementById('student-details-screen').style.display = 'block';
+    const quizSelectionContainer = document.getElementById('quiz-selection-container');
+    let selectHTML = '<label for="quiz-select">Select a Test:</label><select id="quiz-select">';
+    allQuizzes.forEach((quiz, index) => selectHTML += `<option value="${index}">${quiz.title}</option>`);
+    selectHTML += '</select>';
+    quizSelectionContainer.innerHTML = selectHTML;
+    document.getElementById('proceed-btn').onclick = handleProceed;
+}
+
+async function handleProceed() {
+    const name = document.getElementById('student-name').value.trim();
+    const mobile = document.getElementById('student-mobile').value.trim();
+    const quizSelect = document.getElementById('quiz-select');
+    currentQuiz = allQuizzes[quizSelect ? quizSelect.value : 0];
+    if (!name || !mobile) return alert("Please fill in all details.");
+    studentDetails = { name, mobile };
+    const storageKey = `examData_${studentDetails.mobile}_${currentQuiz.id}`;
+    const savedData = localStorage.getItem(storageKey);
+    if (savedData) {
+        if (confirm("We found a saved session for this exam. Do you want to resume?")) {
+            stateToResume = JSON.parse(savedData);
         }
     }
-
-    function shuffleArray(array) {
-        for (let i = array.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [array[i], array[j]] = [array[j], array[i]];
-        }
+    const response = await fetch('/check-attempt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mobile: studentDetails.mobile, quizId: currentQuiz.id })
+    });
+    const data = await response.json();
+    if (data.canAttempt) {
+        showPasswordScreen();
+    } else {
+        alert(data.message);
     }
+}
 
-    // --- QUIZ FLOW ---
-    async function loadInitialData() {
+function showPasswordScreen() {
+    const detailsScreen = document.getElementById('login-form');
+    detailsScreen.innerHTML = `
+        <h2>Enter Exam Password</h2>
+        <input type="password" id="exam-password" placeholder="Enter the password" required autocomplete="new-password">
+        <button id="password-submit-btn" style="width: 100%;">Continue</button>
+    `;
+    document.getElementById('password-submit-btn').onclick = () => {
+        if (document.getElementById('exam-password').value === currentQuiz.password) {
+            prepareQuiz();
+        } else {
+            alert("Incorrect password.");
+        }
+    };
+}
+
+function prepareQuiz() {
+    loadGazeModel();
+    const detailsContainer = document.getElementById('student-details-screen').querySelector('div');
+    detailsContainer.innerHTML = `
+        <h2>Exam Instructions</h2>
+        <p>This test is AI-proctored. Do not switch tabs, exit full-screen, or look away.</p>
+        <p>After ${maxWarnings} warnings, your test will be submitted automatically.</p>
+        <p>Your progress will be saved automatically.</p>
+        <button id="start-test-btn" style="width: 100%;">Start Camera & Full Screen</button>
+    `;
+    document.getElementById('start-test-btn').onclick = async () => {
         try {
-            const response = await fetch('/get-quizzes');
-            allQuizzes = await response.json();
-            displayInitialScreen();
-        } catch (error) {
-            document.body.innerHTML = "<h1>Error: Could not load quiz data.</h1>";
+            await startCamera();
+            await requestFullscreenSafe();
+            showToast("Permissions Granted!", "success");
+            setTimeout(() => {
+                document.getElementById('student-details-screen').style.display = 'none';
+                document.getElementById('quiz-screen').style.display = 'flex';
+                initializeQuiz();
+            }, 1500);
+        } catch (err) {
+            showToast("Could not start. Please allow permissions.", "warning");
         }
-    }
-    
-    function displayInitialScreen() {
-        document.getElementById('student-details-screen').style.display = 'block';
-        const quizSelectionContainer = document.getElementById('quiz-selection-container');
-        let selectHTML = '<label for="quiz-select">Select a Test:</label><select id="quiz-select">';
-        allQuizzes.forEach((quiz, index) => {
-            selectHTML += `<option value="${index}">${quiz.title}</option>`;
-        });
-        selectHTML += '</select>';
-        quizSelectionContainer.innerHTML = selectHTML;
-        document.getElementById('proceed-btn').onclick = handleProceed;
-    }
+    };
+}
 
-    async function handleProceed() {
-        const name = document.getElementById('student-name').value;
-        const mobile = document.getElementById('student-mobile').value;
-        const quizSelect = document.getElementById('quiz-select');
-        currentQuiz = allQuizzes[quizSelect ? quizSelect.value : 0];
-        if (!name || !mobile) return alert("Please fill in all details.");
-        studentDetails = { name, mobile };
-        const response = await fetch('/check-attempt', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ mobile: studentDetails.mobile, quizId: currentQuiz.id })
-        });
-        const data = await response.json();
-        if (data.canAttempt) showPasswordScreen();
-        else alert(data.message);
-    }
-
-    function showPasswordScreen() {
-        const detailsScreen = document.getElementById('student-details-screen');
-        detailsScreen.innerHTML = `
-            <div style="max-width: 500px; margin: 50px auto; background: #fff; padding: 30px; border-radius: 8px;">
-                <h2>Enter Exam Password</h2>
-                <input type="password" id="exam-password" placeholder="Enter the password" required autocomplete="new-password">
-                <button id="password-submit-btn" style="width: 100%;">Continue</button>
-            </div>
-        `;
-        document.getElementById('password-submit-btn').onclick = () => {
-            if (document.getElementById('exam-password').value === currentQuiz.password) prepareQuiz();
-            else alert("Incorrect password.");
-        };
-    }
-
-    function prepareQuiz() {
-        loadGazeModel();
-        const detailsScreen = document.getElementById('student-details-screen');
-        detailsScreen.innerHTML = `
-            <div style="max-width: 500px; margin: 50px auto; background: #fff; padding: 30px; border-radius: 8px;">
-                <h2>Exam Instructions</h2>
-                <p>This test is AI-proctored. Do not switch tabs, exit full-screen, or look away.</p>
-                <p>After ${maxWarnings} warnings, your test will be submitted automatically.</p>
-                <button id="start-test-btn" style="width: 100%;">Start Camera & Full Screen</button>
-            </div>
-        `;
-        document.getElementById('start-test-btn').onclick = async () => {
-            try {
-                await startCamera();
-                await startFullScreen();
-                showToast("Permissions Granted!", "success");
-                setTimeout(() => {
-                    document.getElementById('student-details-screen').style.display = 'none';
-                    document.getElementById('quiz-screen').style.display = 'flex';
-                    initializeQuiz();
-                }, 1500);
-            } catch (err) {
-                showToast("Could not start. Please allow permissions.", "warning");
-            }
-        };
-    }
-
-    function initializeQuiz() {
-        quizInProgress = true;
-        document.getElementById('quiz-title-main').textContent = currentQuiz.title;
-        const subjectTabsContainer = document.querySelector('.subject-tabs');
-        subjectTabsContainer.innerHTML = '';
+function initializeQuiz() {
+    quizInProgress = true;
+    document.getElementById('quiz-title-main').textContent = currentQuiz.title;
+    const subjectTabsContainer = document.querySelector('.subject-tabs');
+    subjectTabsContainer.innerHTML = '';
+    let firstSubject = Object.keys(currentQuiz.subjects)[0];
+    Object.keys(currentQuiz.subjects).forEach(subject => {
+        const tab = document.createElement('button');
+        tab.className = 'subject-tab';
+        tab.textContent = subject;
+        tab.onclick = (e) => switchSubject(subject, e.currentTarget);
+        subjectTabsContainer.appendChild(tab);
+    });
+    let shouldResetIndex = true;
+    if (stateToResume) {
+        userResponses = stateToResume.userResponses;
+        currentSubject = stateToResume.currentSubject;
+        currentQuestionIndex = stateToResume.currentQuestionIndex;
+        shouldResetIndex = false;
+        firstSubject = currentSubject;
+        stateToResume = null;
+        showToast("Resumed your previous session!", "success");
+    } else {
         Object.keys(currentQuiz.subjects).forEach(subject => {
             shuffleArray(currentQuiz.subjects[subject]);
             userResponses[subject] = {};
             questionTimes[subject] = {};
-            const tab = document.createElement('button');
-            tab.className = 'subject-tab';
-            tab.textContent = subject;
-            tab.onclick = (e) => switchSubject(subject, e.currentTarget);
-            subjectTabsContainer.appendChild(tab);
         });
-        currentSubject = Object.keys(currentQuiz.subjects)[0];
-        setupProctoringListeners();
-        switchSubject(currentSubject, subjectTabsContainer.firstChild);
-        startTimer(currentQuiz.timeLimit * 60);
-        setTimeout(startGazeDetection, 2000);
+        currentSubject = firstSubject;
     }
-    
-    // --- PROCTORING AND NAVIGATION ---
-    async function startCamera() {
-        const videoElement = document.getElementById('camera-view');
-        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-            videoElement.srcObject = stream;
-            document.getElementById('camera-wrapper').style.display = 'block';
-            await new Promise(resolve => videoElement.onloadedmetadata = resolve);
-        } else { throw new Error("Camera not supported."); }
-    }
-
-    async function startFullScreen() {
-        if (document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen();
-    }
-    
-    function setupProctoringListeners() {
-    // Detects tab switching
-    document.addEventListener('visibilitychange', () => {
-        if (document.hidden && quizInProgress) {
-            handleWarning("You have switched tabs.");
-        }
-    });
-
-    // Detects exiting full-screen and shows the countdown overlay
-    document.addEventListener('fullscreenchange', () => {
-        const overlay = document.getElementById('fullscreen-warning');
-        if (!document.fullscreenElement && quizInProgress) {
-            handleWarning("You have exited full-screen.");
-            overlay.style.display = 'flex';
-            startFullscreenCountdown();
-        } else {
-            overlay.style.display = 'none';
-            clearInterval(fullscreenCountdownInterval);
-        }
-    });
-
-    // Detects switching to another application
-    window.addEventListener("blur", () => {
-        if (quizInProgress) {
-            handleWarning("You have switched to another application.");
-        }
-    });
-
-    // Block right-click
-    document.addEventListener('contextmenu', (e) => {
-        if (quizInProgress) {
-            e.preventDefault();
-            handleWarning("Right-click is disabled.");
-        }
-    });
-
-    // Block special keys and developer tools
-    document.addEventListener('keydown', (e) => {
-        if (!quizInProgress) return;
-        if (e.ctrlKey && ['c', 'v', 'p', 'a', 'x'].includes(e.key.toLowerCase())) {
-            e.preventDefault();
-            handleWarning(`Ctrl+${e.key.toUpperCase()} is disabled.`);
-        }
-        if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && ['I', 'J', 'C'].includes(e.key.toUpperCase()))) {
-            e.preventDefault();
-            handleWarning("Developer tools are disabled.");
-        }
-    });
+    setupProctoringListeners();
+    const activeTab = [...subjectTabsContainer.querySelectorAll('.subject-tab')].find(t => t.textContent === firstSubject);
+    switchSubject(firstSubject, activeTab, shouldResetIndex);
+    startTimer(currentQuiz.timeLimit * 60);
+    setTimeout(startGazeDetection, 2000);
+    setInterval(() => autoSave("interval"), 30000);
 }
-function startFullscreenCountdown() {
-        let seconds = 5;
-        const countdownElement = document.getElementById('fullscreen-countdown');
-        countdownElement.textContent = seconds;
 
-        clearInterval(fullscreenCountdownInterval); // Clear any existing interval
-        fullscreenCountdownInterval = setInterval(async () => {
-            seconds--;
-            countdownElement.textContent = seconds;
-            if (seconds <= 0) {
-                clearInterval(fullscreenCountdownInterval);
-                await startFullScreen();
-            }
-        }, 1000);
+function getExamState() {
+    return {
+        userResponses: userResponses,
+        currentSubject: currentSubject,
+        currentQuestionIndex: currentQuestionIndex,
+    };
+}
+
+function autoSave(trigger = "auto") {
+    if (!quizInProgress) return;
+    const examState = getExamState();
+    const storageKey = `examData_${studentDetails.mobile}_${currentQuiz.id}`;
+    localStorage.setItem(storageKey, JSON.stringify(examState));
+    const now = new Date();
+    const timeString = now.toLocaleTimeString();
+    const saveStatus = document.getElementById('save-status');
+    if (saveStatus) {
+        saveStatus.textContent = `✔ Last saved: ${timeString} (${trigger})`;
+        saveStatus.classList.remove("flash");
+        void saveStatus.offsetWidth;
+        saveStatus.classList.add("flash");
     }
-    function handleWarning(message) {
-        warningCount++;
-        const warningMessage = `Warning ${warningCount}/${maxWarnings}: ${message}`;
-        showToast(warningMessage, 'warning');
-        document.getElementById('warning-count').textContent = warningCount;
-        document.getElementById('warnings-indicator').style.display = 'block';
-        if (warningCount >= maxWarnings) {
-            setTimeout(() => {
-                showToast(`Maximum warnings exceeded. Submitting test automatically.`, 'warning');
-                submitTest();
-            }, 1000);
-        }
-    }
+}
 
-    async function loadGazeModel(retries = 2) {
-        updateAIStatus('loading', 'Loading AI Proctor...');
-        try {
-            const filesetResolver = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm");
-            faceLandmarker = await FaceLandmarker.createFromOptions(filesetResolver, {
-                baseOptions: {
-                    modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`,
-                    delegate: "GPU"
-                },
-                runningMode: "VIDEO",
-                numFaces: 1
-            });
-            updateAIStatus('ready', 'AI Proctor Ready');
-        } catch (error) {
-            console.error("Failed to load gaze model:", error);
-            if (retries > 0) {
-                setTimeout(() => loadGazeModel(retries - 1), 2000);
-            } else {
-                updateAIStatus('error', 'AI Proctor Failed');
-                faceLandmarker = null;
-            }
-        }
-    }
+function manualSave() {
+    autoSave("manual");
+    showToast("Progress Saved Manually!", "success");
+}
 
-    function startGazeDetection() {
-        if (!faceLandmarker || isGazeDetectionRunning) return;
-        isGazeDetectionRunning = true;
-        const video = document.getElementById('camera-view');
-        let lastVideoTime = -1;
-        async function predictWebcam() {
-            if (!quizInProgress || !isGazeDetectionRunning) return;
-            const startTimeMs = performance.now();
-            if (video.readyState >= 2 && lastVideoTime !== video.currentTime) {
-                lastVideoTime = video.currentTime;
-                const results = faceLandmarker.detectForVideo(video, startTimeMs);
-                let isLookingAway = !results.faceLandmarks || results.faceLandmarks.length === 0;
-
-                if (results.faceLandmarks && results.faceLandmarks.length > 1) {
-                    handleWarning("Multiple faces detected.");
-                }
-                
-                if (isLookingAway) {
-                    if (lookAwayStartTime === null) lookAwayStartTime = Date.now();
-                    else if (Date.now() - lookAwayStartTime > LOOK_AWAY_THRESHOLD) {
-                        handleWarning("Looking away or face not detected.");
-                        lookAwayStartTime = null;
-                    }
-                } else {
-                    lookAwayStartTime = null;
-                }
-            }
-            window.requestAnimationFrame(predictWebcam);
-        }
-        predictWebcam();
-    }
-
-    function switchSubject(subject, clickedTab) {
-        accumulateTimeForCurrent();
-        currentSubject = subject;
-        currentQuestionIndex = 0;
-        document.querySelectorAll('.subject-tab').forEach(tab => tab.classList.remove('active'));
-        if (clickedTab) clickedTab.classList.add('active');
-        loadQuestion();
-        updatePalette();
-    }
-
-    function loadQuestion() {
-        const question = currentQuiz.subjects[currentSubject][currentQuestionIndex];
-        const questionArea = document.getElementById('question-area');
-        let shuffledOptions;
-        if (question.shuffledOptions) {
-            shuffledOptions = question.shuffledOptions;
-        } else {
+function loadQuestion() {
+    const question = currentQuiz.subjects[currentSubject][currentQuestionIndex];
+    const questionArea = document.getElementById('question-area');
+    questionArea.innerHTML = `
+        <h3>Question ${currentQuestionIndex + 1}</h3>
+        <p>${question.text}</p>
+        <img style="display:${question.imageUrl ? 'block' : 'none'}; max-width:100%;" src="${question.imageUrl || ''}">
+        <div id="options-container"></div>
+    `;
+    const optionsContainer = document.getElementById('options-container');
+    const response = userResponses[currentSubject]?.[currentQuestionIndex] || {};
+    if (question.type === "multiple-choice") {
+        if (!question.shuffledOptions) {
             const originalCorrectAnswerText = question.options[question.correctAnswer];
-            shuffledOptions = [...question.options];
+            const shuffledOptions = [...question.options];
             shuffleArray(shuffledOptions);
             question.shuffledOptions = shuffledOptions;
             question.shuffledCorrectAnswerIndex = shuffledOptions.indexOf(originalCorrectAnswerText);
         }
-        questionArea.innerHTML = `
-            <h3 id="question-number">Question ${currentQuestionIndex + 1}</h3>
-            <p id="question-text">${question.text}</p>
-            <img id="question-image" class="question-image" style="display:${question.imageUrl ? 'block' : 'none'}; max-width:100%;" src="${question.imageUrl || ''}">
-            <div id="options-container"></div>
-        `;
-        const optionsContainer = document.getElementById('options-container');
-        const response = userResponses[currentSubject]?.[currentQuestionIndex] || {};
-        shuffledOptions.forEach((option, index) => {
+        question.shuffledOptions.forEach((option, index) => {
             const div = document.createElement('div');
             div.className = 'option';
             div.textContent = option;
@@ -440,238 +336,641 @@ function startFullscreenCountdown() {
             div.onclick = () => selectOption(index);
             optionsContainer.appendChild(div);
         });
-        lastQuestionStart = Date.now();
-        updatePalette();
+    } else if (question.type === "fill-in-the-blank") {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.placeholder = 'Enter your answer here';
+        input.value = response.answer || '';
+        input.oninput = (e) => selectOption(e.target.value);
+        optionsContainer.appendChild(input);
+    } else if (question.type === "subjective") {
+        const textarea = document.createElement('textarea');
+        textarea.placeholder = 'Write your answer here';
+        textarea.rows = 4;
+        textarea.style.width = '100%';
+        textarea.value = response.answer || '';
+        textarea.oninput = (e) => selectOption(e.target.value);
+        optionsContainer.appendChild(textarea);
     }
-    
-    function selectOption(index) {
-        if (!userResponses[currentSubject]) userResponses[currentSubject] = {};
-        userResponses[currentSubject][currentQuestionIndex] = userResponses[currentSubject][currentQuestionIndex] || {};
-        userResponses[currentSubject][currentQuestionIndex].answer = index;
+    lastQuestionStart = Date.now();
+    updatePalette();
+}
+
+function selectOption(answer) {
+    if (!userResponses[currentSubject]) userResponses[currentSubject] = {};
+    const currentResponse = userResponses[currentSubject]?.[currentQuestionIndex] || {};
+    const question = currentQuiz.subjects[currentSubject][currentQuestionIndex];
+
+    currentResponse.answer = answer;
+
+    // CRITICAL FIX: For multiple-choice questions, we must also save the shuffled answer key.
+    // This allows the server to correctly re-grade the submission later.
+    if (question.type === "multiple-choice") {
+        currentResponse.shuffledCorrectAnswerIndex = question.shuffledCorrectAnswerIndex;
+    }
+
+    if (currentResponse.status !== 'review') {
+        currentResponse.status = 'answered';
+    }
+    userResponses[currentSubject][currentQuestionIndex] = currentResponse;
+
+    if (question.type === "multiple-choice") {
         document.querySelectorAll('.option').forEach((opt, optIndex) => {
-            opt.classList.toggle('selected', optIndex === index);
+            opt.classList.toggle('selected', optIndex === answer);
         });
     }
+    updatePalette();
+    autoSave("instant");
+}
 
-    function accumulateTimeForCurrent() {
-        if (!quizInProgress || lastQuestionStart === null) return;
-        const now = Date.now();
-        const elapsed = now - lastQuestionStart;
-        if (!questionTimes[currentSubject]) questionTimes[currentSubject] = {};
-        questionTimes[currentSubject][currentQuestionIndex] = (questionTimes[currentSubject][currentQuestionIndex] || 0) + elapsed;
+function switchSubject(subject, clickedTab, resetQuestionIndex = true) {
+    accumulateTimeForCurrent();
+    currentSubject = subject;
+    if (resetQuestionIndex) {
+        currentQuestionIndex = 0;
     }
+    document.querySelectorAll('.subject-tab').forEach(tab => tab.classList.remove('active'));
+    if (clickedTab) clickedTab.classList.add('active');
+    loadQuestion();
+}
 
-    function goPrevious() {
-        if (currentQuestionIndex > 0) {
-            accumulateTimeForCurrent();
-            currentQuestionIndex--;
-            loadQuestion();
+function setupProctoringListeners() {
+    document.addEventListener('fullscreenchange', handleFullscreenChangeEvent);
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden && quizInProgress) {
+            handleWarning("You have switched tabs.");
+            autoSave("tab switch");
         }
-    }
-
-    function saveAndNext() {
-        accumulateTimeForCurrent();
-        const response = userResponses[currentSubject]?.[currentQuestionIndex];
-        if (response && response.answer !== undefined) response.status = 'answered';
-        if (currentQuestionIndex < currentQuiz.subjects[currentSubject].length - 1) {
-            currentQuestionIndex++;
-            loadQuestion();
+    });
+    window.addEventListener("blur", () => {
+        if (quizInProgress) handleWarning("You have switched to another application.");
+    });
+    document.addEventListener('contextmenu', e => {
+        if (quizInProgress) {
+            e.preventDefault();
+            handleWarning("Right-click is disabled.");
         }
-        updatePalette();
-    }
-
-    function markForReview() {
-        accumulateTimeForCurrent();
-        const response = userResponses[currentSubject]?.[currentQuestionIndex] || {};
-        response.status = 'review';
-        userResponses[currentSubject][currentQuestionIndex] = response;
-        if (currentQuestionIndex < currentQuiz.subjects[currentSubject].length - 1) {
-            currentQuestionIndex++;
-            loadQuestion();
+    });
+    document.addEventListener('keydown', e => {
+        if (!quizInProgress) return;
+        if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && ['I', 'J', 'C'].includes(e.key.toUpperCase()))) {
+            e.preventDefault();
+            handleWarning("Developer tools are disabled.");
         }
-        updatePalette();
-    }
-
-    function clearResponse() {
-        if (userResponses[currentSubject]?.[currentQuestionIndex]) {
-            delete userResponses[currentSubject][currentQuestionIndex].answer;
-            delete userResponses[currentSubject][currentQuestionIndex].status;
-        }
-        loadQuestion();
-    }
-
-    function updatePalette() {
-        const palette = document.getElementById('question-palette');
-        palette.innerHTML = '';
-        currentQuiz.subjects[currentSubject].forEach((_, index) => {
-            const response = userResponses[currentSubject]?.[index] || {};
-            const item = document.createElement('div');
-            item.className = 'palette-item';
-            if (response.status === 'answered') item.classList.add('status-answered');
-            else if (response.status === 'review') item.classList.add('status-review');
-            else item.classList.add('status-not-answered');
-            item.textContent = index + 1;
-            item.onclick = () => { accumulateTimeForCurrent(); currentQuestionIndex = index; loadQuestion(); };
-            palette.appendChild(item);
+    });
+    const resumeBtn = document.getElementById('resume-fullscreen-btn');
+    if (resumeBtn) {
+        resumeBtn.addEventListener('click', () => {
+            clearInterval(fullscreenCountdownInterval);
+            requestFullscreenSafe();
         });
     }
-    
-    function startTimer(duration) {
-        let timeLeft = duration;
-        timerInterval = setInterval(() => {
-            if (timeLeft <= 0) {
-                clearInterval(timerInterval);
-                showToast("Time's up! Submitting your test.", 'warning');
-                submitTest();
-                return;
+}
+
+function handleFullscreenChangeEvent() {
+    const overlay = document.getElementById('fullscreen-warning');
+    if (!document.fullscreenElement && quizInProgress) {
+        handleWarning("You have exited full-screen.");
+        autoSave("fullscreen exit");
+        overlay.style.display = 'flex';
+        startFullscreenCountdown();
+    } else {
+        overlay.style.display = 'none';
+        clearInterval(fullscreenCountdownInterval);
+    }
+}
+function confirmSubmit() {
+    if (!quizInProgress) return;
+    if (confirm("Are you sure you want to submit the test? You cannot make any changes after this.")) {
+        submitTest();
+    }
+}
+
+function submitTest() {
+    if (!quizInProgress) return;
+    quizInProgress = false;
+    clearInterval(timerInterval);
+    autoSave("final");
+    accumulateTimeForCurrent();
+
+    const submitBtn = document.querySelector('.submit');
+    if (submitBtn) submitBtn.disabled = true;
+
+    // Compute total score for auto-graded questions
+    let totalScore = 0;
+    let subjectScores = {};
+    Object.keys(currentQuiz.subjects).forEach(subject => {
+        let subjectScore = 0;
+        currentQuiz.subjects[subject].forEach((q, index) => {
+            const response = userResponses[subject]?.[index];
+            let marksObtained = 0;
+            const marksCorrect = currentQuiz.marksMode === 'custom' ? (q.correctMarks ?? 1) : (currentQuiz.correctMarks ?? 1);
+            const marksIncorrect = currentQuiz.marksMode === 'custom' ? (q.wrongMarks ?? 0) : (currentQuiz.wrongMarks ?? 0);
+            
+            const hasAnswer = response && response.answer !== undefined && response.answer !== '';
+
+            if (q.type === "multiple-choice") {
+                if (hasAnswer && response.answer === response.shuffledCorrectAnswerIndex) {
+                    marksObtained = marksCorrect;
+                } else {
+                    marksObtained = marksIncorrect;
+                }
+            } else if (q.type === "fill-in-the-blank") {
+                 if (hasAnswer) {
+                    const correctAnswers = (q.answerKey || '').split('|').map(a => a.trim().toLowerCase());
+                    const isCorrect = correctAnswers.includes((response.answer || '').toString().trim().toLowerCase());
+                    marksObtained = isCorrect ? marksCorrect : marksIncorrect;
+                } else {
+                    marksObtained = marksIncorrect;
+                }
             }
-            timeLeft--;
-            const hours = Math.floor(timeLeft / 3600);
-            const minutes = Math.floor((timeLeft % 3600) / 60);
-            const seconds = timeLeft % 60;
-            document.getElementById('timer').textContent = 
-                `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            // Subjective questions are scored as 0 on initial submission
+            subjectScore += marksObtained;
+        });
+        subjectScores[subject] = subjectScore;
+        totalScore += subjectScore;
+    });
+
+    const sendResult = (location = { lat: null, lon: null }) => {
+        const resultData = {
+            date: new Date().toISOString(),
+            studentName: studentDetails.name,
+            mobile: studentDetails.mobile,
+            quizId: currentQuiz.id,
+            quizTitle: currentQuiz.title,
+            totalScore,
+            subjectScores,
+            warnings: warningCount,
+            questionTimes,
+            location,
+            responses: userResponses
+        };
+        fetch('/submit-result', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(resultData),
+        })
+        .then(res => {
+            if (!res.ok) throw new Error('Submission failed');
+            alert("Test Submitted Successfully!");
+            localStorage.removeItem(`examData_${studentDetails.mobile}_${currentQuiz.id}`);
+            document.getElementById('quiz-screen').innerHTML = `
+                <div style="text-align:center; margin:50px auto;">
+                    <h1>Thanks for taking Exam</h1>
+                    <button onclick="downloadPDFReport()">Download Report</button>
+                </div>`;
+        })
+        .catch(() => {
+            alert('Submission failed. Your progress is saved, please contact support.');
+            if (submitBtn) submitBtn.disabled = false;
+        });
+    };
+
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            pos => sendResult({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
+            () => sendResult({ lat: null, lon: null }),
+            { timeout: 5000 }
+        );
+    } else {
+        sendResult({ lat: null, lon: null });
+    }
+}
+
+
+async function requestFullscreenSafe() {
+    try {
+        if (document.fullscreenElement) return;
+        const el = document.documentElement;
+        if (el.requestFullscreen) await el.requestFullscreen();
+        else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+        else if (el.msRequestFullscreen) el.msRequestFullscreen();
+    } catch (err) {
+        console.error("Failed to enter full-screen:", err);
+        throw err;
+    }
+}
+
+function startFullscreenCountdown() {
+    let seconds = 5;
+    const countdownElement = document.getElementById('fullscreen-countdown');
+    countdownElement.textContent = seconds;
+    clearInterval(fullscreenCountdownInterval);
+    fullscreenCountdownInterval = setInterval(async () => {
+        if (document.fullscreenElement) {
+            clearInterval(fullscreenCountdownInterval);
+            document.getElementById('fullscreen-warning').style.display = 'none';
+            return;
+        }
+        seconds--;
+        countdownElement.textContent = seconds;
+        if (seconds <= 0) {
+            clearInterval(fullscreenCountdownInterval);
+            await requestFullscreenSafe().catch(() => {
+                showToast("Please click Resume Full-Screen to continue.", "warning");
+            });
+        }
+    }, 1000);
+}
+
+function handleWarning(message) {
+    warningCount++;
+    const warningMessage = `Warning ${warningCount}/${maxWarnings}: ${message}`;
+    showToast(warningMessage, 'warning');
+    document.getElementById('warning-count').textContent = warningCount;
+    document.getElementById('warnings-indicator').style.display = 'block';
+    if (warningCount >= maxWarnings) {
+        setTimeout(() => {
+            showToast(`Maximum warnings exceeded. Submitting test automatically.`, 'warning');
+            submitTest();
         }, 1000);
     }
-    
-    function confirmSubmit() {
-        if (confirm("Are you sure you want to submit the test?")) submitTest();
-    }
+}
 
-    function submitTest() {
-        const submitBtn = document.querySelector('.submit');
-        if (submitBtn) submitBtn.disabled = true;
-        if (!quizInProgress) return;
-        quizInProgress = false;
-        clearInterval(timerInterval);
-        accumulateTimeForCurrent();
-        let totalScore = 0;
-        let subjectScores = {};
-        Object.keys(currentQuiz.subjects).forEach(subject => {
-            let subjectScore = 0;
-            currentQuiz.subjects[subject].forEach((question, index) => {
-                const response = userResponses[subject]?.[index];
-                if (response && response.answer !== undefined) {
-                    if (response.answer === question.shuffledCorrectAnswerIndex) subjectScore += 4;
-                    else subjectScore -= 1;
-                }
-            });
-            subjectScores[subject] = subjectScore;
-            totalScore += subjectScore;
+async function startCamera() {
+    const videoElement = document.getElementById('camera-view');
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        videoElement.srcObject = stream;
+        document.getElementById('camera-wrapper').style.display = 'block';
+        await new Promise(resolve => videoElement.onloadedmetadata = resolve);
+    } else { throw new Error("Camera not supported."); }
+}
+
+async function loadGazeModel(retries = 2) {
+    updateAIStatus('loading', 'Loading AI Proctor...');
+    try {
+        const filesetResolver = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm");
+        faceLandmarker = await FaceLandmarker.createFromOptions(filesetResolver, {
+            baseOptions: {
+                modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`,
+                delegate: "GPU"
+            },
+            runningMode: "VIDEO",
+            numFaces: 1
         });
-        
-        function sendResult(location = null) {
-            const resultData = {
-                date: new Date().toISOString(),
-                studentName: studentDetails.name,
-                mobile: studentDetails.mobile,
-                class: currentQuiz.class,
-                quizId: currentQuiz.id,
-                quizTitle: currentQuiz.title,
-                totalScore: totalScore,
-                subjectScores: subjectScores,
-                warnings: warningCount,
-                questionTimes: questionTimes,
-                location: location
-            };
-            fetch('/submit-result', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(resultData),
-            })
-            .then(response => {
-                if (!response.ok) throw new Error('Submission failed');
-                alert(`Test Submitted Successfully!`);
-                document.getElementById('quiz-screen').innerHTML = `<div style="max-width: 600px; margin: 50px auto; text-align:center;"><h1>Test Submitted Successfully</h1><h2 type='hidden'>Your Final Score: ${totalScore}</h2><button onclick="downloadPDFReport()">Download Report</button></div>`;
-            })
-            .catch(error => {
-                alert('There was an error submitting your test.');
-                if (submitBtn) submitBtn.disabled = false;
-            });
+        updateAIStatus('ready', 'AI Proctor Ready');
+    } catch (error) {
+        console.error("Failed to load gaze model:", error);
+        if (retries > 0) setTimeout(() => loadGazeModel(retries - 1), 2000);
+        else updateAIStatus('error', 'AI Proctor Failed');
+    }
+}
+
+function startGazeDetection() {
+    if (!faceLandmarker || isGazeDetectionRunning) return;
+    isGazeDetectionRunning = true;
+    const video = document.getElementById('camera-view');
+    let lastVideoTime = -1;
+    async function predictWebcam() {
+        if (!quizInProgress) return;
+        const startTimeMs = performance.now();
+        if (video.readyState >= 2 && lastVideoTime !== video.currentTime) {
+            lastVideoTime = video.currentTime;
+            const results = faceLandmarker.detectForVideo(video, startTimeMs);
+            let isLookingAway = !results.faceLandmarks || results.faceLandmarks.length === 0;
+
+            if (results.faceLandmarks && results.faceLandmarks.length > 1) {
+                handleWarning("Multiple faces detected.");
+            }
+            if (isLookingAway) {
+                if (lookAwayStartTime === null) lookAwayStartTime = Date.now();
+                else if (Date.now() - lookAwayStartTime > LOOK_AWAY_THRESHOLD) {
+                    handleWarning("Looking away or face not detected.");
+                    lookAwayStartTime = null;
+                }
+            } else {
+                lookAwayStartTime = null;
+            }
         }
-        
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-                pos => sendResult({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
-                () => sendResult(),
-                { timeout: 5000 }
-            );
+        window.requestAnimationFrame(predictWebcam);
+    }
+    predictWebcam();
+}
+
+function accumulateTimeForCurrent() {
+    if (!quizInProgress || lastQuestionStart === null) return;
+    const elapsed = Date.now() - lastQuestionStart;
+    if (!questionTimes[currentSubject]) questionTimes[currentSubject] = {};
+    questionTimes[currentSubject][currentQuestionIndex] = (questionTimes[currentSubject][currentQuestionIndex] || 0) + elapsed;
+}
+
+function goPrevious() {
+    accumulateTimeForCurrent();
+    const subjects = Object.keys(currentQuiz.subjects);
+    if (currentQuestionIndex > 0) {
+        currentQuestionIndex--;
+    } else {
+        const currentSubjectIndex = subjects.indexOf(currentSubject);
+        if (currentSubjectIndex > 0) {
+            const prevSubject = subjects[currentSubjectIndex - 1];
+            currentSubject = prevSubject;
+            currentQuestionIndex = currentQuiz.subjects[prevSubject].length - 1;
+            document.querySelectorAll('.subject-tab').forEach(tab => tab.classList.remove('active'));
+            const newActiveTab = [...document.querySelectorAll('.subject-tab')].find(t => t.textContent === currentSubject);
+            if (newActiveTab) newActiveTab.classList.add('active');
         } else {
-            sendResult();
+            return;
         }
     }
-    
-   function downloadPDFReport() {
-    if (typeof window.jspdf === 'undefined') {
-        return alert("Error: PDF library is not available.");
+    loadQuestion();
+}
+
+function goNext() {
+    accumulateTimeForCurrent();
+    const subjects = Object.keys(currentQuiz.subjects);
+    const currentSubjectIndex = subjects.indexOf(currentSubject);
+    if (currentQuestionIndex < currentQuiz.subjects[currentSubject].length - 1) {
+        currentQuestionIndex++;
+    } else if (currentSubjectIndex < subjects.length - 1) {
+        const nextSubject = subjects[currentSubjectIndex + 1];
+        currentSubject = nextSubject;
+        currentQuestionIndex = 0;
+        document.querySelectorAll('.subject-tab').forEach(tab => tab.classList.remove('active'));
+        const newActiveTab = [...document.querySelectorAll('.subject-tab')].find(t => t.textContent === currentSubject);
+        if (newActiveTab) newActiveTab.classList.add('active');
+    } else {
+        showToast("You are at the last question. Click submit to finish.", "info");
+        return;
     }
-    if (!studentDetails.name || !currentQuiz.title) {
-        return alert("Error: Student or quiz data is missing.");
+    loadQuestion();
+}
+
+function saveAndNext() {
+    const question = currentQuiz.subjects[currentSubject][currentQuestionIndex];
+    const response = userResponses[currentSubject]?.[currentQuestionIndex] || {};
+    let isAnswered = true;
+    if (question.type === 'multiple-choice') {
+        if (response.answer === undefined) isAnswered = false;
+    } else if (question.type === 'fill-in-the-blank' || question.type === 'subjective') {
+        if (!response.answer || response.answer.trim() === '') isAnswered = false;
     }
+    if (!isAnswered) {
+        userResponses[currentSubject][currentQuestionIndex] = { ...response, status: 'not-answered' };
+    } else {
+        userResponses[currentSubject][currentQuestionIndex] = { ...response, status: 'answered' };
+    }
+    goNext();
+}
+
+function markForReview() {
+    if (!userResponses[currentSubject]) userResponses[currentSubject] = {};
+    userResponses[currentSubject][currentQuestionIndex] = {
+        ...(userResponses[currentSubject][currentQuestionIndex] || {}),
+        status: 'review'
+    };
+    goNext();
+}
+
+function clearResponse() {
+    if (userResponses[currentSubject] && userResponses[currentSubject][currentQuestionIndex]) {
+        delete userResponses[currentSubject][currentQuestionIndex];
+    }
+    const question = currentQuiz.subjects[currentSubject][currentQuestionIndex];
+    if (question.type === "multiple-choice") {
+        document.querySelectorAll('.option.selected').forEach(el => el.classList.remove('selected'));
+    } else if (question.type === "fill-in-the-blank" || question.type === "subjective") {
+        const input = document.querySelector('#options-container input, #options-container textarea');
+        if (input) input.value = '';
+    }
+    updatePalette();
+}
+
+function updatePalette() {
+    const palette = document.getElementById('question-palette');
+    let totalQuestions = 0;
+    Object.values(currentQuiz.subjects).forEach(s => totalQuestions += s.length);
+    if (palette.childElementCount !== totalQuestions) {
+        palette.innerHTML = '';
+        const allSubjects = Object.keys(currentQuiz.subjects);
+        let qNum = 1;
+        allSubjects.forEach(subjectName => {
+            const subjectQuestions = currentQuiz.subjects[subjectName];
+            subjectQuestions.forEach((_, qIndex) => {
+                const item = document.createElement('div');
+                item.className = 'palette-item status-not-answered';
+                item.textContent = qNum;
+                item.dataset.qIndex = qIndex;
+                item.dataset.subject = subjectName;
+                item.onclick = () => {
+                    accumulateTimeForCurrent();
+                    currentSubject = subjectName;
+                    currentQuestionIndex = qIndex;
+                    const activeTab = [...document.querySelectorAll('.subject-tab')].find(t => t.textContent === subjectName);
+                    if (activeTab) {
+                        document.querySelectorAll('.subject-tab').forEach(t => t.classList.remove('active'));
+                        activeTab.classList.add('active');
+                    }
+                    loadQuestion();
+                };
+                palette.appendChild(item);
+                qNum++;
+            });
+        });
+    }
+    let globalIndex = 0;
+    Object.keys(currentQuiz.subjects).forEach(subjectName => {
+        const questions = currentQuiz.subjects[subjectName];
+        questions.forEach((q, qIndex) => {
+            const status = userResponses[subjectName]?.[qIndex]?.status || 'not-answered';
+            const item = palette.children[globalIndex];
+            if (item) {
+                item.className = 'palette-item';
+                if (status === 'answered') item.classList.add('status-answered');
+                else if (status === 'review') item.classList.add('status-review');
+                else item.classList.add('status-not-answered');
+            }
+            globalIndex++;
+        });
+    });
+}
+
+function startTimer(durationInSeconds) {
+    let timer = durationInSeconds;
+    const display = document.getElementById('timer');
+    timerInterval = setInterval(() => {
+        let hours = Math.floor(timer / 3600);
+        let minutes = Math.floor((timer % 3600) / 60);
+        let seconds = timer % 60;
+        hours = hours < 10 ? "0" + hours : hours;
+        minutes = minutes < 10 ? "0" + minutes : minutes;
+        seconds = seconds < 10 ? "0" + seconds : seconds;
+        display.textContent = `${hours}:${minutes}:${seconds}`;
+        if (timer <= 300) {
+            document.getElementById('warningBanner').style.display = 'block';
+        }
+        if (--timer < 0) {
+            clearInterval(timerInterval);
+            submitTest();
+        }
+    }, 1000);
+}
+
+function downloadPDFReport() {
+    if (!currentQuiz || !userResponses) return alert("No exam data available.");
 
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
-    let y = 20;
+    let y = 10;
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 10;
 
-    // --- PDF Header ---
-    doc.setFontSize(20);
-    doc.setFont("helvetica", "bold");
-    doc.text("Geetham e-Exam - Performance Report", 105, y, { align: 'center' });
-    y += 15;
+    const drawTableHeader = (currentY) => {
+        doc.setFillColor(230, 230, 230);
+        doc.rect(margin, currentY, 190, 8, 'F');
+        doc.setFont(undefined, "bold");
+        doc.setTextColor(0);
+        doc.setFontSize(10);
+        doc.text("Q#", 13, currentY + 5.5);
+        doc.text("Question", 25, currentY + 5.5);
+        doc.text("Your Answer", 100, currentY + 5.5);
+        doc.text("Correct Answer", 135, currentY + 5.5);
+        doc.text("Time(s)", 170, currentY + 5.5, { align: 'center' });
+        doc.text("Marks", 190, currentY + 5.5, { align: 'center' });
+        doc.setFont(undefined, "normal");
+        return currentY + 12;
+    };
+
+    doc.setFillColor(0, 86, 179);
+    doc.rect(0, 0, 210, 20, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(16);
+    doc.setFont(undefined, "bold");
+    doc.text("Geetham e-Exam Report", 105, 13, { align: "center" });
+    y = 30;
+
     doc.setFontSize(12);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Student: ${studentDetails.name}`, 14, y);
-    doc.text(`Quiz: ${currentQuiz.title}`, 105, y, { align: 'center' });
-    y += 15;
-    doc.line(14, y, 196, y);
-    y += 10;
+    doc.setFont(undefined, "normal");
+    doc.setTextColor(0, 0, 0);
+    doc.text(`Student Name: ${studentDetails.name}`, margin, y); y += 7;
+    doc.text(`Mobile: ${studentDetails.mobile}`, margin, y); y += 7;
+    doc.text(`Quiz Title: ${currentQuiz.title}`, margin, y); y += 7;
+    doc.text(`Date: ${new Date().toLocaleString()}`, margin, y); y += 12;
 
-    // --- Report Body ---
-    Object.keys(userResponses).forEach(subject => {
-        if (y > 270) { doc.addPage(); y = 20; }
+    let totalScore = 0;
+
+    Object.keys(currentQuiz.subjects).forEach(subject => {
+        if (y > pageHeight - 40) {
+             doc.addPage();
+             y = margin + 5;
+        }
+        doc.setFillColor(0, 123, 255);
+        doc.setTextColor(255, 255, 255);
         doc.setFontSize(14);
-        doc.setFont("helvetica", "bold");
-        doc.text(`Subject: ${subject}`, 14, y);
-        y += 10;
-        
-        currentQuiz.subjects[subject].forEach((q, i) => {
-            if (y > 270) { doc.addPage(); y = 20; }
-            const resp = userResponses[subject]?.[i] || {};
-            
-            doc.setFontSize(11);
-            doc.setFont("helvetica", "bold");
-            const questionText = doc.splitTextToSize(`Q${i + 1}: ${q.text}`, 180);
-            doc.text(questionText, 14, y);
-            y += (questionText.length * 5) + 2;
+        doc.setFont(undefined, "bold");
+        doc.roundedRect(margin, y, 190, 9, 2, 2, 'F');
+        doc.text(subject, margin + 3, y + 6.5);
+        y += 15;
 
-            doc.setFont("helvetica", "normal");
-            const userAnswer = resp.answer !== undefined && q.shuffledOptions ? q.shuffledOptions[resp.answer] : "Not Answered";
-            const correctAnswer = q.shuffledCorrectAnswerIndex !== undefined && q.shuffledOptions ? q.shuffledOptions[q.shuffledCorrectAnswerIndex] : "N/A";
+        y = drawTableHeader(y);
 
-            doc.text(`Your Answer: ${userAnswer}`, 18, y);
-            y += 6;
-            doc.text(`Correct Answer: ${correctAnswer}`, 18, y);
-            y += 10;
+        let subjectScore = 0;
+
+        currentQuiz.subjects[subject].forEach((q, index) => {
+            let yourAnswerText = "Not Answered";
+            const response = userResponses[subject]?.[index];
+
+            if (response?.answer !== undefined && response?.answer !== "") {
+                 if (q.type === "multiple-choice") {
+                    yourAnswerText = q.shuffledOptions[response.answer] || "Invalid Option";
+                } else {
+                    yourAnswerText = response.answer.toString();
+                }
+            }
+
+            let correctAnswerText = '';
+            let marksObtained = 0;
+            const marksCorrect = currentQuiz.marksMode === 'custom' ? (q.correctMarks ?? 1) : (currentQuiz.correctMarks ?? 1);
+            const marksIncorrect = currentQuiz.marksMode === 'custom' ? (q.wrongMarks ?? 0) : (currentQuiz.wrongMarks ?? 0);
+            const hasAnswer = response && response.answer !== undefined && response.answer !== '';
+
+            if (q.type === "multiple-choice") {
+                correctAnswerText = q.options[q.correctAnswer];
+                if (hasAnswer && response.answer === response.shuffledCorrectAnswerIndex) {
+                    marksObtained = marksCorrect;
+                } else {
+                    marksObtained = marksIncorrect;
+                }
+            } else if (q.type === "fill-in-the-blank") {
+                const correctAnswers = (q.answerKey || '').split('|');
+                correctAnswerText = correctAnswers.join(", ");
+                if (hasAnswer && correctAnswers.some(ans => ans.trim().toLowerCase() === response.answer.toString().trim().toLowerCase())) {
+                    marksObtained = marksCorrect;
+                } else {
+                    marksObtained = marksIncorrect;
+                }
+            } else if (q.type === "subjective") {
+                correctAnswerText = q.sampleAnswer || "N/A";
+                marksObtained = response?.marks || 0;
+            }
+            subjectScore += marksObtained;
+
+            const timeSpent = Math.round((questionTimes[subject]?.[index] || 0) / 1000);
+            const lineHeight = 6;
+            const colWidths = { question: 70, yourAnswer: 30, correctAnswer: 30 };
+            const questionLines = doc.splitTextToSize(q.text, colWidths.question);
+            const yourAnswerLines = doc.splitTextToSize(yourAnswerText, colWidths.yourAnswer);
+            const correctAnswerLines = doc.splitTextToSize(correctAnswerText, colWidths.correctAnswer);
+            const maxLines = Math.max(questionLines.length, yourAnswerLines.length, correctAnswerLines.length);
+            const rowHeight = maxLines * lineHeight + 4;
+
+            if (y + rowHeight > pageHeight - margin) {
+                doc.addPage();
+                y = margin + 5;
+                y = drawTableHeader(y);
+            }
+
+            doc.setFillColor(index % 2 === 0 ? 245 : 255);
+            doc.rect(margin, y - 5, 190, rowHeight, 'F');
+            doc.setFontSize(10);
+            doc.setTextColor(50, 50, 50);
+            doc.text(`${index + 1}`, 13, y);
+            doc.text(questionLines, 25, y);
+            doc.text(yourAnswerLines, 100, y);
+            doc.text(correctAnswerLines, 135, y);
+            doc.text(timeSpent.toString(), 170, y, { align: 'center' });
+            doc.text(marksObtained.toString(), 190, y, { align: 'center' });
+
+            y += rowHeight;
         });
+
+        totalScore += subjectScore;
+        y += 5;
+
+        doc.setFontSize(12);
+        doc.setFont(undefined, "bold");
+        doc.setTextColor(0, 128, 0);
+        doc.text(`Subject Score: ${subjectScore}`, margin, y);
+        y += 10;
     });
 
-    doc.save(`${studentDetails.name}_Report.pdf`);
+    doc.line(margin, y, 200, y);
+    y += 10;
+
+    doc.setFontSize(14);
+    doc.setFont(undefined, "bold");
+    doc.setTextColor(0, 0, 128);
+    doc.text(`Total Score: ${totalScore}`, margin, y);
+    y += 8;
+
+    doc.setFontSize(12);
+    doc.setFont(undefined, "normal");
+    doc.setTextColor(200, 0, 0);
+    doc.text(`Warnings Issued: ${warningCount} / ${maxWarnings}`, margin, y);
+
+    doc.save(`${studentDetails.name}_Exam_Report.pdf`);
 }
 
-    // Make functions globally accessible
-    window.goPrevious = goPrevious;
-    window.saveAndNext = saveAndNext;
-    window.markForReview = markForReview;
-    window.clearResponse = clearResponse;
-    window.confirmSubmit = confirmSubmit;
-    window.downloadPDFReport = downloadPDFReport;
-
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('/service-worker.js');
-        });
-    }
-    document.addEventListener('DOMContentLoaded', loadInitialData);
+loadInitialData();
+Object.assign(window, {
+  markForReview,
+  manualSave,
+  goPrevious,
+  clearResponse,
+  saveAndNext,
+  confirmSubmit,
+  downloadPDFReport
+});
 </script>
 </body>
 </html>
