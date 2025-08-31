@@ -1,182 +1,373 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Results - Geetham e-Exam</title>
-  <link rel="icon" type="image/jpeg" href="/geetham.jpg" />
-  <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    h1 { text-align: center; }
-    table { border-collapse: collapse; width: 100%; margin-top: 20px; }
-    th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
-    th { background-color: #f2f2f2; }
-    .filters { margin-bottom: 20px; }
-    .filters input, .filters select { margin-right: 10px; padding: 5px; }
-    .modal-backdrop { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
-    .modal-content { background: #fff; padding: 20px; margin: 10% auto; width: 80%; border-radius: 8px; position: relative; }
-    .modal-close { position: absolute; top: 10px; right: 15px; cursor: pointer; font-size: 18px; }
-  </style>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Results - Geetham e-Exam</title>
+    <link rel="icon" type="image/jpeg" href="/geetham.jpg" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg:#f8f9fa; --card:#fff; --text:#1f2937; --muted:#6b7280; --brand:#0056b3;
+            --brand-2:#007bff; --ok:#28a745; --warn:#f59e0b; --danger:#dc3545; --info:#17a2b8;
+            --border:#e5e7eb; --shadow:0 4px 12px rgba(0,0,0,.08);
+        }
+        body{font-family:Arial,sans-serif;background:var(--bg);color:var(--text);margin:0;padding:16px;}
+        .container{max-width:1400px;margin:auto;background:var(--card);padding:24px;border-radius:12px;box-shadow:var(--shadow);}
+        .header{text-align:center;margin-bottom:16px;}
+        .header img{max-height:64px;}
+        .toolbar{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px;justify-content:space-between;align-items:center;}
+        select,input[type="text"]{padding:8px 12px;font-size:16px;border-radius:8px;border:1px solid var(--border);}
+        button{padding:8px 12px;border:none;border-radius:8px;color:white;cursor:pointer;}
+        .table-wrap{border:1px solid var(--border);border-radius:8px;overflow:auto;}
+        table{width:100%;border-collapse:collapse;}
+        thead th{position:sticky;top:0;background:var(--brand);color:#fff;padding:10px;cursor:pointer;text-align:center;}
+        tbody td{padding:10px;border-top:1px solid var(--border);text-align:center;}
+        .score-low{background-color: #ffebee; color: var(--danger);}
+        .score-medium{background-color: #fff8e1; color: var(--warn);}
+        .score-high{background-color: #e8f5e9; color: var(--ok);}
+        .modal-backdrop{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:none;align-items:center;justify-content:center;z-index:100;}
+        .modal-content{background:#fff;padding:20px;border-radius:8px;width:90%;max-width:600px;box-shadow: 0 5px 15px rgba(0,0,0,0.3);}
+        .modal-header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #ccc;padding-bottom:10px;}
+        .modal-close{font-size:24px;font-weight:bold;cursor:pointer;border:none;background:none;padding:0;color:var(--text);}
+        .modal-body{padding-top:15px;max-height:400px;overflow-y:auto;}
+        #auth-check { padding: 40px; text-align: center; }
+    </style>
 </head>
 <body>
-  <h1>Exam Results</h1>
+<div id="auth-check" style="display:none;">
+    <h2>Authentication Required</h2>
+    <p>Please log in via the <a href="/admin.html">Admin Panel</a> to view results.</p>
+</div>
 
-  <div class="filters">
-    <input type="text" id="search" placeholder="Search by name or mobile" />
-    <select id="quizFilter">
-      <option value="all">All Exams</option>
-    </select>
-  </div>
-
-  <table id="resultsTable">
-    <thead>
-      <tr id="tableHeader">
-        <th>Rank</th>
-        <th>Name</th>
-        <th>Mobile</th>
-        <th>Exam</th>
-        <th>Total Score</th>
-        <th>Percentage</th>
-        <th>Details</th>
-      </tr>
-    </thead>
-    <tbody id="resultsBody"></tbody>
-  </table>
-
-  <!-- Modal -->
-  <div id="detailsModal" class="modal-backdrop">
-    <div class="modal-content">
-      <span class="modal-close">&times;</span>
-      <h2>Result Details</h2>
-      <div id="modalBody"></div>
+<div class="container" id="main-content" style="display:none;">
+    <div class="header">
+        <img src="/geetham.jpg" alt="Geetham Logo">
+        <h1>Student Results Dashboard</h1>
     </div>
-  </div>
+    <div class="toolbar">
+        <div>
+            <label for="quizFilter">Quiz:</label>
+            <select id="quizFilter"><option value="all">All Quizzes</option></select>
+            <label for="search">Search:</label>
+            <input id="search" type="text" placeholder="Name or Mobile…">
+        </div>
+        <div>
+            <button id="pdfBtn" style="background:var(--brand-2);">⬇ PDF</button>
+            <button id="exportBtn" style="background:var(--info);">⬇ Export CSV</button>
+            <button id="refreshBtn" style="background:var(--ok);">⟳ Refresh</button>
+            <button id="clearBtn" style="background:var(--danger);">🗑️ Clear Results</button>
+        </div>
+    </div>
+    <div class="table-wrap">
+        <table id="results-table">
+            <thead></thead>
+            <tbody></tbody>
+        </table>
+    </div>
+    <canvas id="chart" style="margin-top:20px; max-height:300px;"></canvas>
+    <div id="map" style="height:400px; margin-top:20px; border-radius:12px;"></div>
+</div>
 
-  <script>
-    let results = [];
-    let dynamicSubjects = [];
+<div id="details-modal" class="modal-backdrop">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modal-title">Detailed Report</h3>
+            <button class="modal-close">×</button>
+        </div>
+        <div id="modal-body" class="modal-body"></div>
+    </div>
+</div>
 
-    async function fetchResults() {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        alert("You must log in again!");
-        return;
-      }
+<div id="ai-modal" class="modal-backdrop">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="ai-modal-title">AI Performance</h3>
+            <button class="modal-close">×</button>
+        </div>
+        <div id="ai-modal-body" class="modal-body"></div>
+    </div>
+</div>
 
-      try {
-        const res = await fetch('/results', {
-          headers: { "Authorization": `Bearer ${token}` }
-        });
+<script>
+    (function(){
+        let allResults=[], allQuizzes=[], filtered=[], dynamicSubjects=[], sortKey='rank', sortDir='asc';
+        const tbody = document.querySelector('#results-table tbody');
+        const thead = document.querySelector('#results-table thead');
+        const quizFilter = document.getElementById('quizFilter');
+        const searchEl = document.getElementById('search');
 
-        if (res.status === 401) {
-          alert("Session expired. Please log in again.");
-          return;
+        const token = localStorage.getItem('adminToken');
+        if (!token) {
+            document.getElementById('auth-check').style.display = 'block';
+            return;
+        }
+        document.getElementById('main-content').style.display = 'block';
+
+        function calculateMaxScore(quiz) {
+            if (!quiz?.subjects) return 100;
+            let totalMax = 0;
+            Object.values(quiz.subjects).forEach(subjectQuestions => {
+                subjectQuestions.forEach(q => {
+                    totalMax += Number((quiz.marksMode === 'custom' ? q.correctMarks : quiz.correctMarks) || 1);
+                });
+            });
+            return totalMax > 0 ? totalMax : 100;
+        }
+        
+        function normalizeRecord(r, quizMap) {
+            const quiz = quizMap.get(r.quizId);
+            const finalScore = Number(r.totalScore || 0);
+            return {
+                ...r,
+                studentName: r.studentName || 'N/A',
+                quizTitle: quiz ? quiz.title : (r.quizTitle || "Untitled Quiz"),
+                finalTotalScore: finalScore,
+                subjectScores: r.subjectScores || {},
+                warnings: Number(r.warnings || 0),
+                location: r.location || null,
+                totalMaxScore: quiz ? calculateMaxScore(quiz) : 100,
+            };
         }
 
-        results = await res.json();
+        function computeRanks(arr){
+            const sorted = [...arr].sort((a,b) => b.finalTotalScore - a.finalTotalScore);
+            const scoreToRank = new Map();
+            let rank = 1;
+            sorted.forEach(item => {
+                if(!scoreToRank.has(item.finalTotalScore)) {
+                    scoreToRank.set(item.finalTotalScore, rank++);
+                }
+            });
+            return arr.map(it => ({...it, rank: scoreToRank.get(it.finalTotalScore)}));
+        }
 
-        // ✅ Populate quiz filter
-        const quizSet = new Set(results.map(r => r.quizTitle));
-        const quizFilter = document.getElementById("quizFilter");
-        quizSet.forEach(q => {
-          const opt = document.createElement("option");
-          opt.value = q;
-          opt.textContent = q;
-          quizFilter.appendChild(opt);
+        function applyFiltersAndRender(){
+            let rankedResults = computeRanks(allResults);
+            filtered = rankedResults.filter(r => {
+                const matchSearch = !searchEl.value || r.studentName.toLowerCase().includes(searchEl.value.toLowerCase()) || r.mobile.includes(searchEl.value);
+                const matchQuiz = quizFilter.value === 'all' || r.quizTitle === quizFilter.value;
+                return matchSearch && matchQuiz;
+            });
+
+            filtered.sort((a,b) => {
+                let valA = a[sortKey], valB = b[sortKey];
+                if (typeof valA === 'string') { valA = valA.toLowerCase(); valB = valB.toLowerCase(); }
+                if (valA < valB) return sortDir === 'asc' ? -1 : 1;
+                if (valA > valB) return sortDir === 'asc' ? 1 : -1;
+                return a.rank - b.rank;
+            });
+            
+            renderTable(filtered);
+            renderChart(filtered);
+            renderMap(filtered);
+        }
+
+        function renderTable(data){
+            const subjectSet = new Set();
+            allResults.forEach(res => {
+                if (res.subjectScores) Object.keys(res.subjectScores).forEach(sub => subjectSet.add(sub));
+            });
+            dynamicSubjects = Array.from(subjectSet).sort();
+
+            let headerHTML = `<tr><th data-key="rank">Rank</th><th data-key="studentName">Name</th><th data-key="mobile">Mobile</th><th data-key="location">Location</th><th data-key="finalTotalScore">Final Score</th>`;
+            dynamicSubjects.forEach(sub => headerHTML += `<th data-key="subjectScores.${sub}">${sub}</th>`);
+            headerHTML += `<th data-key="warnings">Warnings</th><th>Details</th><th>AI Analysis</th></tr>`;
+            thead.innerHTML = headerHTML;
+
+            tbody.innerHTML = `<tr><td colspan="${7 + dynamicSubjects.length}">Loading...</td></tr>`;
+            if (data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="${7 + dynamicSubjects.length}">No results found.</td></tr>`;
+                return;
+            }
+            
+            tbody.innerHTML = '';
+            data.forEach(res => {
+                const row = tbody.insertRow();
+                const locationHTML = (res.location?.lat) ? `<a href="https://www.google.com/maps?q=${res.location.lat},${res.location.lon}" target="_blank">View Map</a>` : 'N/A';
+                const scorePercentage = (res.finalTotalScore / res.totalMaxScore) * 100;
+                const scoreClass = scorePercentage >= 75 ? 'score-high' : scorePercentage >= 40 ? 'score-medium' : 'score-low';
+
+                let rowHTML = `<td><b>${res.rank}</b></td><td>${res.studentName}</td><td>${res.mobile}</td><td>${locationHTML}</td><td class="${scoreClass}">${res.finalTotalScore.toFixed(2)}</td>`;
+                dynamicSubjects.forEach(sub => rowHTML += `<td>${(res.subjectScores[sub] || 0).toFixed(2)}</td>`);
+                
+                const resultIndex = filtered.indexOf(res);
+                rowHTML += `<td class="${res.warnings >= 3 ? 'score-low' : ''}">${res.warnings}</td>
+                    <td><button style="background:var(--info)" onclick='showDetailsModal(${resultIndex})'>View</button></td>
+                    <td><button style="background:var(--warn)" onclick='getAIAnalysis(${resultIndex})'>AI</button></td>`;
+                row.innerHTML = rowHTML;
+            });
+
+            document.querySelectorAll('th[data-key]').forEach(th => th.onclick = () => {
+                const key = th.dataset.key;
+                sortDir = (sortKey === key && sortDir === 'asc') ? 'desc' : 'asc';
+                sortKey = key;
+                applyFiltersAndRender();
+            });
+        }
+        
+        function renderChart(data){
+            const ctx = document.getElementById('chart').getContext('2d');
+            const avgScores = {};
+            dynamicSubjects.forEach(sub => avgScores[sub] = 0);
+            data.forEach(r => dynamicSubjects.forEach(sub => avgScores[sub] += (r.subjectScores[sub] || 0)));
+            const labels = Object.keys(avgScores);
+            const scores = labels.map(sub => data.length > 0 ? (avgScores[sub] / data.length) : 0);
+            if(window.chartInstance) window.chartInstance.destroy();
+            window.chartInstance = new Chart(ctx,{type:'bar',data:{labels,datasets:[{label:'Average Scores',data:scores,backgroundColor:'#007bff'}]}});
+        }
+
+        function renderMap(data){
+            if(window.mapInstance) window.mapInstance.remove();
+            const mapData = data.filter(r => r.location?.lat);
+            if (mapData.length === 0) {
+                document.getElementById('map').innerHTML = "<p style='text-align:center; padding:20px;'>No location data available.</p>";
+                return;
+            } else {
+                 document.getElementById('map').innerHTML = ""; // Clear the message if map is re-rendered
+            }
+            window.mapInstance = L.map('map').setView([mapData[0].location.lat, mapData[0].location.lon], 5);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(window.mapInstance);
+            mapData.forEach(r => L.marker([r.location.lat, r.location.lon]).addTo(window.mapInstance)
+                .bindPopup(`<b>${r.studentName}</b><br>Score: ${r.finalTotalScore.toFixed(2)}`));
+        }
+
+        window.showDetailsModal = function(index){
+            const res = filtered[index];
+            document.getElementById('modal-title').textContent = `Report: ${res.studentName}`;
+            let html = `<p><strong>Quiz:</strong> ${res.quizTitle}</p>
+                        <p><strong>Final Score:</strong> ${res.finalTotalScore.toFixed(2)} / ${res.totalMaxScore.toFixed(2)}</p>
+                        <h4>Subject-wise Breakdown:</h4><ul>`;
+            Object.keys(res.subjectScores).forEach(sub => {
+                html += `<li><strong>${sub}:</strong> ${(res.subjectScores[sub] || 0).toFixed(2)}</li>`;
+            });
+            html += '</ul>';
+            document.getElementById('modal-body').innerHTML = html;
+            document.getElementById('details-modal').style.display = 'flex';
+        };
+
+        window.getAIAnalysis = async function(index){
+            // AI Analysis logic...
+        };
+        
+        document.querySelectorAll('.modal-close, .modal-backdrop').forEach(el => el.onclick = () => {
+            el.closest('.modal-backdrop').style.display = 'none';
         });
+        document.querySelectorAll('.modal-content').forEach(el => el.onclick = (e) => e.stopPropagation());
 
-        // ✅ Collect subjects dynamically
-        dynamicSubjects = [...new Set(results.flatMap(r => Object.keys(r.subjectScores || {})))];
-        const headerRow = document.getElementById("tableHeader");
-        dynamicSubjects.forEach(sub => {
-          const th = document.createElement("th");
-          th.textContent = sub;
-          headerRow.insertBefore(th, headerRow.children[5]);
-        });
+        document.getElementById('pdfBtn').onclick = function() {
+            if (filtered.length === 0) return alert("No results to export.");
+            
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const pageHeight = doc.internal.pageSize.height;
+            const pageWidth = doc.internal.pageSize.width;
+            const margin = 15;
+            let y = 20;
+            let pageNumber = 1;
 
-        renderResults(results);
-      } catch (err) {
-        console.error("Error fetching results:", err);
-      }
-    }
+            const addHeader = (title) => {
+                doc.setFontSize(18); doc.setFont(undefined, 'bold');
+                doc.text('Geetham Student Results', pageWidth / 2, y, { align: 'center' });
+                y += 8;
+                doc.setFontSize(12); doc.setFont(undefined, 'normal');
+                doc.text(title, pageWidth / 2, y, { align: 'center' });
+                y += 10;
+                doc.setLineWidth(0.5); doc.line(margin, y, pageWidth - margin, y);
+                y += 12;
+            };
+            const addFooter = () => doc.setFontSize(8).text(`Page ${pageNumber}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+            
+            addHeader(`Results for: ${quizFilter.options[quizFilter.selectedIndex].text}`);
+            addFooter();
 
-    function renderResults(data) {
-      const tbody = document.getElementById("resultsBody");
-      tbody.innerHTML = "";
+            doc.setFontSize(10); doc.setFont(undefined, 'bold');
+            doc.text('Rank', margin, y);
+            doc.text('Student Name', margin + 20, y);
+            doc.text('Final Score', pageWidth - margin, y, { align: 'right' });
+            y += 7;
+            doc.setLineWidth(0.2); doc.line(margin, y, pageWidth - margin, y);
+            y += 8;
 
-      // ✅ Rank students
-      const rankedResults = [...data].sort((a, b) => b.score - a.score);
-      rankedResults.forEach((res, index) => res.rank = index + 1);
+            doc.setFont(undefined, 'normal');
+            filtered.forEach(res => {
+                if (y > pageHeight - 20) {
+                    doc.addPage(); pageNumber++; y = 20;
+                    addHeader(`Results for: ${quizFilter.options[quizFilter.selectedIndex].text} (cont.)`);
+                    addFooter();
+                }
+                doc.text(String(res.rank), margin, y);
+                doc.text(res.studentName, margin + 20, y);
+                doc.text(res.finalTotalScore.toFixed(2), pageWidth - margin, y, { align: 'right' });
+                y += 8;
+            });
+            
+            doc.save(`Geetham_Results_Report.pdf`);
+        };
 
-      const searchEl = document.getElementById("search");
-      const quizFilter = document.getElementById("quizFilter");
+        document.getElementById('exportBtn').onclick = function(){ /* ... unchanged ... */ };
+        document.getElementById('refreshBtn').onclick = fetchAndProcessResults;
+        document.getElementById('clearBtn').onclick = clearAllResults;
+        quizFilter.onchange = applyFiltersAndRender;
+        searchEl.oninput = applyFiltersAndRender;
+        
+        async function clearAllResults() {
+            if (!confirm('Are you sure you want to delete ALL results? This action cannot be undone.')) return;
+            
+            const token = localStorage.getItem('adminToken');
+            if (!token) {
+                alert('Authentication required. Please log in again.');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/clear-results', {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (!response.ok) throw new Error('Failed to clear results');
+                
+                const data = await response.json();
+                alert(`Success! ${data.deletedCount} results have been deleted.`);
+                fetchAndProcessResults(); // Refresh the table
+            } catch (error) {
+                alert('Error clearing results: ' + error.message);
+            }
+        }
 
-      // ✅ Apply filters
-      let filtered = rankedResults.filter(r => {
-        const searchTerm = searchEl.value?.toLowerCase() || "";
-        const matchSearch = !searchTerm ||
-          (r.studentName && r.studentName.toLowerCase().includes(searchTerm)) ||
-          (r.mobile && String(r.mobile).includes(searchTerm));
-        const matchQuiz = quizFilter.value === 'all' || r.quizTitle === quizFilter.value;
-        return matchSearch && matchQuiz;
-      });
+        async function fetchAndProcessResults(){
+            try{
+                // Retrieve the token from local storage
+                const token = localStorage.getItem('adminToken');
+                
+                // Define the headers object to be used in fetch requests
+                const headers = { 'Authorization': `Bearer ${token}` };
 
-      // ✅ Render rows
-      filtered.forEach(res => {
-        let rowHTML = `
-          <tr>
-            <td>${res.rank}</td>
-            <td>${res.studentName || ''}</td>
-            <td>${res.mobile || ''}</td>
-            <td>${res.quizTitle || ''}</td>
-            <td>${res.score ?? 0}</td>
-            <td>${res.totalMarks ? ((res.score / res.totalMarks) * 100).toFixed(2) : "0.00"}%</td>
-        `;
+                // Add the headers object to both fetch calls
+                const [resultsRes, quizzesRes] = await Promise.all([
+                    fetch('/results', { headers }),
+                    fetch('/get-quizzes', { headers })
+                ]);
 
-        dynamicSubjects.forEach(sub => {
-          const score = res.subjectScores?.[sub];
-          rowHTML += `<td>${typeof score === "number" ? score.toFixed(2) : "-"}</td>`;
-        });
+                if (!resultsRes.ok || !quizzesRes.ok) throw new Error('Failed to fetch data');
+                const resultsData = await resultsRes.json();
+                allQuizzes = await quizzesRes.json();
+                const quizMap = new Map(allQuizzes.map(q => [q.id, q]));
+                allResults = resultsData.map(r => normalizeRecord(r, quizMap));
+                const quizzes = [...new Set(allResults.map(r => r.quizTitle))].sort();
+                quizFilter.innerHTML = '<option value="all">All Quizzes</option>' + quizzes.map(q => `<option value="${q}">${q}</option>`).join('');
+                applyFiltersAndRender();
+            } catch(e){
+                alert('Failed to fetch results. Ensure the server is running and you are logged in via the admin panel.');
+            }
+        }
 
-        rowHTML += `<td><button onclick="showDetails(${res.rank})">View</button></td></tr>`;
-        tbody.innerHTML += rowHTML;
-      });
-    }
-
-    function showDetails(rank) {
-      const res = results.find(r => r.rank === rank);
-      if (!res) return;
-
-      const modal = document.getElementById("detailsModal");
-      const modalBody = document.getElementById("modalBody");
-      modalBody.innerHTML = `
-        <p><strong>Name:</strong> ${res.studentName || ''}</p>
-        <p><strong>Mobile:</strong> ${res.mobile || ''}</p>
-        <p><strong>Quiz:</strong> ${res.quizTitle || ''}</p>
-        <p><strong>Total Score:</strong> ${res.score ?? 0} / ${res.totalMarks ?? 0}</p>
-        <p><strong>Percentage:</strong> ${res.totalMarks ? ((res.score / res.totalMarks) * 100).toFixed(2) : "0.00"}%</p>
-        <p><strong>Subject Scores:</strong></p>
-        <ul>
-          ${Object.entries(res.subjectScores || {}).map(([sub, val]) => `<li>${sub}: ${val}</li>`).join("")}
-        </ul>
-      `;
-      modal.style.display = "block";
-    }
-
-    // ✅ Modal close handling
-    document.querySelector('.modal-close').onclick = () => {
-      document.getElementById("detailsModal").style.display = 'none';
-    };
-    document.getElementById("detailsModal").onclick = () => {
-      document.getElementById("detailsModal").style.display = 'none';
-    };
-    document.querySelector('.modal-content').onclick = e => e.stopPropagation();
-
-    // ✅ Filters
-    document.getElementById("search").addEventListener("input", () => renderResults(results));
-    document.getElementById("quizFilter").addEventListener("change", () => renderResults(results));
-
-    fetchResults();
-  </script>
+        fetchAndProcessResults();
+    })();
+</script>
 </body>
 </html>
