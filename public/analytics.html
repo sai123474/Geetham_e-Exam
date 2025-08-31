@@ -614,11 +614,19 @@
         }
         
         // Fetch data and initialize
+        // Fetch data and initialize
         async function fetchData() {
             try {
+                // Retrieve the token from local storage
+                const token = localStorage.getItem('adminToken');
+                
+                // Define the headers object to be used in fetch requests
+                const headers = { 'Authorization': `Bearer ${token}` };
+
+                // Add the headers object to both fetch calls
                 const [resultsRes, quizzesRes] = await Promise.all([
-                    fetch('/results'),
-                    fetch('/get-quizzes')
+                    fetch('/results', { headers }),
+                    fetch('/get-quizzes', { headers })
                 ]);
                 
                 if (!resultsRes.ok || !quizzesRes.ok) {
@@ -668,7 +676,6 @@
                 alert('Failed to fetch data. Please ensure you are logged in and the server is running.');
             }
         }
-        
         // Calculate max score for a quiz
         function calculateMaxScore(quiz) {
             if (!quiz?.subjects) return 100;
