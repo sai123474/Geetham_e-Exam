@@ -1,3 +1,4 @@
+
 /**
  * Question Recommender System
  * 
@@ -118,7 +119,7 @@ class QuestionRecommender {
     // Extract features: question length, word count, etc.
     const features = questions.map(q => {
       const text = q.text;
-      const wordCount = text.split(/\\s+/).length;
+      const wordCount = text.split(/\s+/).length;
       const charCount = text.length;
       const avgWordLength = charCount / wordCount;
       
@@ -170,7 +171,7 @@ class QuestionRecommender {
     
     const features = questions.map(q => {
       const text = q.text;
-      const wordCount = text.split(/\\s+/).length;
+      const wordCount = text.split(/\s+/).length;
       const charCount = text.length;
       const avgWordLength = charCount / wordCount;
       
