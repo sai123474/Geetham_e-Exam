@@ -489,7 +489,7 @@ app.post('/upload-pdfs', authenticateToken, upload.array('pdfs'), async (req, re
 });
 
 // AI question generation from uploaded PDFs
-app.post('/generate-questions', authenticateToken, async (req, res) => {
+app.post('/generate-questions', async (req, res) => {
   try {
     const { topic, numQuestions, questionType, difficulty } = req.body;
 
