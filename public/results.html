@@ -1,183 +1,182 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Results - Geetham e-Exam</title>
-    <link rel="icon" type="image/jpeg" href="/geetham.jpg" />
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        h1 { text-align: center; }
-        table { border-collapse: collapse; width: 100%; margin-top: 20px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
-        th { background-color: #f2f2f2; }
-        .filters { margin-bottom: 20px; }
-        .filters input, .filters select { margin-right: 10px; padding: 5px; }
-        .modal-backdrop { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
-        .modal-content { background: #fff; padding: 20px; margin: 10% auto; width: 80%; border-radius: 8px; position: relative; }
-        .modal-close { position: absolute; top: 10px; right: 15px; cursor: pointer; font-size: 18px; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Results - Geetham e-Exam</title>
+  <link rel="icon" type="image/jpeg" href="/geetham.jpg" />
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    h1 { text-align: center; }
+    table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+    th { background-color: #f2f2f2; }
+    .filters { margin-bottom: 20px; }
+    .filters input, .filters select { margin-right: 10px; padding: 5px; }
+    .modal-backdrop { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
+    .modal-content { background: #fff; padding: 20px; margin: 10% auto; width: 80%; border-radius: 8px; position: relative; }
+    .modal-close { position: absolute; top: 10px; right: 15px; cursor: pointer; font-size: 18px; }
+  </style>
 </head>
 <body>
-    <h1>Exam Results</h1>
+  <h1>Exam Results</h1>
 
-    <div class="filters">
-        <input type="text" id="search" placeholder="Search by name or mobile" />
-        <select id="quizFilter">
-            <option value="all">All Quizzes</option>
-        </select>
+  <div class="filters">
+    <input type="text" id="search" placeholder="Search by name or mobile" />
+    <select id="quizFilter">
+      <option value="all">All Exams</option>
+    </select>
+  </div>
+
+  <table id="resultsTable">
+    <thead>
+      <tr id="tableHeader">
+        <th>Rank</th>
+        <th>Name</th>
+        <th>Mobile</th>
+        <th>Exam</th>
+        <th>Total Score</th>
+        <th>Percentage</th>
+        <th>Details</th>
+      </tr>
+    </thead>
+    <tbody id="resultsBody"></tbody>
+  </table>
+
+  <!-- Modal -->
+  <div id="detailsModal" class="modal-backdrop">
+    <div class="modal-content">
+      <span class="modal-close">&times;</span>
+      <h2>Result Details</h2>
+      <div id="modalBody"></div>
     </div>
+  </div>
 
-    <table id="resultsTable">
-        <thead>
-            <tr id="tableHeader">
-                <th>Rank</th>
-                <th>Name</th>
-                <th>Mobile</th>
-                <th>Quiz</th>
-                <th>Total Score</th>
-                <th>Percentage</th>
-                <th>Details</th>
-            </tr>
-        </thead>
-        <tbody id="resultsBody"></tbody>
-    </table>
+  <script>
+    let results = [];
+    let dynamicSubjects = [];
 
-    <!-- Modal -->
-    <div id="detailsModal" class="modal-backdrop">
-        <div class="modal-content">
-            <span class="modal-close">&times;</span>
-            <h2>Result Details</h2>
-            <div id="modalBody"></div>
-        </div>
-    </div>
+    async function fetchResults() {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        alert("You must log in again!");
+        return;
+      }
 
-    <script>
-        let results = [];
-        let dynamicSubjects = [];
-
-        async function fetchResults() {
-            const token = localStorage.getItem("token");
-            if (!token) {
-                alert("You must log in again!");
-                return;
-            }
-
-            try {
-                const res = await fetch('/results', {
-                    headers: {
-                        "Authorization": `Bearer ${token}`
-                    }
-                });
-
-                if (res.status === 401) {
-                    alert("Session expired. Please log in again.");
-                    return;
-                }
-
-                results = await res.json();
-
-                // Get unique quizzes
-                const quizSet = new Set(results.map(r => r.quizTitle));
-                const quizFilter = document.getElementById("quizFilter");
-                quizSet.forEach(q => {
-                    const opt = document.createElement("option");
-                    opt.value = q;
-                    opt.textContent = q;
-                    quizFilter.appendChild(opt);
-                });
-
-                // Get unique subjects dynamically
-                dynamicSubjects = [...new Set(results.flatMap(r => Object.keys(r.subjectScores || {})))];
-                const headerRow = document.getElementById("tableHeader");
-                dynamicSubjects.forEach(sub => {
-                    const th = document.createElement("th");
-                    th.textContent = sub;
-                    headerRow.insertBefore(th, headerRow.children[5]);
-                });
-
-                renderResults(results);
-            } catch (err) {
-                console.error("Error fetching results:", err);
-            }
-        }
-
-        function renderResults(data) {
-            const tbody = document.getElementById("resultsBody");
-            tbody.innerHTML = "";
-
-            // Ranking based on score
-            const rankedResults = [...data].sort((a, b) => b.score - a.score);
-            rankedResults.forEach((res, index) => res.rank = index + 1);
-
-            // Apply filters
-            const searchEl = document.getElementById("search");
-            const quizFilter = document.getElementById("quizFilter");
-
-            let filtered = rankedResults.filter(r => {
-                const matchSearch = !searchEl.value 
-                    || (r.studentName && r.studentName.toLowerCase().includes(searchEl.value.toLowerCase())) 
-                    || (r.mobile && r.mobile.includes(searchEl.value));
-                const matchQuiz = quizFilter.value === 'all' || r.quizTitle === quizFilter.value;
-                return matchSearch && matchQuiz;
-            });
-
-            filtered.forEach(res => {
-                let rowHTML = `
-                    <tr>
-                        <td>${res.rank}</td>
-                        <td>${res.studentName || ''}</td>
-                        <td>${res.mobile || ''}</td>
-                        <td>${res.quizTitle || ''}</td>
-                        <td>${res.score}</td>
-                        <td>${((res.score / res.totalMarks) * 100).toFixed(2)}%</td>
-                `;
-
-                // Subject scores
-                dynamicSubjects.forEach(sub => {
-                    const score = res.subjectScores?.[sub] ?? 0;
-                    rowHTML += `<td>${score.toFixed(2)}</td>`;
-                });
-
-                rowHTML += `<td><button onclick="showDetails(${res.rank})">View</button></td></tr>`;
-
-                tbody.innerHTML += rowHTML;
-            });
-        }
-
-        function showDetails(rank) {
-            const res = results.find(r => r.rank === rank);
-            const modal = document.getElementById("detailsModal");
-            const modalBody = document.getElementById("modalBody");
-            modalBody.innerHTML = `
-                <p><strong>Name:</strong> ${res.studentName}</p>
-                <p><strong>Mobile:</strong> ${res.mobile}</p>
-                <p><strong>Quiz:</strong> ${res.quizTitle}</p>
-                <p><strong>Total Score:</strong> ${res.score} / ${res.totalMarks}</p>
-                <p><strong>Percentage:</strong> ${((res.score / res.totalMarks) * 100).toFixed(2)}%</p>
-                <p><strong>Subject Scores:</strong></p>
-                <ul>
-                    ${Object.entries(res.subjectScores || {}).map(([sub, val]) => `<li>${sub}: ${val}</li>`).join("")}
-                </ul>
-            `;
-            modal.style.display = "block";
-        }
-
-        // ✅ Modal closing fixes
-        document.querySelectorAll('.modal-close').forEach(btn => {
-            btn.onclick = () => btn.closest('.modal-backdrop').style.display = 'none';
-        });
-        document.querySelectorAll('.modal-backdrop').forEach(backdrop => {
-            backdrop.onclick = () => backdrop.style.display = 'none';
-        });
-        document.querySelectorAll('.modal-content').forEach(el => {
-            el.onclick = e => e.stopPropagation();
+      try {
+        const res = await fetch('/results', {
+          headers: { "Authorization": `Bearer ${token}` }
         });
 
-        document.getElementById("search").addEventListener("input", () => renderResults(results));
-        document.getElementById("quizFilter").addEventListener("change", () => renderResults(results));
+        if (res.status === 401) {
+          alert("Session expired. Please log in again.");
+          return;
+        }
 
-        fetchResults();
-    </script>
+        results = await res.json();
+
+        // ✅ Populate quiz filter
+        const quizSet = new Set(results.map(r => r.quizTitle));
+        const quizFilter = document.getElementById("quizFilter");
+        quizSet.forEach(q => {
+          const opt = document.createElement("option");
+          opt.value = q;
+          opt.textContent = q;
+          quizFilter.appendChild(opt);
+        });
+
+        // ✅ Collect subjects dynamically
+        dynamicSubjects = [...new Set(results.flatMap(r => Object.keys(r.subjectScores || {})))];
+        const headerRow = document.getElementById("tableHeader");
+        dynamicSubjects.forEach(sub => {
+          const th = document.createElement("th");
+          th.textContent = sub;
+          headerRow.insertBefore(th, headerRow.children[5]);
+        });
+
+        renderResults(results);
+      } catch (err) {
+        console.error("Error fetching results:", err);
+      }
+    }
+
+    function renderResults(data) {
+      const tbody = document.getElementById("resultsBody");
+      tbody.innerHTML = "";
+
+      // ✅ Rank students
+      const rankedResults = [...data].sort((a, b) => b.score - a.score);
+      rankedResults.forEach((res, index) => res.rank = index + 1);
+
+      const searchEl = document.getElementById("search");
+      const quizFilter = document.getElementById("quizFilter");
+
+      // ✅ Apply filters
+      let filtered = rankedResults.filter(r => {
+        const searchTerm = searchEl.value?.toLowerCase() || "";
+        const matchSearch = !searchTerm ||
+          (r.studentName && r.studentName.toLowerCase().includes(searchTerm)) ||
+          (r.mobile && String(r.mobile).includes(searchTerm));
+        const matchQuiz = quizFilter.value === 'all' || r.quizTitle === quizFilter.value;
+        return matchSearch && matchQuiz;
+      });
+
+      // ✅ Render rows
+      filtered.forEach(res => {
+        let rowHTML = `
+          <tr>
+            <td>${res.rank}</td>
+            <td>${res.studentName || ''}</td>
+            <td>${res.mobile || ''}</td>
+            <td>${res.quizTitle || ''}</td>
+            <td>${res.score ?? 0}</td>
+            <td>${res.totalMarks ? ((res.score / res.totalMarks) * 100).toFixed(2) : "0.00"}%</td>
+        `;
+
+        dynamicSubjects.forEach(sub => {
+          const score = res.subjectScores?.[sub];
+          rowHTML += `<td>${typeof score === "number" ? score.toFixed(2) : "-"}</td>`;
+        });
+
+        rowHTML += `<td><button onclick="showDetails(${res.rank})">View</button></td></tr>`;
+        tbody.innerHTML += rowHTML;
+      });
+    }
+
+    function showDetails(rank) {
+      const res = results.find(r => r.rank === rank);
+      if (!res) return;
+
+      const modal = document.getElementById("detailsModal");
+      const modalBody = document.getElementById("modalBody");
+      modalBody.innerHTML = `
+        <p><strong>Name:</strong> ${res.studentName || ''}</p>
+        <p><strong>Mobile:</strong> ${res.mobile || ''}</p>
+        <p><strong>Quiz:</strong> ${res.quizTitle || ''}</p>
+        <p><strong>Total Score:</strong> ${res.score ?? 0} / ${res.totalMarks ?? 0}</p>
+        <p><strong>Percentage:</strong> ${res.totalMarks ? ((res.score / res.totalMarks) * 100).toFixed(2) : "0.00"}%</p>
+        <p><strong>Subject Scores:</strong></p>
+        <ul>
+          ${Object.entries(res.subjectScores || {}).map(([sub, val]) => `<li>${sub}: ${val}</li>`).join("")}
+        </ul>
+      `;
+      modal.style.display = "block";
+    }
+
+    // ✅ Modal close handling
+    document.querySelector('.modal-close').onclick = () => {
+      document.getElementById("detailsModal").style.display = 'none';
+    };
+    document.getElementById("detailsModal").onclick = () => {
+      document.getElementById("detailsModal").style.display = 'none';
+    };
+    document.querySelector('.modal-content').onclick = e => e.stopPropagation();
+
+    // ✅ Filters
+    document.getElementById("search").addEventListener("input", () => renderResults(results));
+    document.getElementById("quizFilter").addEventListener("change", () => renderResults(results));
+
+    fetchResults();
+  </script>
 </body>
 </html>
