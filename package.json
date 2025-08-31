@@ -1,10 +1,11 @@
 {
   "name": "geetham_e-exam",
   "version": "1.0.0",
-  "description": "",
+  "description": "Online exam platform for geetham students",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
   },
   "keywords": [],
   "author": "",
@@ -16,6 +17,16 @@
     "cors": "^2.8.5",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
-    "mongodb": "^6.18.0"
-  }
+    "mongodb": "^6.19.0",
+    "multer": "^2.0.2",
+    "pdf-parse": "^1.1.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sai123474/Geetham_e-Exam.git"
+  },
+  "bugs": {
+    "url": "https://github.com/sai123474/Geetham_e-Exam/issues"
+  },
+  "homepage": "https://github.com/sai123474/Geetham_e-Exam#readme"
 }
